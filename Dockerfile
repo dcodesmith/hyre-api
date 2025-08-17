@@ -1,4 +1,4 @@
-# Dockerfile - Multi-stage build for hyre-worker
+# Dockerfile - Multi-stage build for hyre-api-nestjs
 # Stage 1: Build stage
 FROM node:18-alpine AS builder
 

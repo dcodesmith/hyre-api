@@ -1,5 +1,5 @@
 {
-  "name": "hyre-worker-nestjs",
+  "name": "hyre-api-nestjs",
   "version": "1.0.0",
   "type": "commonjs",
   "packageManager": "pnpm@10.13.1",
