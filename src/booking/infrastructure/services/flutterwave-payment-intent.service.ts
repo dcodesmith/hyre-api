@@ -8,6 +8,7 @@ import {
   PaymentIntentResult,
   PaymentIntentService,
 } from "../../domain/services/payment-intent.service";
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 
 interface FlutterwavePaymentResponse {
   id: number;
@@ -98,6 +99,6 @@ export class FlutterwavePaymentIntentService extends PaymentIntentService {
   }
 
   private generateIdempotencyKey(): string {
-    return `hyre_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    return `hyre_${Date.now()}_${generateSecureRandomId()}`;
   }
 }

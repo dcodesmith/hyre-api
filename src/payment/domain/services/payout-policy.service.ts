@@ -6,6 +6,7 @@ import {
 } from "../../../shared/domain/value-objects/validation-utils";
 import { Payout } from "../entities/payout.entity";
 import { BankAccount } from "../value-objects/bank-account.vo";
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 
 export class PayoutEligibilityResult {
   constructor(
@@ -68,7 +69,7 @@ export class PayoutPolicyService {
 
   public generatePayoutReference(bookingId?: string, extensionId?: string): string {
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 6);
+    const random = generateSecureRandomId();
 
     if (bookingId) {
       return `payout_booking_${bookingId}_${timestamp}_${random}`;

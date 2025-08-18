@@ -50,5 +50,5 @@ export function getMissingFinancialFields(booking: PrismaBookingFinancials): str
     { name: "fleetOwnerPayoutAmountNet", value: booking.fleetOwnerPayoutAmountNet },
   ];
 
-  return fields.filter(field => !field.value).map(field => field.name);
+  return fields.filter((field) => !field.value).map((field) => field.name);
 }

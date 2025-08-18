@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import {
   FlutterwaveClient,
-  FlutterwaveTransferData,
-  FlutterwavePaymentData,
   FlutterwaveError,
+  FlutterwavePaymentData,
+  FlutterwaveTransferData,
 } from "../../../shared/infrastructure/external/flutterwave";
 import {
   PaymentGateway,

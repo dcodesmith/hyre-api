@@ -4,11 +4,11 @@ import { TypedConfigService } from "../../../shared/config/typed-config.service"
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
-import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import {
   BookingCannotBeConfirmedError,
   BookingNotFoundError,
 } from "../../domain/errors/booking.errors";
+import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { TimeProcessingResult } from "../../domain/services/booking-time-processor.service";

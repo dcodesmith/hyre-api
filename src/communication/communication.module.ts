@@ -3,9 +3,9 @@ import { OtpAuthenticationService } from "../iam/domain/services/otp-authenticat
 import { OtpGeneratedHandler } from "./application/event-handlers/otp-generated.handler";
 import { NotificationService } from "./application/services/notification.service";
 import { NotificationRepository } from "./domain/repositories/notification.repository";
-import { EmailService } from "./domain/services/email.service.interface";
 import { AuthNotificationFactoryService } from "./domain/services/auth-notification-factory.service";
 import { BookingNotificationFactoryService } from "./domain/services/booking-notification-factory.service";
+import { EmailService } from "./domain/services/email.service.interface";
 import { NotificationFactoryService } from "./domain/services/notification-factory.service";
 import { NotificationTemplateService } from "./domain/services/notification-template.service";
 import { SmsService } from "./domain/services/sms.service.interface";

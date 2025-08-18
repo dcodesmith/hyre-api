@@ -44,10 +44,7 @@ export class User extends AggregateRoot {
 
   // Factory methods for different registration types
   public static registerAsCustomer(email: string, phoneNumber: string, name: string): User {
-    // const userId = generateUserId();
-
     const user = new User({
-      // id: userId,
       userType: UserType.registered(),
       email,
       phoneNumber,
@@ -110,10 +107,7 @@ export class User extends AggregateRoot {
     address?: string,
     city?: string,
   ): User {
-    // const userId = generateUserId();
-
     const user = new User({
-      // id: userId,
       userType: UserType.registered(),
       email,
       phoneNumber,
@@ -155,7 +149,6 @@ export class User extends AggregateRoot {
       throw new InvalidRegistrationError("Driver license number is required for chauffeurs");
     }
 
-    // const userId = generateUserId();
     // Generate email for chauffeur based on phone number
     const email = `chauffeur_${phoneNumber}@hyre.local`;
 

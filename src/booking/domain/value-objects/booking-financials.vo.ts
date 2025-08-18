@@ -31,10 +31,16 @@ export class BookingFinancials {
 
     this.validateAmountIsPositive(this.props.totalAmount, "Total amount");
     this.validateAmountIsPositive(this.props.netTotal, "Net total");
-    
-    this.validateAmountIsNonNegative(this.props.platformServiceFeeAmount, "Platform service fee amount");
+
+    this.validateAmountIsNonNegative(
+      this.props.platformServiceFeeAmount,
+      "Platform service fee amount",
+    );
     this.validateAmountIsNonNegative(this.props.vatAmount, "VAT amount");
-    this.validateAmountIsNonNegative(this.props.fleetOwnerPayoutAmountNet, "Fleet owner payout amount");
+    this.validateAmountIsNonNegative(
+      this.props.fleetOwnerPayoutAmountNet,
+      "Fleet owner payout amount",
+    );
   }
 
   private validateAmountIsFinite(amount: Decimal, fieldName: string): void {

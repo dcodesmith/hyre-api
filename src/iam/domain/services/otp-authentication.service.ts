@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { RedisService } from "../../../shared/redis/redis.service";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import { User } from "../entities/user.entity";
 
 export interface OtpGenerationResult {
@@ -24,7 +25,6 @@ interface OtpData {
 
 @Injectable()
 export class OtpAuthenticationService {
-  private readonly OTP_LENGTH = 6;
   private readonly OTP_EXPIRY_MINUTES = 10;
   private readonly MAX_ATTEMPTS = 3;
 
@@ -124,11 +124,7 @@ export class OtpAuthenticationService {
 
   // Utility methods
   private generateOtpCode(): string {
-    let otp = "";
-    for (let i = 0; i < this.OTP_LENGTH; i++) {
-      otp += Math.floor(Math.random() * 10).toString();
-    }
-    return otp;
+    return generateSecureRandomId();
   }
 
   private getEmailOtpKey(email: string): string {

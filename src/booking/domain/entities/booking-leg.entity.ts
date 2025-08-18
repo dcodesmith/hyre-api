@@ -1,3 +1,4 @@
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { Entity } from "../../../shared/domain/entity";
 import { validateAmount } from "../../../shared/domain/value-objects/validation-utils";
 
@@ -37,7 +38,7 @@ export class BookingLeg extends Entity<string> {
     validateAmount(itemsNetValueForLeg);
     validateAmount(fleetOwnerEarningForLeg);
 
-    const id = Math.random().toString(36).substring(7); // Generate ID
+    const id = generateSecureRandomId();
 
     return new BookingLeg({
       id,

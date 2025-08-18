@@ -10,17 +10,16 @@ export class LoggerService implements NestLoggerService {
   constructor(private readonly configService: TypedConfigService) {
     this.logger = pino({
       level: this.configService.isProduction ? "info" : "debug",
-      transport:
-        !this.configService.isProduction
-          ? {
-              target: "pino-pretty",
-              options: {
-                colorize: true,
-                translateTime: "SYS:standard",
-                ignore: "pid,hostname",
-              },
-            }
-          : undefined,
+      transport: !this.configService.isProduction
+        ? {
+            target: "pino-pretty",
+            options: {
+              colorize: true,
+              translateTime: "SYS:standard",
+              ignore: "pid,hostname",
+            },
+          }
+        : undefined,
       formatters: {
         level: (label) => {
           return { level: label };

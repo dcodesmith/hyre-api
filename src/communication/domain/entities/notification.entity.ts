@@ -1,3 +1,4 @@
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { Entity } from "../../../shared/domain/entity";
 import { NotificationContent } from "../value-objects/notification-content.vo";
 import { NotificationType } from "../value-objects/notification-type.vo";
@@ -65,7 +66,7 @@ export class Notification extends Entity<string> {
       );
     }
 
-    const id = Math.random().toString(36).substring(7); // Generate ID
+    const id = generateSecureRandomId();
     const now = new Date();
 
     return new Notification({

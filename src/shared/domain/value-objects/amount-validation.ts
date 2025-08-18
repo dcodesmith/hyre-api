@@ -13,15 +13,6 @@ export function validateUserId(id: string): void {
   }
 }
 
-/**
- * Generates a unique user ID with custom format
- */
-export function generateUserId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `usr_${timestamp}_${random}`;
-}
-
 export function validateAmount(amount: number): void {
   if (amount < 0) {
     throw new Error("Amount cannot be negative");

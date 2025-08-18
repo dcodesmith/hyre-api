@@ -2,6 +2,7 @@
  * Validation utilities to replace value object validations
  */
 
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { randomUUID } from "node:crypto";
 
 export const SYSTEM_CURRENCY = "NGN";
@@ -58,9 +59,8 @@ export function validateUserId(id: string): string {
  * Generates a unique user ID with custom format
  */
 export function generateUserId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `usr_${timestamp}_${random}`;
+  const random = generateSecureRandomId();
+  return `usr_${random}`;
 }
 
 // ================================

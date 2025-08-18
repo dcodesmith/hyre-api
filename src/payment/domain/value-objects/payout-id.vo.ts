@@ -1,3 +1,4 @@
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { ValueObject } from "../../../shared/domain/value-object";
 
 interface PayoutIdProps {
@@ -21,10 +22,8 @@ export class PayoutId extends ValueObject<PayoutIdProps> {
   }
 
   public static generate(): PayoutId {
-    // In production, use a proper ID generation strategy
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
-    const id = `payout_${timestamp}_${random}`;
+    const random = generateSecureRandomId();
+    const id = `payout_${random}`;
     return new PayoutId({ value: id });
   }
 

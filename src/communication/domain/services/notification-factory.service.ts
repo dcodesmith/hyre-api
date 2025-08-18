@@ -2,14 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { Notification } from "../entities/notification.entity";
 import {
   AuthNotificationFactoryService,
+  LoginConfirmationData,
   OtpNotificationData,
   WelcomeNotificationData,
-  LoginConfirmationData,
 } from "./auth-notification-factory.service";
 import {
+  BookingLegReminderData,
   BookingNotificationFactoryService,
   BookingReminderData,
-  BookingLegReminderData,
   BookingStatusUpdateData,
 } from "./booking-notification-factory.service";
 

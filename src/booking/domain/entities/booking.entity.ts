@@ -1,3 +1,4 @@
+import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { AggregateRoot } from "../../../shared/domain/aggregate-root";
 import {
   isZeroAmount,
@@ -108,7 +109,7 @@ export class Booking extends AggregateRoot {
   private static generateBookingReference(): string {
     // Generate a unique booking reference
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = generateSecureRandomId();
     return `BK-${timestamp}-${random}`.toUpperCase();
   }
 
