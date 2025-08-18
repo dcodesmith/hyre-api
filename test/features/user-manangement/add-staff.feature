@@ -4,6 +4,7 @@ Feature: Add staff for approvals
   I want to add a staff member to the platform
   So that they can approve fleet owners and cars
 
+  @success
   Scenario: Successfully add staff member
     Given an "admin" user "admin"
     And I am authenticated as user "admin"
