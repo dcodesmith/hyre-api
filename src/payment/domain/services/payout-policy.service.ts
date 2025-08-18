@@ -4,9 +4,9 @@ import {
   isZeroAmount,
   validateAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import { Payout } from "../entities/payout.entity";
 import { BankAccount } from "../value-objects/bank-account.vo";
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 
 export class PayoutEligibilityResult {
   constructor(

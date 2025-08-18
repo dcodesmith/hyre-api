@@ -2,8 +2,8 @@
  * Validation utilities to replace value object validations
  */
 
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { randomUUID } from "node:crypto";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 export const SYSTEM_CURRENCY = "NGN";
 

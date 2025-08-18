@@ -1,5 +1,5 @@
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { ValueObject } from "../../../shared/domain/value-object";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 interface PayoutIdProps {
   value: string;

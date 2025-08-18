@@ -3,12 +3,12 @@ import {
   FlutterwaveClient,
   FlutterwaveError,
 } from "../../../shared/infrastructure/external/flutterwave";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import {
   PaymentIntentOptions,
   PaymentIntentResult,
   PaymentIntentService,
 } from "../../domain/services/payment-intent.service";
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 
 interface FlutterwavePaymentResponse {
   id: number;
