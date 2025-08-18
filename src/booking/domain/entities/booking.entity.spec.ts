@@ -505,6 +505,48 @@ describe("Booking Entity", () => {
 
       jest.useRealTimers();
     });
+
+    // is eligible for end reminder
+    it("should be eligible for end reminder", () => {
+      const booking = createActiveBooking();
+      const oneHourBeforeEndInMilliseconds = validDateRange.endDate.getTime() - 1 * 60 * 60 * 1000;
+      jest.useFakeTimers();
+      jest.setSystemTime(oneHourBeforeEndInMilliseconds);
+
+      expect(booking.isEligibleForEndReminder()).toBeTruthy();
+    });
+
+    it("should not be eligible for end reminder", () => {
+      const booking = createActiveBooking();
+      const twoHoursBeforeEndInMilliseconds = validDateRange.endDate.getTime() - 2 * 60 * 60 * 1000;
+      jest.useFakeTimers();
+      jest.setSystemTime(twoHoursBeforeEndInMilliseconds);
+
+      expect(booking.isEligibleForEndReminder()).toBeFalsy();
+    });
+
+    // is eligible for start reminder
+    it("should be eligible for start reminder", () => {
+      const booking = createConfirmedBooking();
+      const oneHourBeforeStartInMilliseconds =
+        validDateRange.startDate.getTime() - 1 * 60 * 60 * 1000;
+
+      jest.useFakeTimers();
+      jest.setSystemTime(oneHourBeforeStartInMilliseconds);
+
+      expect(booking.isEligibleForStartReminder()).toBeTruthy();
+    });
+
+    it("should not be eligible for start reminder", () => {
+      const booking = createConfirmedBooking();
+      const twoHoursBeforeStartInMilliseconds =
+        validDateRange.startDate.getTime() - 2 * 60 * 60 * 1000;
+
+      jest.useFakeTimers();
+      jest.setSystemTime(twoHoursBeforeStartInMilliseconds);
+
+      expect(booking.isEligibleForStartReminder()).toBeFalsy();
+    });
   });
 
   describe("Financial Calculations", () => {
