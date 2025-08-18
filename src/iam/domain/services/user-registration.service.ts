@@ -172,20 +172,12 @@ export class UserRegistrationService {
   }
 
   private validateCustomerRegistration(data: CustomerRegistrationData): void {
-    if (!data.email || !this.isValidEmail(data.email)) {
-      throw new InvalidRegistrationError("Valid email is required for customer registration");
-    }
-
     if (!data.phoneNumber) {
       throw new InvalidRegistrationError("Phone number is required for customer registration");
     }
   }
 
   private validateFleetOwnerRegistration(data: FleetOwnerRegistrationData): void {
-    if (!data.email || !this.isValidEmail(data.email)) {
-      throw new InvalidRegistrationError("Valid email is required for fleet owner registration");
-    }
-
     if (!data.phoneNumber) {
       throw new InvalidRegistrationError("Phone number is required for fleet owner registration");
     }
@@ -213,10 +205,6 @@ export class UserRegistrationService {
   }
 
   private validateStaffCreation(data: StaffCreationData): void {
-    if (!data.email || !this.isValidEmail(data.email)) {
-      throw new InvalidRegistrationError("Valid email is required for staff creation");
-    }
-
     if (!data.phoneNumber) {
       throw new InvalidRegistrationError("Phone number is required for staff creation");
     }
@@ -227,19 +215,11 @@ export class UserRegistrationService {
   }
 
   private validateAdminCreation(data: AdminCreationData): void {
-    if (!data.email || !this.isValidEmail(data.email)) {
-      throw new InvalidRegistrationError("Valid email is required for admin creation");
-    }
-
     if (!data.phoneNumber) {
       throw new InvalidRegistrationError("Phone number is required for admin creation");
     }
   }
 
-  private isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
 
   // Helper methods for specific business rules
   canUserCreateRole(creator: User, targetRole: UserRole): boolean {

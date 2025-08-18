@@ -58,13 +58,6 @@ export class Recipient extends ValueObject<RecipientProps> {
       throw new Error("Recipient must have either email or phone number");
     }
 
-    if (email && !Recipient.isValidEmail(email)) {
-      throw new Error("Invalid email format");
-    }
-
-    if (phoneNumber && !Recipient.isValidPhoneNumber(phoneNumber)) {
-      throw new Error("Invalid phone number format");
-    }
 
     return new Recipient({
       id: id.trim(),
@@ -75,16 +68,6 @@ export class Recipient extends ValueObject<RecipientProps> {
     });
   }
 
-  private static isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  private static isValidPhoneNumber(phoneNumber: string): boolean {
-    // Basic phone number validation - adjust based on your requirements
-    const phoneRegex = /^\+?[\d\s\-()]{10,}$/;
-    return phoneRegex.test(phoneNumber);
-  }
 
   public hasEmail(): boolean {
     return !!this.props.email;

@@ -8,9 +8,6 @@ export class PaymentCustomer {
   }
 
   private validate(): void {
-    if (!this.email || !this.email.includes("@")) {
-      throw new Error("Invalid customer email");
-    }
     if (!this.name || this.name.trim().length === 0) {
       throw new Error("Customer name is required");
     }
