@@ -9,6 +9,8 @@ import { CarNotFoundError } from "../../domain/errors/car.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAmountVerifierService } from "../../domain/services/booking-amount-verifier.service";
+import { BookingCostCalculatorService } from "../../domain/services/booking-cost-calculator.service";
+import { BookingDateService } from "../../domain/services/booking-date.service";
 import {
   BookingDomainService,
   CreateBookingCommand,
@@ -35,6 +37,8 @@ export class BookingCreationService {
     private readonly bookingDomainService: BookingDomainService,
     private readonly bookingTimeProcessor: BookingTimeProcessorService,
     private readonly bookingAmountVerifier: BookingAmountVerifierService,
+    private readonly bookingCostCalculator: BookingCostCalculatorService,
+    private readonly bookingDateService: BookingDateService,
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
   ) {
@@ -155,26 +159,41 @@ export class BookingCreationService {
       sameLocation,
       includeSecurityDetail,
       specialRequests,
-      totalAmount,
-      pickupTime,
     } = dto;
 
+    const dateRange = DateRange.create(timeResult.startDateTime, timeResult.endDateTime);
+
+    // Generate booking dates - done at application layer
+    const bookingDates = this.bookingDateService.generateBookingDates(
+      dateRange.startDate,
+      dateRange.endDate,
+      bookingType,
+    );
+
+    // Calculate costs - done at application layer (cross-aggregate coordination)
+    const costCalculation = await this.bookingCostCalculator.calculateBookingCostFromCar(
+      car,
+      bookingDates,
+      dateRange,
+      bookingType,
+      includeSecurityDetail,
+    );
+
+    // Create command with precalculated data (no car data)
     const createCommand: CreateBookingCommand = {
+      customerId,
       carId,
+      dateRange,
+      bookingType,
       pickupAddress,
       dropOffAddress: sameLocation ? pickupAddress : dropOffAddress,
-      sameLocation,
       includeSecurityDetail,
       specialRequests,
-      totalAmount,
-      pickupTime,
-      customerId,
-      car,
-      dateRange: DateRange.create(timeResult.startDateTime, timeResult.endDateTime),
-      bookingType,
+      precalculatedCosts: costCalculation,
+      precalculatedBookingDates: bookingDates,
     };
 
-    return await this.bookingDomainService.createBooking(createCommand);
+    return this.bookingDomainService.createBooking(createCommand);
   }
 
   private async saveBookingAndPublishEvents(booking: Booking): Promise<Booking> {
