@@ -53,7 +53,7 @@ describe("Booking Entity", () => {
    */
   const createBookingWithId = (id = "booking-123"): Booking => {
     const defaultProps: BookingProps = {
-      id: id,
+      id,
       bookingReference: Booking.create(validCreateParams).getBookingReference(),
       status: BookingStatus.pending(),
       dateRange: validDateRange,
@@ -398,6 +398,16 @@ describe("Booking Entity", () => {
         "Cannot unassign chauffeur from completed booking",
       );
     });
+
+    it("should throw an error when unassigning from an active booking", () => {
+      const booking = createChauffeurAssignedBooking();
+      booking.confirm();
+      booking.activate();
+
+      expect(() => booking.unassignChauffeur("fleet-owner-789", "admin-123")).toThrow(
+        "Cannot unassign chauffeur from active booking",
+      );
+    });
   });
 
   describe("Eligibility Checks", () => {
@@ -464,6 +474,36 @@ describe("Booking Entity", () => {
       jest.setSystemTime(validDateRange.endDate.getTime() - 1000);
 
       expect(activeBooking.isEligibleForCompletion()).toBeFalsy(); // Before end time
+    });
+
+    it("should be eligible for cancellation when conditions are met", () => {
+      const booking = createConfirmedBooking();
+
+      expect(booking.isEligibleForCancellation()).toBeTruthy();
+    });
+
+    it("should be eligible for cancellation 12 hours before start time", () => {
+      const booking = createConfirmedBooking();
+      const twelveHoursInMilliseconds = validDateRange.startDate.getTime() - 12 * 60 * 60 * 1000;
+
+      jest.useFakeTimers();
+      jest.setSystemTime(twelveHoursInMilliseconds);
+
+      expect(booking.isEligibleForCancellation()).toBeTruthy();
+
+      jest.useRealTimers();
+    });
+
+    it("should not be eligible for cancellation 12 hours before start time", () => {
+      const booking = createConfirmedBooking();
+      const elevenHoursInMilliseconds = validDateRange.startDate.getTime() - 11 * 60 * 60 * 1000;
+
+      jest.useFakeTimers();
+      jest.setSystemTime(elevenHoursInMilliseconds);
+
+      expect(booking.isEligibleForCancellation()).toBeFalsy();
+
+      jest.useRealTimers();
     });
   });
 
@@ -539,6 +579,13 @@ describe("Booking Entity", () => {
 
       expect(booking.getId()).toBe("booking-123");
       expect(booking.getPickupAddress()).toBe("123 Main Street");
+      expect(booking.getDropOffAddress()).toBe("456 Oak Avenue");
+      expect(booking.getSpecialRequests()).toBeUndefined();
+      expect(booking.getPaymentIntent()).toBeUndefined();
+      expect(booking.getPaymentId()).toBeUndefined();
+      expect(booking.getFinancials().getTotalAmount().toNumber()).toBe(1000);
+      expect(booking.getFinancials().getNetTotal().toNumber()).toBe(800);
+      expect(booking.getFinancials().getPlatformServiceFeeAmount().toNumber()).toBe(200);
       expect(booking.getBookingType().isDay()).toBeTruthy();
       expect(booking.getCancellationReason()).toBe("Test cancellation");
       expect(booking.getCreatedAt()).toBeInstanceOf(Date);
