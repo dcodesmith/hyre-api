@@ -1,9 +1,9 @@
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { AggregateRoot } from "../../../shared/domain/aggregate-root";
 import {
   isZeroAmount,
   validateAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
@@ -17,6 +17,19 @@ import { BookingType } from "../value-objects/booking-type.vo";
 import { DateRange } from "../value-objects/date-range.vo";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
 import { BookingLeg } from "./booking-leg.entity";
+
+export interface BookingCreateParams {
+  customerId: string;
+  carId: string;
+  dateRange: DateRange;
+  pickupAddress: string;
+  dropOffAddress: string;
+  bookingType: BookingType;
+  financials: BookingFinancials;
+  includeSecurityDetail?: boolean;
+  specialRequests?: string;
+  paymentIntent?: string;
+}
 
 export interface BookingProps {
   id?: string;
@@ -43,45 +56,31 @@ export interface BookingProps {
 }
 
 export class Booking extends AggregateRoot {
-  private constructor(private props: BookingProps) {
+  private constructor(private readonly props: BookingProps) {
     super();
   }
 
-  public static create(
-    customerId: string,
-    carId: string,
-    dateRange: DateRange,
-    pickupAddress: string,
-    dropOffAddress: string,
-    bookingType: BookingType,
-    financials: BookingFinancials,
-    includeSecurityDetail: boolean = false,
-    specialRequests?: string,
-    paymentIntent?: string,
-  ): Booking {
+  public static create(params: BookingCreateParams): Booking {
     const bookingReference = Booking.generateBookingReference();
 
     const booking = new Booking({
-      // id is intentionally omitted - will be assigned by database
       bookingReference,
       status: BookingStatus.pending(),
-      dateRange,
-      pickupAddress,
-      dropOffAddress,
-      customerId,
-      carId,
-      specialRequests,
+      dateRange: params.dateRange,
+      pickupAddress: params.pickupAddress,
+      dropOffAddress: params.dropOffAddress,
+      customerId: params.customerId,
+      carId: params.carId,
+      specialRequests: params.specialRequests,
       legs: [],
-      bookingType,
+      bookingType: params.bookingType,
       paymentStatus: PaymentStatus.UNPAID,
-      paymentIntent,
-      financials,
-      includeSecurityDetail,
+      paymentIntent: params.paymentIntent,
+      financials: params.financials,
+      includeSecurityDetail: params.includeSecurityDetail ?? false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    // Note: Domain events will be added after the booking is persisted and has an ID
 
     return booking;
   }

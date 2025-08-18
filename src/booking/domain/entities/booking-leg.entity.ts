@@ -1,6 +1,6 @@
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { Entity } from "../../../shared/domain/entity";
 import { validateAmount } from "../../../shared/domain/value-objects/validation-utils";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 export interface BookingLegProps {
   id: string;

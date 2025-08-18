@@ -1,4 +1,4 @@
-import { BaseDomainError } from "@/shared/domain/errors/base-domain.error";
+import { BaseDomainError } from "../../../shared/domain/errors/base-domain.error";
 
 export abstract class BookingDomainError extends BaseDomainError {
   readonly context = "booking";
