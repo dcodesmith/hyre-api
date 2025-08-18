@@ -4,7 +4,7 @@
   "type": "commonjs",
   "packageManager": "pnpm@10.13.1",
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate && nest build",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "start": "nest start",
