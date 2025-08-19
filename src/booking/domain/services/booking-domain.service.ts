@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { addDays, setHours } from "date-fns";
-import { BookingLeg } from "../entities/booking-leg.entity";
 import { Booking } from "../entities/booking.entity";
+import { BookingLeg } from "../entities/booking-leg.entity";
 import {
   BookingCannotBeActivatedError,
   BookingCannotBeCancelledError,
@@ -164,15 +164,15 @@ export class BookingDomainService {
           ? setHours(addDays(legDate, 1), legPricingData.endHours) // If end time is less than start time, it's on the next day
           : setHours(legDate, legPricingData.endHours);
 
-      const leg = BookingLeg.create(
-        booking.getId(),
+      const leg = BookingLeg.create({
+        bookingId: booking.getId(),
         legDate,
         legStartTime,
         legEndTime,
-        legPricingData.legPrices[index],
+        totalDailyPrice: legPricingData.legPrices[index],
         itemsNetValueForLeg,
         fleetOwnerEarningForLeg,
-      );
+      });
 
       booking.addLeg(leg);
     });
