@@ -14,42 +14,37 @@ export interface BookingLegProps {
   notes?: string;
 }
 
+export interface CreateBookingLegParams {
+  bookingId: string;
+  legDate: Date;
+  legStartTime: Date;
+  legEndTime: Date;
+  totalDailyPrice: number;
+  itemsNetValueForLeg: number;
+  fleetOwnerEarningForLeg: number;
+  notes?: string;
+}
+
 export class BookingLeg extends Entity<string> {
-  private constructor(private props: BookingLegProps) {
+  private constructor(private readonly props: BookingLegProps) {
     super(props.id);
   }
 
-  public static create(
-    bookingId: string,
-    legDate: Date,
-    legStartTime: Date,
-    legEndTime: Date,
-    totalDailyPrice: number,
-    itemsNetValueForLeg: number,
-    fleetOwnerEarningForLeg: number,
-    notes?: string,
-  ): BookingLeg {
-    if (legStartTime >= legEndTime) {
+  public static create(params: CreateBookingLegParams): BookingLeg {
+    if (params.legStartTime >= params.legEndTime) {
       throw new Error("Leg start time must be before end time");
     }
 
     // Validate amounts
-    validateAmount(totalDailyPrice);
-    validateAmount(itemsNetValueForLeg);
-    validateAmount(fleetOwnerEarningForLeg);
+    validateAmount(params.totalDailyPrice);
+    validateAmount(params.itemsNetValueForLeg);
+    validateAmount(params.fleetOwnerEarningForLeg);
 
     const id = generateSecureRandomId();
 
     return new BookingLeg({
       id,
-      bookingId,
-      legDate,
-      legStartTime,
-      legEndTime,
-      totalDailyPrice,
-      itemsNetValueForLeg,
-      fleetOwnerEarningForLeg,
-      notes,
+      ...params,
     });
   }
 

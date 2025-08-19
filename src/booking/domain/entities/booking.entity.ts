@@ -279,7 +279,7 @@ export class Booking extends AggregateRoot {
   }
 
   public canAssignChauffeur(): boolean {
-    return !this.props.status.isCompleted() && !this.props.status.isCancelled();
+    return this.props.status.isConfirmed();
   }
 
   public addLeg(leg: BookingLeg): void {

@@ -93,6 +93,16 @@ describe("Booking Entity", () => {
   };
 
   /**
+   * Creates a completed booking for testing status transitions.
+   */
+  const createCompletedBooking = (): Booking => {
+    const booking = createActiveBooking();
+    booking.complete();
+    booking.clearEvents();
+    return booking;
+  };
+
+  /**
    * Creates a cancelled booking.
    */
   const createCancelledBooking = (): Booking => {
@@ -412,23 +422,14 @@ describe("Booking Entity", () => {
 
   describe("Eligibility Checks", () => {
     it("should correctly identify if a chauffeur can be assigned", () => {
-      // A pending booking can assign a chauffeur
-      // TODO: This is not true, a pending booking cannot assign a chauffeur
-      expect(createBooking().canAssignChauffeur()).toBeTruthy();
+      expect(createBooking().canAssignChauffeur()).toBeFalsy();
 
-      // A confirmed booking can assign a chauffeur
       expect(createConfirmedBooking().canAssignChauffeur()).toBeTruthy();
 
-      // An active booking can assign a chauffeur
-      // TODO: This is not true, an active booking cannot assign a chauffeur
-      expect(createActiveBooking().canAssignChauffeur()).toBeTruthy();
+      expect(createActiveBooking().canAssignChauffeur()).toBeFalsy();
 
-      const completedBooking = createActiveBooking();
-      completedBooking.complete();
+      expect(createCompletedBooking().canAssignChauffeur()).toBeFalsy();
 
-      expect(completedBooking.canAssignChauffeur()).toBeFalsy();
-
-      // A cancelled booking cannot assign a chauffeur
       expect(createCancelledBooking().canAssignChauffeur()).toBeFalsy();
     });
 
