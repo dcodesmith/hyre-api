@@ -12,11 +12,11 @@ export class Fleet extends AggregateRoot {
 
   private constructor(
     id: string,
-    private ownerId: string,
-    private name: string,
-    private chauffeurIds: string[] = [],
+    private readonly ownerId: string,
+    private readonly name: string,
+    private readonly chauffeurIds: string[] = [],
     private isActive: boolean = true,
-    private createdAt: Date = new Date(),
+    private readonly createdAt: Date = new Date(),
     private updatedAt: Date = new Date(),
   ) {
     super();

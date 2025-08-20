@@ -20,11 +20,11 @@ export class AuthorizationService {
   public requireCanRejectUsers(user: User): void {
     // Check that user is authenticated and approved
     if (!user.isApproved()) {
-      throw new UnauthorizedActionError("approve_user", "User is not approved");
+      throw new UnauthorizedActionError("reject_user", "User is not approved");
     }
 
     // Check authorization using domain service
-    this.roleAuthService.requireAuthorization(user, "approve_user");
+    this.roleAuthService.requireAuthorization(user, "reject_user");
   }
 
   public requireCanViewPendingApprovals(user: User): void {

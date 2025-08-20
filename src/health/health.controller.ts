@@ -13,13 +13,13 @@ import { RedisHealthIndicator } from "./indicators/redis-health.indicator";
 @Controller("health")
 export class HealthController {
   constructor(
-    private health: HealthCheckService,
-    private prismaHealthIndicator: PrismaHealthIndicator,
-    private redisHealthIndicator: RedisHealthIndicator,
-    private memory: MemoryHealthIndicator,
-    private disk: DiskHealthIndicator,
-    private schedulerService: SchedulerService,
-    private configService: TypedConfigService,
+    private readonly health: HealthCheckService,
+    private readonly prismaHealthIndicator: PrismaHealthIndicator,
+    private readonly redisHealthIndicator: RedisHealthIndicator,
+    private readonly memory: MemoryHealthIndicator,
+    private readonly disk: DiskHealthIndicator,
+    private readonly schedulerService: SchedulerService,
+    private readonly configService: TypedConfigService,
   ) {}
 
   @Get()

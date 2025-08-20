@@ -31,7 +31,7 @@ export interface DocumentApprovalProps {
 }
 
 export class DocumentApproval extends AggregateRoot {
-  private constructor(private props: DocumentApprovalProps) {
+  private constructor(private readonly props: DocumentApprovalProps) {
     super();
     this.validateDocument();
   }

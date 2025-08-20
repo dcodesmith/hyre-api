@@ -9,8 +9,8 @@ export const unassignChauffeurSchema = z.object({
 });
 
 export const getAvailableChauffeursSchema = z.object({
-  startDate: z.string().datetime("Invalid start date format"),
-  endDate: z.string().datetime("Invalid end date format"),
+  startDate: z.date().refine((date) => !Number.isNaN(date.getTime()), "Invalid start date format"),
+  endDate: z.date().refine((date) => !Number.isNaN(date.getTime()), "Invalid end date format"),
   fleetOwnerId: z.string().min(1, "Fleet owner ID is required").optional(),
 });
 

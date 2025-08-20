@@ -12,6 +12,7 @@ import { IamModule } from "./iam/iam.module";
 import { PaymentModule } from "./payment/payment.module";
 import { SchedulingModule } from "./scheduling/scheduling.module";
 import { envValidation } from "./shared/config/env.validation";
+import { OrchestrationModule } from "./shared/orchestration/orchestration.module";
 import { SharedModule } from "./shared/shared.module";
 
 @Module({
@@ -55,6 +56,9 @@ import { SharedModule } from "./shared/shared.module";
     CommunicationModule,
     SchedulingModule,
     HealthModule,
+
+    // Cross-domain orchestration (import last to have access to all domains)
+    OrchestrationModule,
   ],
 })
 export class AppModule {}

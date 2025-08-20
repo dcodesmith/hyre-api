@@ -85,20 +85,6 @@ export class WebhookService {
       return webhook.meta_data.booking_id;
     }
 
-    // Try tx_ref (should contain booking ID)
-    if (webhook.data.tx_ref) {
-      // If tx_ref is the booking ID directly
-      if (webhook.data.tx_ref.startsWith("BK-")) {
-        return webhook.data.tx_ref;
-      }
-
-      // If tx_ref contains booking ID (e.g., "booking_BK-123_payment")
-      const match = webhook.data.tx_ref.match(/BK-[A-Z0-9]+/);
-      if (match) {
-        return match[0];
-      }
-    }
-
     return null;
   }
 }

@@ -1,5 +1,9 @@
 {
   "cucumberautocomplete.steps": ["test/step-definitions/**/*.ts"],
   "cucumberautocomplete.strictGherkinCompletion": true,
-  "cucumberautocomplete.syncfeatures": true
+  "cucumberautocomplete.syncfeatures": true,
+  "sonarlint.connectedMode.project": {
+    "connectionId": "dcodesmith",
+    "projectKey": "dcodesmith_hyre-api"
+  }
 }

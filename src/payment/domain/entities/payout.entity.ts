@@ -27,7 +27,7 @@ export interface PayoutProps {
 }
 
 export class Payout extends AggregateRoot {
-  private constructor(private props: PayoutProps) {
+  private constructor(private readonly props: PayoutProps) {
     super();
   }
 

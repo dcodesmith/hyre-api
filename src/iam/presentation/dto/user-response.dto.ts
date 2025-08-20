@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { ApprovalStatusEnum } from "@/iam/domain/value-objects/approval-status.vo";
+import { ApprovalStatusEnum } from "../../../iam/domain/value-objects/approval-status.vo";
 
 // User summary schema (for login responses)
 export const userSummarySchema = z.object({
   id: z.uuid(),
-  email: z.string().email(),
+  email: z.email(),
   phoneNumber: z.string(),
   name: z.string().optional(),
   roles: z.array(z.string()),

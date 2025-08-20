@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Get user query schema
 export const getUserQuerySchema = z.object({
-  requesterId: z.string().uuid({ error: "Requester ID must be a valid UUID" }).optional(),
+  requesterId: z.uuid().optional(),
 });
 
 // Search users query schema (extends SearchUsersDto)
@@ -31,12 +31,12 @@ export const searchUsersQuerySchema = z.object({
     .max(100, { error: "Limit must be between 1 and 100" })
     .optional()
     .default(20),
-  requesterId: z.string().uuid({ error: "Requester ID must be a valid UUID" }).optional(),
+  requesterId: z.uuid().optional(),
 });
 
 // Pending approvals query schema
 export const pendingApprovalsQuerySchema = z.object({
-  requesterId: z.string().uuid({ error: "Requester ID must be a valid UUID" }),
+  requesterId: z.uuid(),
   page: z.coerce.number().int().min(1, { error: "Page must be at least 1" }).optional().default(1),
   limit: z.coerce
     .number()
@@ -49,22 +49,22 @@ export const pendingApprovalsQuerySchema = z.object({
 
 // Fleet chauffeurs query schema
 export const fleetChauffeursQuerySchema = z.object({
-  requesterId: z.string().uuid({ error: "Requester ID must be a valid UUID" }).optional(),
+  requesterId: z.uuid().optional(),
 });
 
 // Approval action query schema
 export const approvalActionQuerySchema = z.object({
-  approvedBy: z.string().uuid({ error: "Approved by must be a valid UUID" }),
+  approvedBy: z.uuid(),
 });
 
 // Rejection action query schema
 export const rejectionActionQuerySchema = z.object({
-  rejectedBy: z.string().uuid({ error: "Rejected by must be a valid UUID" }),
+  rejectedBy: z.uuid(),
 });
 
 // Update profile query schema
 export const updateProfileQuerySchema = z.object({
-  requesterId: z.string().uuid({ error: "Requester ID must be a valid UUID" }).optional(),
+  requesterId: z.uuid().optional(),
 });
 
 // OTP status query schema

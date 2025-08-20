@@ -22,8 +22,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     // Log database queries in development (but not in test environment)
     if (this.configService.isDevelopment && !this.configService.app.testPort) {
-      this.$on("query", (e) => {
-        this.logger.debug(`Query: ${e.query} - Params: ${e.params} - Duration: ${e.duration}ms`);
+      this.$on("query", (queryEvent) => {
+        this.logger.debug(
+          `Query: ${queryEvent.query} - Params: ${queryEvent.params} - Duration: ${queryEvent.duration}ms`,
+        );
       });
     }
 

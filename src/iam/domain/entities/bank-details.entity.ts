@@ -16,7 +16,7 @@ export interface BankDetailsProps {
 }
 
 export class BankDetails extends AggregateRoot {
-  private constructor(private props: BankDetailsProps) {
+  private constructor(private readonly props: BankDetailsProps) {
     super();
     this.validateBankDetails();
   }

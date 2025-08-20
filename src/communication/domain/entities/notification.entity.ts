@@ -1,5 +1,5 @@
-import { generateSecureRandomId } from "@/shared/utils/secure-random";
 import { Entity } from "../../../shared/domain/entity";
+import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import { NotificationContent } from "../value-objects/notification-content.vo";
 import { NotificationType } from "../value-objects/notification-type.vo";
 import { Recipient } from "../value-objects/recipient.vo";
@@ -36,7 +36,7 @@ export interface NotificationProps {
 }
 
 export class Notification extends Entity<string> {
-  private constructor(private props: NotificationProps) {
+  private constructor(private readonly props: NotificationProps) {
     super(props.id);
   }
 

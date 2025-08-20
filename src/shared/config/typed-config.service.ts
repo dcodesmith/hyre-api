@@ -14,7 +14,7 @@ export class TypedConfigService {
    * Get a configuration value with full type safety
    */
   get<K extends keyof Environment>(key: K): Environment[K] {
-    return this.configService.get(key, { infer: true }) as Environment[K];
+    return this.configService.get(key, { infer: true });
   }
 
   /**

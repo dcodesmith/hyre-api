@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { FileStorageService } from "../../../shared/domain/file-storage.interface";
-import { Car } from "../entities/car.entity";
+import { Car, CarCreationParams } from "../entities/car.entity";
 import {
   CarDuplicateRegistrationError,
   CarFileUploadError,
@@ -57,20 +57,21 @@ export class CarUploadService {
       const insuranceCertificateUrl = insuranceCertificate.getUrl();
 
       // Step 4: Create the car entity WITH the S3 URLs and ownerId (establishes fleet relationship)
-      const car = Car.create(
-        carData.make,
-        carData.model,
-        carData.year,
-        carData.color,
-        carData.registrationNumber,
-        carData.ownerId, // This establishes the fleet relationship!
-        carData.dayRate,
-        carData.nightRate,
-        carData.hourlyRate,
+      const carParams: CarCreationParams = {
+        make: carData.make,
+        model: carData.model,
+        year: carData.year,
+        color: carData.color,
+        registrationNumber: carData.registrationNumber,
+        ownerId: carData.ownerId, // This establishes the fleet relationship!
+        dayRate: carData.dayRate,
+        nightRate: carData.nightRate,
+        hourlyRate: carData.hourlyRate,
         imageUrls,
         motCertificateUrl,
         insuranceCertificateUrl,
-      );
+      };
+      const car = Car.create(carParams);
 
       // Step 5: Persist the car - relationship with fleet established via ownerId
       const savedCar = await this.carRepository.save(car);

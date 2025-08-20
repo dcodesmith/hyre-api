@@ -58,7 +58,7 @@ export const carUploadCompleteSchema = z.object({
       z.string().refine(
         (value) => {
           const plate = value.replace(/\s+/g, "");
-          const stateFormat = /^[A-Z]{3}[-]?\d{3}[A-Z]{2}$/;
+          const stateFormat = /^[A-Z]{3}-?\d{3}[A-Z]{2}$/;
           const federalFormat = /^[A-Z]{2}\d{3}[A-Z]{2}$/;
 
           return stateFormat.test(plate) || federalFormat.test(plate);

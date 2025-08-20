@@ -39,7 +39,6 @@ export class AuthNotificationFactoryService {
       data.email,
       RecipientRole.CUSTOMER,
       data.email,
-      undefined, // No phone number for email OTP
     );
 
     const subject =
@@ -75,7 +74,6 @@ export class AuthNotificationFactoryService {
       data.name || data.email,
       this.mapRoleToRecipientRole(data.role),
       data.email,
-      undefined,
     );
 
     const content = NotificationContent.create(
@@ -103,7 +101,6 @@ export class AuthNotificationFactoryService {
       data.name || data.email,
       RecipientRole.CUSTOMER,
       data.email,
-      undefined,
     );
 
     const content = NotificationContent.create(

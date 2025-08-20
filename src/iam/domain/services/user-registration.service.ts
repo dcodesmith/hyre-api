@@ -220,7 +220,6 @@ export class UserRegistrationService {
     }
   }
 
-
   // Helper methods for specific business rules
   canUserCreateRole(creator: User, targetRole: UserRole): boolean {
     if (!creator.isApproved()) {

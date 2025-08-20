@@ -3,6 +3,7 @@ import {
   FlutterwaveClient,
   FlutterwaveError,
 } from "../../../shared/infrastructure/external/flutterwave";
+import { LoggerService } from "../../../shared/logging/logger.service";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import {
   PaymentIntentOptions,
@@ -28,8 +29,12 @@ interface FlutterwavePaymentResponse {
 
 @Injectable()
 export class FlutterwavePaymentIntentService extends PaymentIntentService {
-  constructor(private readonly flutterwaveClient: FlutterwaveClient) {
+  constructor(
+    private readonly flutterwaveClient: FlutterwaveClient,
+    private readonly logger: LoggerService,
+  ) {
     super();
+    this.logger.setContext(FlutterwavePaymentIntentService.name);
   }
 
   async createPaymentIntent(options: PaymentIntentOptions): Promise<PaymentIntentResult> {

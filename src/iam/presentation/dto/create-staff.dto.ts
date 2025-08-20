@@ -8,11 +8,7 @@ const phoneNumberSchema = z
   .regex(/^[0-9+\-\s()]*$/, { error: "Phone number contains invalid characters" });
 
 export const createStaffSchema = z.object({
-  email: z
-    .string()
-    .email({ error: "Invalid email format" })
-    .min(3, { error: "Email too short" })
-    .max(100, { error: "Email too long" }),
+  email: z.email(),
   phoneNumber: phoneNumberSchema,
   countryCode: z
     .string()

@@ -27,7 +27,7 @@ export class OptionalJwtAuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
 
     // If no auth header, allow request to proceed as guest user
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       // Explicitly set user as undefined for guest users
       request.user = undefined;
       request.userId = undefined;

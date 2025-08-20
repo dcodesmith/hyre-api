@@ -14,11 +14,7 @@ const otpSchema = z
   .regex(/^\d{6}$/, { error: "OTP must contain only numbers" });
 
 export const registerFleetOwnerSchema = z.object({
-  email: z
-    .string()
-    .email({ error: "Invalid email format" })
-    .min(3, { error: "Email too short" })
-    .max(100, { error: "Email too long" }),
+  email: z.email(),
   phoneNumber: phoneNumberSchema,
   otpCode: otpSchema,
   countryCode: z

@@ -99,11 +99,7 @@ export class ApprovalStatus extends ValueObject<ApprovalStatusProps> {
   }
 
   public canBeApproved(): boolean {
-    return [
-      ApprovalStatusEnum.PENDING,
-      ApprovalStatusEnum.PROCESSING,
-      ApprovalStatusEnum.ON_HOLD,
-    ].includes(this.props.value);
+    return [ApprovalStatusEnum.PENDING, ApprovalStatusEnum.PROCESSING].includes(this.props.value);
   }
 
   public canBeRejected(): boolean {

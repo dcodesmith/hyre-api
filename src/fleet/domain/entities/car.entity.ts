@@ -7,6 +7,21 @@ import { CarStatusChangedEvent } from "../events/car-status-changed.event";
 import { CarApprovalStatus } from "../value-objects/car-approval-status.vo";
 import { CarStatus } from "../value-objects/car-status.vo";
 
+export interface CarCreationParams {
+  make: string;
+  model: string;
+  year: number;
+  color: string;
+  registrationNumber: string;
+  ownerId: string;
+  dayRate: number;
+  nightRate: number;
+  hourlyRate: number;
+  imageUrls: string[];
+  motCertificateUrl: string;
+  insuranceCertificateUrl: string;
+}
+
 export interface CarProps {
   make: string;
   model: string;
@@ -36,43 +51,27 @@ export class Car extends AggregateRoot {
     this.props = props;
   }
 
-  public static create(
-    make: string,
-    model: string,
-    year: number,
-    color: string,
-    registrationNumber: string,
-    ownerId: string,
-    dayRate: number,
-    nightRate: number,
-    hourlyRate: number,
-    imageUrls: string[],
-    motCertificateUrl: string,
-    insuranceCertificateUrl: string,
-  ): Car {
+  public static create(params: CarCreationParams): Car {
     const carId = randomUUID();
     const now = new Date();
 
     const car = new Car(carId, {
-      make,
-      model,
-      year,
-      color,
-      registrationNumber,
-      ownerId,
-      dayRate,
-      nightRate,
-      hourlyRate,
+      ...params,
       status: CarStatus.AVAILABLE,
       approvalStatus: CarApprovalStatus.PENDING,
-      imageUrls,
-      motCertificateUrl,
-      insuranceCertificateUrl,
       createdAt: now,
       updatedAt: now,
     });
 
-    car.addDomainEvent(new CarCreatedEvent(carId, ownerId, make, model, registrationNumber));
+    car.addDomainEvent(
+      new CarCreatedEvent(
+        carId,
+        params.ownerId,
+        params.make,
+        params.model,
+        params.registrationNumber,
+      ),
+    );
 
     return car;
   }

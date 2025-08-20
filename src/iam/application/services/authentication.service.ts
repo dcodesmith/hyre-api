@@ -239,7 +239,6 @@ export class AuthenticationService {
       };
     }
 
-    // if (user.requiresOtpAuthentication() && !user.canReceiveNotifications()) {
     if (user.requiresOtpAuthentication()) {
       return {
         canAuthenticate: false,
@@ -350,7 +349,7 @@ export class AuthenticationService {
     // Additional checks: ensure user still exists and is approved
     if (validation.payload) {
       const user = await this.userRepository.findById(validation.payload.userId);
-      if (!user || !user.isApproved()) {
+      if (!user?.isApproved()) {
         return {
           isValid: false,
           error: "User not found or not approved",

@@ -38,7 +38,7 @@ export interface UserProps {
 }
 
 export class User extends AggregateRoot {
-  private constructor(private props: UserProps) {
+  private constructor(private readonly props: UserProps) {
     super();
   }
 
@@ -56,16 +56,6 @@ export class User extends AggregateRoot {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    // user.addDomainEvent(
-    //   new UserRegisteredEvent(
-    //     userId,
-    //     email,
-    //     phoneNumber.toString(),
-    //     UserRole.customer().toString(),
-    //     RegistrationType.selfRegistration().toString(),
-    //   ),
-    // );
 
     return user;
   }
@@ -122,15 +112,6 @@ export class User extends AggregateRoot {
       updatedAt: new Date(),
     });
 
-    // user.addDomainEvent(
-    //   new UserRegisteredEvent(
-    //     email,
-    //     phoneNumber.toString(),
-    //     UserRole.fleetOwner().toString(),
-    //     RegistrationType.selfRegistration().toString(),
-    //   ),
-    // );
-
     return user;
   }
 
@@ -167,16 +148,6 @@ export class User extends AggregateRoot {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    // user.addDomainEvent(
-    //   new ChauffeurAddedEvent(
-    //     userId,
-    //     userId,
-    //     fleetOwnerId,
-    //     phoneNumber.toString(),
-    //     driverLicenseNumber,
-    //   ),
-    // );
 
     return user;
   }
@@ -272,7 +243,7 @@ export class User extends AggregateRoot {
     return this.props.phoneNumber;
   }
 
-  public getName(): string | undefined {
+  public getName(): string {
     return this.props.name;
   }
 

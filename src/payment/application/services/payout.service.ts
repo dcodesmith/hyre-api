@@ -36,11 +36,12 @@ export class PayoutService {
       );
 
       // 2. Check for existing payouts
-      const existingPayouts = command.bookingId
-        ? await this.payoutRepository.findByBookingId(command.bookingId)
-        : command.extensionId
-          ? await this.payoutRepository.findByExtensionId(command.extensionId)
-          : [];
+      let existingPayouts: Payout[] = [];
+      if (command.bookingId) {
+        existingPayouts = await this.payoutRepository.findByBookingId(command.bookingId);
+      } else if (command.extensionId) {
+        existingPayouts = await this.payoutRepository.findByExtensionId(command.extensionId);
+      }
 
       // 3. Validate business rules
       const eligibility = this.payoutPolicyService.canInitiatePayout(
@@ -74,11 +75,15 @@ export class PayoutService {
         command.extensionId,
       );
 
+      const subject = command.bookingId
+        ? `booking ${command.bookingId}`
+        : `extension ${command.extensionId}`;
+      const narration = `Payout for ${subject}`;
       const gatewayResponse = await this.paymentGateway.initiatePayout({
         bankAccount,
         amount: command.amount,
         reference,
-        narration: `Payout for ${command.bookingId ? `booking ${command.bookingId}` : `extension ${command.extensionId}`}`,
+        narration,
       });
 
       if (gatewayResponse.isSuccess()) {
@@ -120,11 +125,15 @@ export class PayoutService {
           payout.getExtensionId(),
         );
 
+        const subject = payout.getBookingId()
+          ? `booking ${payout.getBookingId()}`
+          : `extension ${payout.getExtensionId()}`;
+        const narration = `Payout for ${subject}`;
         const gatewayResponse = await this.paymentGateway.initiatePayout({
           bankAccount: payout.getBankAccount(),
           amount: payout.getAmount(),
           reference,
-          narration: `Payout for ${payout.getBookingId() ? `booking ${payout.getBookingId()}` : `extension ${payout.getExtensionId()}`}`,
+          narration,
         });
 
         if (gatewayResponse.isSuccess()) {

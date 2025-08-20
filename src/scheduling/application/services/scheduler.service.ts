@@ -22,9 +22,9 @@ export interface ProcessingJobData {
 @Injectable()
 export class SchedulerService {
   constructor(
-    @InjectQueue("reminder-emails") private reminderQueue: Queue,
-    @InjectQueue("status-updates") private statusQueue: Queue,
-    @InjectQueue("processing-jobs") private processingQueue: Queue,
+    @InjectQueue("reminder-emails") private readonly reminderQueue: Queue,
+    @InjectQueue("status-updates") private readonly statusQueue: Queue,
+    @InjectQueue("processing-jobs") private readonly processingQueue: Queue,
     private readonly logger: LoggerService,
   ) {}
 

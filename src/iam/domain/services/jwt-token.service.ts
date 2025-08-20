@@ -105,7 +105,7 @@ export class JwtTokenService {
     try {
       const payload = this.jwtService.verify(token, {
         secret: this.JWT_REFRESH_SECRET,
-      }) as { userId: string; tokenType: string };
+      });
 
       if (payload.tokenType !== "refresh") {
         return {
@@ -142,7 +142,7 @@ export class JwtTokenService {
   }
 
   extractTokenFromBearer(bearerToken: string): string {
-    if (!bearerToken || !bearerToken.startsWith("Bearer ")) {
+    if (!bearerToken?.startsWith("Bearer ")) {
       throw new TokenValidationError("Invalid bearer token format");
     }
 
@@ -152,7 +152,7 @@ export class JwtTokenService {
   isTokenExpired(token: string): boolean {
     try {
       const decoded = this.jwtService.decode<TokenPayload>(token);
-      if (!decoded || !decoded.exp) {
+      if (!decoded?.exp) {
         return true;
       }
 
@@ -185,9 +185,13 @@ export class JwtTokenService {
 
   validatePasswordResetToken(token: string): { isValid: boolean; userId?: string; error?: string } {
     try {
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<{
+        userId: string;
+        tokenType: string;
+        purpose: string;
+      }>(token, {
         secret: this.JWT_SECRET,
-      }) as { userId: string; tokenType: string; purpose: string };
+      });
 
       if (payload.tokenType !== "password-reset" || payload.purpose !== "password-reset") {
         return {
@@ -229,9 +233,14 @@ export class JwtTokenService {
     error?: string;
   } {
     try {
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<{
+        userId: string;
+        email: string;
+        tokenType: string;
+        purpose: string;
+      }>(token, {
         secret: this.JWT_SECRET,
-      }) as { userId: string; email: string; tokenType: string; purpose: string };
+      });
 
       if (payload.tokenType !== "email-verification" || payload.purpose !== "email-verification") {
         return {

@@ -23,99 +23,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    let status: number;
-    let message: string;
-    let errorCode: string | undefined;
-    let context: string | undefined;
-    let details: Record<string, any> | undefined;
-    let errors: any[] | undefined;
-    let errorType: string;
-
-    // Determine error type and extract information
-    if (exception instanceof BaseDomainError) {
-      // Handle domain errors
-      const result = this.handleDomainError(exception);
-      status = result.status;
-      message = result.message;
-      errorCode = result.errorCode;
-      context = result.context;
-      details = result.details;
-      errorType = "Domain Error";
-    } else if (exception instanceof BadRequestException) {
-      // Handle validation errors (potentially from ZodValidationPipe)
-      const result = this.handleValidationError(exception);
-      status = result.status;
-      message = result.message;
-      errors = result.errors;
-      errorCode = result.errorCode;
-      errorType = result.errorType;
-    } else if (exception instanceof HttpException) {
-      // Handle other HTTP exceptions
-      status = exception.getStatus();
-      message = exception.message;
-      errorType = "HTTP Exception";
-
-      // Try to extract additional details from the response
-      const exceptionResponse = exception.getResponse();
-
-      if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
-        const responseObj = exceptionResponse as Record<string, any>;
-        if (responseObj.details) {
-          details = responseObj.details;
-        }
-        if (responseObj.errors) {
-          errors = responseObj.errors;
-        }
-      }
-    } else {
-      // Handle unknown errors
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = "Internal server error";
-      errorType = "Unknown Error";
-    }
+    const resolved = this.resolveException(exception);
 
     // Log the error with appropriate level
-    this.logError(request, status, exception, errorType, context);
+    this.logError(request, resolved.status, exception, resolved.errorType, resolved.context);
 
     // Build standardized error response
-    const errorResponse: any = {
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      message,
-    };
-
-    // Add optional fields based on error type
-    if (errorCode) {
-      errorResponse.error = errorCode;
-    }
-
-    if (context) {
-      errorResponse.context = context;
-    }
-
-    if (details && Object.keys(details).length > 0) {
-      errorResponse.details = details;
-    }
-
-    if (errors && errors.length > 0) {
-      errorResponse.errors = errors;
-    }
-
-    // Add request correlation ID if available
-    const correlationId = request.headers["x-correlation-id"] || request.headers["x-request-id"];
-    if (correlationId) {
-      errorResponse.correlationId = correlationId;
-    }
+    const errorResponse = this.buildErrorResponse(request, resolved);
 
     // Send response
-    response.status(status).json(errorResponse);
+    response.status(resolved.status).json(errorResponse);
   }
 
   private handleValidationError(exception: BadRequestException): {
     status: number;
     message: string;
-    errors?: any[];
+    errors?: unknown[];
     errorCode?: string;
     errorType: string;
   } {
@@ -123,13 +46,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Check if it's our structured Zod validation error
     if (typeof response === "object" && response !== null) {
-      const responseObj = response as any;
+      const responseObj = response as Record<string, unknown>;
 
       // Our ZodValidationPipe format
       if (responseObj.errors && Array.isArray(responseObj.errors)) {
         return {
           status: 400,
-          message: responseObj.message || "Validation failed",
+          message:
+            typeof responseObj.message === "string" ? responseObj.message : "Validation failed",
           errors: responseObj.errors,
           errorCode: "VALIDATION_ERROR",
           errorType: "Validation Error",
@@ -140,7 +64,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (responseObj.message) {
         return {
           status: 400,
-          message: responseObj.message,
+          message: typeof responseObj.message === "string" ? responseObj.message : "Bad Request",
           errorCode: "BAD_REQUEST",
           errorType: "Bad Request",
         };
@@ -161,7 +85,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     message: string;
     errorCode: string;
     context: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   } {
     const status = statusCodeMap[exception.code] || HttpStatus.INTERNAL_SERVER_ERROR;
 
@@ -181,7 +105,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     errorType: string,
     context?: string,
   ): void {
-    const logMessage = `${request.method} ${request.url} - Status: ${status} - Type: ${errorType}${context ? ` - Context: ${context}` : ""}`;
+    const contextSuffix = context ? " - Context: " + context : "";
+    const logMessage = `${request.method} ${request.url} - Status: ${status} - Type: ${errorType}${contextSuffix}`;
 
     try {
       // Use injected logger service
@@ -207,5 +132,101 @@ export class AllExceptionsFilter implements ExceptionFilter {
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
+  }
+
+  private resolveException(exception: unknown): {
+    status: number;
+    message: string;
+    errorCode?: string;
+    context?: string;
+    details?: Record<string, unknown>;
+    errors?: unknown[];
+    errorType: string;
+  } {
+    if (exception instanceof BaseDomainError) {
+      const result = this.handleDomainError(exception);
+      return {
+        ...result,
+        errorType: "Domain Error",
+      };
+    }
+
+    if (exception instanceof BadRequestException) {
+      const result = this.handleValidationError(exception);
+      return result;
+    }
+
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const message = exception.message;
+      let details: Record<string, unknown> | undefined;
+      let errors: unknown[] | undefined;
+
+      const exceptionResponse = exception.getResponse();
+      if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+        const responseObj = exceptionResponse as Record<string, unknown>;
+        details = (responseObj.details as Record<string, unknown>) || undefined;
+        errors = (responseObj.errors as unknown[]) || undefined;
+      }
+
+      return {
+        status,
+        message,
+        details,
+        errors,
+        errorType: "HTTP Exception",
+      };
+    }
+
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: "Internal server error",
+      errorType: "Unknown Error",
+    };
+  }
+
+  private buildErrorResponse(
+    request: Request,
+    resolved: {
+      status: number;
+      message: string;
+      errorCode?: string;
+      context?: string;
+      details?: Record<string, unknown>;
+      errors?: unknown[];
+    },
+  ): Record<string, unknown> {
+    const errorResponse: Record<string, unknown> = {
+      statusCode: resolved.status,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      message: resolved.message,
+    };
+
+    if (resolved.errorCode) {
+      errorResponse.error = resolved.errorCode;
+    }
+
+    if (resolved.context) {
+      errorResponse.context = resolved.context;
+    }
+
+    if (resolved.details && Object.keys(resolved.details).length > 0) {
+      errorResponse.details = resolved.details;
+    }
+    if (resolved.errors && resolved.errors.length > 0) {
+      errorResponse.errors = resolved.errors;
+    }
+
+    const correlationId = this.getCorrelationId(request);
+    if (correlationId) {
+      errorResponse.correlationId = correlationId;
+    }
+
+    return errorResponse;
+  }
+
+  private getCorrelationId(request: Request): string | string[] | undefined {
+    return request.headers["x-correlation-id"] || request.headers["x-request-id"];
   }
 }

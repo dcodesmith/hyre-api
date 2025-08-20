@@ -9,7 +9,7 @@ import { NotificationType } from "../../domain/value-objects/notification-type.v
 
 @Injectable()
 export class PrismaNotificationRepository extends NotificationRepository {
-  private notifications: Map<string, Notification> = new Map();
+  private readonly notifications: Map<string, Notification> = new Map();
 
   async save(notification: Notification): Promise<void> {
     // In a real implementation, you would save to a notifications table

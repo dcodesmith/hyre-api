@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { Role as PrismaRole, User as PrismaUser } from "@prisma/client";
-// import { PhoneNumber } from "../../domain/value-objects/phone-number.vo";
 import { logger } from "test/support/logger";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { User } from "../../domain/entities/user.entity";
@@ -689,8 +688,6 @@ export class PrismaUserRepository implements UserRepository {
     } else {
       registrationType = RegistrationType.selfRegistration();
     }
-
-    // const phoneNumber = PhoneNumber.create(userData.phoneNumber || "", "+234");
 
     return User.reconstitute({
       id: userData.id,

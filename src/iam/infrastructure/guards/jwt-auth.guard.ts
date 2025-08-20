@@ -22,7 +22,7 @@ export class JwtAuthGuard implements CanActivate {
     // Extract JWT token from Authorization header
     const authHeader = request.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       throw new UnauthorizedException("Access token required");
     }
 

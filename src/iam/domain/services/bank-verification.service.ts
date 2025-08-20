@@ -71,7 +71,7 @@ export class BankVerificationService {
 
       // Validate account name matches
       const isNameMatch = this.validateAccountNameMatch(
-        verificationResponse.accountName!,
+        verificationResponse.accountName,
         expectedAccountName,
       );
 

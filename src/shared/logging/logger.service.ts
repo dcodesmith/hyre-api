@@ -4,7 +4,7 @@ import { TypedConfigService } from "../config/typed-config.service";
 
 @Injectable()
 export class LoggerService implements NestLoggerService {
-  private logger: Logger;
+  private readonly logger: Logger;
   private context?: string;
 
   constructor(private readonly configService: TypedConfigService) {

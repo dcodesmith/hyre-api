@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { FleetManagementService } from "../../../fleet/domain/services/fleet-management.service";
 import { UserRepository } from "../../../iam/domain/repositories/user.repository";
 
+import { LoggerService } from "../../../shared/logging/logger.service";
 import {
   ChauffeurDetails,
   ChauffeurValidationService,
@@ -17,7 +18,10 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
     @Inject("UserRepository")
     private readonly userRepository: UserRepository,
     private readonly fleetManagementService: FleetManagementService,
-  ) {}
+    private readonly logger: LoggerService,
+  ) {
+    this.logger.setContext(ChauffeurValidationAdapter.name);
+  }
 
   async validateChauffeurExists(chauffeurId: string): Promise<boolean> {
     try {
@@ -47,7 +51,8 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
   async getChauffeurDetails(chauffeurId: string): Promise<ChauffeurDetails | null> {
     try {
       const chauffeur = await this.userRepository.findById(chauffeurId);
-      if (!chauffeur || !chauffeur.isChauffeur()) {
+      if (!chauffeur.isChauffeur()) {
+        this.logger.error(`Chauffeur not found: ${chauffeurId}`);
         return null;
       }
 
@@ -98,7 +103,8 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
     try {
       // Get the chauffeur user to find their fleet owner relationship
       const chauffeur = await this.userRepository.findById(chauffeurId);
-      if (!chauffeur || !chauffeur.isChauffeur()) {
+      if (!chauffeur.isChauffeur()) {
+        this.logger.error(`Chauffeur not found: ${chauffeurId}`);
         return null;
       }
 

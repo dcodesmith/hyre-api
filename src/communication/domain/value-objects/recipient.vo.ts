@@ -58,7 +58,6 @@ export class Recipient extends ValueObject<RecipientProps> {
       throw new Error("Recipient must have either email or phone number");
     }
 
-
     return new Recipient({
       id: id.trim(),
       name: name.trim(),
@@ -67,7 +66,6 @@ export class Recipient extends ValueObject<RecipientProps> {
       role,
     });
   }
-
 
   public hasEmail(): boolean {
     return !!this.props.email;
