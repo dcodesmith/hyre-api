@@ -30,7 +30,7 @@ module.exports = {
     ],
     format: ["progress"],
     formatOptions: { snippetInterface: "async-await" },
-    paths: ["test/features/user-manangement/**/*.feature"],
+    paths: ["test/features/user-management/**/*.feature"],
     tags: "@user-management",
   },
 };
