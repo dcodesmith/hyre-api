@@ -24,16 +24,13 @@ export const refreshSessionSchema = z.object({
 // Authentication DTOs
 export const authSchema = z.object({
   email: z.email({ error: "Invalid email format" }),
-  role: z.enum(["customer", "fleetOwner"], {
-    error: "Role must be customer or fleetOwner",
-  }),
 });
 
 export const verifyOtpSchema = z.object({
   email: z.email({ error: "Invalid email format" }),
   otpCode: otpSchema,
-  role: z.enum(["customer", "fleetOwner"], {
-    error: "Role must be customer or fleetOwner",
+  role: z.enum(["customer", "fleetOwner", "staff", "chauffeur", "admin"], {
+    error: "Role must be customer, fleetOwner, staff, chauffeur, or admin",
   }),
 });
 

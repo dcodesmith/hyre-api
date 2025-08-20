@@ -1,10 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { Role as PrismaRole, User as PrismaUser } from "@prisma/client";
+import { Prisma, Role as PrismaRole, User as PrismaUser } from "@prisma/client";
 import { logger } from "test/support/logger";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { User } from "../../domain/entities/user.entity";
 import { UserNotFoundError } from "../../domain/errors/iam.errors";
 import {
+  TransactionContext,
   UserListOptions,
   UserListResult,
   UserRepository,
@@ -57,6 +58,43 @@ export class PrismaUserRepository implements UserRepository {
 
       // Handle unique constraint violations or other database errors
       throw new Error(`Failed to save user: ${error.message}`);
+    }
+  }
+
+  async saveWithTransaction(user: User, tx: TransactionContext): Promise<User> {
+    try {
+      const userData = this.mapUserToPrisma(user);
+      const { id, roles, ...rest } = userData;
+      let userWithRoles: PrismaUserWithRoles;
+
+      if (!id) {
+        userWithRoles = await tx.user.create({
+          data: {
+            ...rest,
+            roles: {
+              connectOrCreate: roles.map((roleName: string) => ({
+                where: { name: roleName },
+                create: { name: roleName, description: `${roleName} role` },
+              })),
+            },
+          },
+          include: { roles: true },
+        });
+      } else {
+        userWithRoles = await tx.user.update({
+          where: { id },
+          data: { ...rest },
+          include: { roles: true },
+        });
+      }
+
+      const mappedUser = this.mapPrismaToUser(userWithRoles);
+      return mappedUser;
+    } catch (error) {
+      logger.error("Error in saveWithTransaction method:", error);
+
+      // Handle unique constraint violations or other database errors
+      throw new Error(`Failed to save user with transaction: ${error.message}`);
     }
   }
 
@@ -159,7 +197,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       roles: {
         some: {
           name: UserRoleEnum.chauffeur,
@@ -242,7 +280,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "asc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       OR: [{ fleetOwnerStatus: "PROCESSING" }, { chauffeurApprovalStatus: "PENDING" }],
     };
 
@@ -280,7 +318,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       OR: [
         { fleetOwnerStatus: "APPROVED" },
         { chauffeurApprovalStatus: "APPROVED" },
@@ -330,7 +368,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       OR: [{ fleetOwnerStatus: "ARCHIVED" }, { chauffeurApprovalStatus: "REJECTED" }],
     };
 
@@ -384,7 +422,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {};
+    const whereClause: Prisma.UserWhereInput = {};
 
     if (filters.role) {
       whereClause.roles = {
@@ -459,7 +497,7 @@ export class PrismaUserRepository implements UserRepository {
     const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       hasOnboarded: true,
     };
 
@@ -564,7 +602,7 @@ export class PrismaUserRepository implements UserRepository {
 
   async countByApprovalStatus(status: ApprovalStatus): Promise<number> {
     const statusValue = status.toString();
-    let whereClause: any = {};
+    let whereClause: Prisma.UserWhereInput = {};
 
     if (statusValue === "PENDING") {
       whereClause = {
@@ -601,7 +639,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async emailExists(email: string, excludeUserId?: string): Promise<boolean> {
-    const whereClause: any = { email };
+    const whereClause: Prisma.UserWhereInput = { email };
     if (excludeUserId) {
       whereClause.id = { not: excludeUserId };
     }
@@ -611,7 +649,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async phoneNumberExists(phoneNumber: string, excludeUserId?: string): Promise<boolean> {
-    const whereClause: any = { phoneNumber };
+    const whereClause: Prisma.UserWhereInput = { phoneNumber };
     if (excludeUserId) {
       whereClause.id = { not: excludeUserId };
     }
@@ -621,7 +659,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async usernameExists(username: string, excludeUserId?: string): Promise<boolean> {
-    const whereClause: any = { username };
+    const whereClause: Prisma.UserWhereInput = { username };
     if (excludeUserId) {
       whereClause.id = { not: excludeUserId };
     }

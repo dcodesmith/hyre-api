@@ -17,7 +17,6 @@ import { ZodMultipart } from "../../shared/decorators/zod-multipart.decorator";
 import { OnboardingUploadInterceptor } from "../../shared/interceptors/file-upload.interceptor";
 import { LoggerService } from "../../shared/logging/logger.service";
 import { AuthenticationService } from "../application/services/authentication.service";
-import { AuthorizationService } from "../application/services/authorization.service";
 import { OnboardingApplicationService } from "../application/services/onboarding-application.service";
 import { UserManagementService } from "../application/services/user-management.service";
 import { User } from "../domain/entities/user.entity";
@@ -78,7 +77,6 @@ export class IamController {
   constructor(
     private readonly userManagementService: UserManagementService,
     private readonly authenticationService: AuthenticationService,
-    private readonly authorizationService: AuthorizationService,
     private readonly onboardingService: OnboardingApplicationService,
     private readonly bankVerificationService: BankVerificationService,
     @Inject("UserRepository") private readonly userRepository: UserRepository,
@@ -88,7 +86,7 @@ export class IamController {
 
   @Post("auth/otp")
   async generateOtp(@ZodBody(authSchema) dto: AuthDto): Promise<OtpGenerationResponseDto> {
-    this.logger.info("Generating OTP", { email: dto.email, role: dto.role });
+    this.logger.info("Generating OTP", { email: dto.email });
 
     return this.authenticationService.generateOtp(dto);
   }
@@ -195,53 +193,39 @@ export class IamController {
     return user.toSummary();
   }
 
-  // @Get("users")
-  // async searchUsers(
-  //   @ZodQuery(searchUsersQuerySchema) query: SearchUsersQueryDto,
-  // ): Promise<UserSearchResponseDto> {
-  //   const { role, approvalStatus, fleetOwnerId, searchTerm, page, limit, requesterId } = query;
-
-  //   return this.userManagementService.searchUsers(
-  //     { role, approvalStatus, fleetOwnerId, searchTerm },
-  //     { page, limit },
-  //     requesterId,
-  //   );
-  // }
-
   @Get("users/pending-approvals")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin", "staff")
   async getPendingApprovals(
     @ZodQuery(pendingApprovalsQuerySchema) query: PendingApprovalsQueryDto,
     @CurrentUser() currentUser: User,
   ) {
-    // Authorization handled by application service
-    this.authorizationService.requireCanViewPendingApprovals(currentUser);
-
     const requesterId = currentUser.getId();
     const { page, limit } = query;
     return this.userManagementService.getPendingApprovals(requesterId, { page, limit });
   }
 
   @Get("users/fleet-owners/:fleetOwnerId/chauffeurs")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("fleetOwner", "admin", "staff")
   async getFleetChauffeurs(
     @Param("fleetOwnerId") fleetOwnerId: string,
-    @ZodQuery(fleetChauffeursQuerySchema) query: FleetChauffeursQueryDto,
+    @ZodQuery(fleetChauffeursQuerySchema) _query: FleetChauffeursQueryDto,
+    @CurrentUser() currentUser: User,
   ) {
-    return this.userManagementService.getFleetChauffeurs(fleetOwnerId, query.requesterId);
+    return this.userManagementService.getFleetChauffeurs(fleetOwnerId, currentUser.getId());
   }
 
   // Approval endpoints
   @Put("users/:userId/approve")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin", "staff")
   async approveUser(
     @Param("userId") userId: string,
     @ZodBody(approveUserSchema) dto: ApproveUserDto,
     @ZodQuery(approvalActionQuerySchema) _query: ApprovalActionQueryDto,
     @CurrentUser() currentUser: User,
   ) {
-    // Authorization handled by application service
-    this.authorizationService.requireCanApproveUsers(currentUser);
-
     const approvedBy = currentUser.getId();
     this.logger.info("Approving user", { userId, approvedBy });
 
@@ -249,16 +233,14 @@ export class IamController {
   }
 
   @Put("users/:userId/reject")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin", "staff")
   async rejectUser(
     @Param("userId") userId: string,
     @ZodBody(rejectUserSchema) dto: RejectUserDto,
     @ZodQuery(rejectionActionQuerySchema) _query: RejectionActionQueryDto,
     @CurrentUser() currentUser: User,
   ) {
-    // Authorization handled by application service
-    this.authorizationService.requireCanRejectUsers(currentUser);
-
     const rejectedBy = currentUser.getId();
     this.logger.info("Rejecting user", { userId, rejectedBy });
 

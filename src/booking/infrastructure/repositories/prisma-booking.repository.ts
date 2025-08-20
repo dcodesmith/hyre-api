@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import {
+  Prisma,
   BookingStatus as PrismaBookingStatus,
   BookingType as PrismaBookingType,
   PaymentStatus as PrismaPaymentStatus,
@@ -7,7 +8,10 @@ import {
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingLeg } from "../../domain/entities/booking-leg.entity";
-import { BookingRepository } from "../../domain/repositories/booking.repository";
+import {
+  BookingRepository,
+  TransactionContext,
+} from "../../domain/repositories/booking.repository";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import { BookingType } from "../../domain/value-objects/booking-type.vo";
@@ -54,13 +58,98 @@ export class PrismaBookingRepository implements BookingRepository {
       });
       return booking;
     } else {
-      // Create new booking - database will assign ID
-      const savedBooking = await this.prisma.booking.create({
+      // Create new booking with legs in a single transaction
+      const savedBooking = await this.prisma.$transaction(async (tx) => {
+        // Save booking first
+        const savedBooking = await tx.booking.create({
+          data: { ...data },
+        });
+
+        // Save all legs with the booking ID
+        const legs = booking.getLegs();
+        for (const leg of legs) {
+          await tx.bookingLeg.create({
+            data: {
+              bookingId: savedBooking.id,
+              legDate: leg.getLegDate(),
+              legStartTime: leg.getLegStartTime(),
+              legEndTime: leg.getLegEndTime(),
+              totalDailyPrice: leg.getTotalDailyPrice(),
+              itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+              fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+              notes: leg.getNotes(),
+            },
+          });
+        }
+
+        return savedBooking;
+      });
+
+      // Return reconstituted booking with legs loaded from DB
+      return this.findById(savedBooking.id);
+    }
+  }
+
+  async saveWithTransaction(booking: Booking, tx: TransactionContext): Promise<Booking> {
+    const bookingId = booking.getId();
+    const data = {
+      bookingReference: booking.getBookingReference(),
+      status: booking.getStatus().value as PrismaBookingStatus,
+      startDate: booking.getDateRange().startDate,
+      endDate: booking.getDateRange().endDate,
+      pickupAddress: booking.getPickupAddress(),
+      dropOffAddress: booking.getDropOffAddress(),
+      customerId: booking.getCustomerId(),
+      carId: booking.getCarId(),
+      chauffeurId: booking.getChauffeurId(),
+      specialRequests: booking.getSpecialRequests(),
+      type: booking.getBookingType().value as PrismaBookingType,
+      paymentStatus: booking.getPaymentStatus().toString() as PrismaPaymentStatus,
+      paymentIntent: booking.getPaymentIntent(),
+      paymentId: booking.getPaymentId(),
+      totalAmount: booking.getTotalAmount(),
+      netTotal: booking.getNetTotal(),
+      platformCustomerServiceFeeAmount: booking.getPlatformServiceFeeAmount(),
+      vatAmount: booking.getVatAmount(),
+      fleetOwnerPayoutAmountNet: booking.getFleetOwnerPayoutAmountNet(),
+      includeSecurityDetail: booking.getIncludeSecurityDetail(),
+      cancelledAt: booking.getCancelledAt(),
+      cancellationReason: booking.getCancellationReason(),
+      updatedAt: new Date(),
+    };
+
+    if (bookingId) {
+      // Update existing booking within transaction
+      await tx.booking.update({
+        where: { id: bookingId },
+        data,
+      });
+      return booking;
+    } else {
+      // Create new booking within transaction
+      const savedBooking = await tx.booking.create({
         data: {
           ...data,
           createdAt: booking.getCreatedAt(),
         },
       });
+
+      // Save all legs with the booking ID within the same transaction
+      const legs = booking.getLegs();
+      for (const leg of legs) {
+        await tx.bookingLeg.create({
+          data: {
+            bookingId: savedBooking.id,
+            legDate: leg.getLegDate(),
+            legStartTime: leg.getLegStartTime(),
+            legEndTime: leg.getLegEndTime(),
+            totalDailyPrice: leg.getTotalDailyPrice(),
+            itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+            fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+            notes: leg.getNotes(),
+          },
+        });
+      }
 
       // Return reconstituted booking with the database-assigned ID
       return Booking.reconstitute({
@@ -74,7 +163,7 @@ export class PrismaBookingRepository implements BookingRepository {
         carId: savedBooking.carId,
         chauffeurId: savedBooking.chauffeurId || undefined,
         specialRequests: savedBooking.specialRequests || undefined,
-        legs: [], // Will be loaded separately if needed
+        legs: [], // Legs will be loaded separately if needed
         bookingType: BookingType.create(savedBooking.type),
         paymentStatus: PaymentStatus.create(savedBooking.paymentStatus),
         paymentIntent: savedBooking.paymentIntent || undefined,
@@ -274,7 +363,13 @@ export class PrismaBookingRepository implements BookingRepository {
     return bookings.map((booking) => this.toDomain(booking));
   }
 
-  private toDomain(prismaBooking: any): Booking {
+  private toDomain(
+    prismaBooking: Prisma.BookingGetPayload<{
+      include: {
+        legs: true;
+      };
+    }>,
+  ): Booking {
     const dateRange = DateRange.create(prismaBooking.startDate, prismaBooking.endDate);
 
     const legs = prismaBooking.legs.map((leg) =>
@@ -284,9 +379,9 @@ export class PrismaBookingRepository implements BookingRepository {
         legDate: leg.legDate,
         legStartTime: leg.legStartTime,
         legEndTime: leg.legEndTime,
-        totalDailyPrice: leg.totalDailyPrice,
-        itemsNetValueForLeg: leg.itemsNetValueForLeg,
-        fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg,
+        totalDailyPrice: leg.totalDailyPrice.toNumber(),
+        itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
+        fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
         notes: leg.notes,
       }),
     );
@@ -300,7 +395,7 @@ export class PrismaBookingRepository implements BookingRepository {
       dropOffAddress: prismaBooking.dropOffAddress,
       customerId: prismaBooking.customerId,
       carId: prismaBooking.carId,
-      chauffeurId: prismaBooking.chauffeurId,
+      chauffeurId: prismaBooking.chauffeurId || undefined,
       specialRequests: prismaBooking.specialRequests,
       legs,
       bookingType: BookingType.create(prismaBooking.type),
@@ -316,13 +411,15 @@ export class PrismaBookingRepository implements BookingRepository {
     });
   }
 
-  private createFinancialsFromPrisma(prismaBooking: any): BookingFinancials {
+  private createFinancialsFromPrisma(
+    prismaBooking: Prisma.BookingGetPayload<{}>,
+  ): BookingFinancials {
     if (
-      !prismaBooking.totalAmount ||
-      !prismaBooking.netTotal ||
-      !prismaBooking.platformCustomerServiceFeeAmount ||
-      !prismaBooking.vatAmount ||
-      !prismaBooking.fleetOwnerPayoutAmountNet
+      prismaBooking.totalAmount === null ||
+      prismaBooking.netTotal === null ||
+      prismaBooking.platformCustomerServiceFeeAmount === null ||
+      prismaBooking.vatAmount === null ||
+      prismaBooking.fleetOwnerPayoutAmountNet === null
     ) {
       throw new Error(
         `Booking ${prismaBooking.id} has incomplete financial data. All financial fields must be present.`,

@@ -1,7 +1,7 @@
 export interface TokenPairDto {
   accessToken: string;
   refreshToken?: string;
-  expiresAt: Date;
+  expiresAt: number;
 }
 
 // Simple user response for authentication (matches what auth service returns)
@@ -25,7 +25,7 @@ export interface AuthenticationResponseDto {
 export interface OtpGenerationResponseDto {
   success: boolean;
   message: string;
-  expiresAt: Date;
+  expiresAt: number;
   phoneNumber: string;
 }
 
@@ -38,7 +38,7 @@ export interface SessionValidationResponseDto {
 
 export interface OtpStatusResponseDto {
   hasValidOtp: boolean;
-  expiresAt?: Date;
+  expiresAt?: number;
   remainingAttempts?: number;
 }
 

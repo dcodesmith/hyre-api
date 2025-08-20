@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
+import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
@@ -46,6 +47,7 @@ export class BookingPaymentService {
     @Inject("PaymentVerificationService")
     private readonly paymentVerificationService: PaymentVerificationService,
     private readonly bookingCustomerResolver: BookingCustomerResolverService,
+    private readonly prisma: PrismaService,
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
     private readonly configService: TypedConfigService,
@@ -65,7 +67,18 @@ export class BookingPaymentService {
       phoneNumber: dto.phoneNumber,
     });
 
-    const callbackUrl = PaymentCallbackUrl.create(this.configService.app.domain, booking.getId());
+    const bookingIdVal = booking.getId();
+
+    if (!bookingIdVal) {
+      this.logger.error(
+        `Cannot create payment intent: booking has no ID (ref ${booking.getBookingReference()})`,
+      );
+      throw new PaymentIntentCreationError(
+        "Booking must be persisted (have an ID) before creating a payment intent",
+      );
+    }
+
+    const callbackUrl = PaymentCallbackUrl.create(this.configService.app.domain, bookingIdVal);
 
     const paymentIntent = await this.paymentIntentService.createPaymentIntent({
       amount: booking.getTotalAmount() || 0,
@@ -125,26 +138,40 @@ export class BookingPaymentService {
     try {
       // Find the booking
       const booking = await this.findBookingOrThrow(bookingId);
-      const currentStatus = booking.getStatus();
 
       // If booking is already confirmed/active/completed, redirect to success
-      if (currentStatus.isConfirmed() || currentStatus.isActive() || currentStatus.isCompleted()) {
-        this.logger.info(`Booking ${bookingId} already confirmed, status: ${currentStatus}`);
+      if (booking.isConfirmed() || booking.isActive() || booking.isCompleted()) {
+        this.logger.info(`Booking ${bookingId} already confirmed, status: ${booking.getStatus()}`);
         return {
           success: true,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: currentStatus.toString(),
+          bookingStatus: booking.getStatus().toString(),
           transactionId: query.transaction_id,
           message: "Booking already confirmed",
         };
       }
 
       // If we have a transaction ID from Flutterwave, verify the payment
-      if (query.transaction_id && currentStatus.isPending()) {
+      if (query.transaction_id && booking.isPending()) {
         this.logger.info(`Verifying payment for transaction: ${query.transaction_id}`);
 
         try {
+          if (!booking.getPaymentIntent()) {
+            this.logger.warn(
+              `No paymentIntent stored for booking ${bookingId}; cannot verify transaction ${query.transaction_id}`,
+            );
+            return {
+              success: false,
+              bookingId: booking.getId(),
+              bookingReference: booking.getBookingReference(),
+              bookingStatus: booking.getStatus().toString(),
+              transactionId: query.transaction_id,
+              message: "Payment intent missing; cannot verify payment yet",
+              paymentVerified: false,
+            };
+          }
+
           const paymentVerification = await this.paymentVerificationService.verifyPayment({
             transactionId: query.transaction_id,
             paymentIntentId: booking.getPaymentIntent(),
@@ -173,22 +200,28 @@ export class BookingPaymentService {
               success: false,
               bookingId: booking.getId(),
               bookingReference: booking.getBookingReference(),
-              bookingStatus: currentStatus.toString(),
+              bookingStatus: booking.getStatus().toString(),
               transactionId: query.transaction_id,
               message: `Payment verification failed: ${paymentVerification.errorMessage}`,
               paymentVerified: false,
             };
           }
-        } catch (verificationError) {
+        } catch (verificationError: unknown) {
+          const error =
+            verificationError instanceof Error
+              ? verificationError
+              : new Error(String(verificationError));
+
           this.logger.error(
-            `Payment verification error for booking ${bookingId}: ${verificationError.message}`,
-            verificationError.stack,
+            `Payment verification error for booking ${bookingId}: ${error.message}`,
+            error.stack,
           );
+
           return {
             success: false,
             bookingId: booking.getId(),
             bookingReference: booking.getBookingReference(),
-            bookingStatus: currentStatus.toString(),
+            bookingStatus: booking.getStatus().toString(),
             transactionId: query.transaction_id,
             message: "Payment verification failed due to technical error",
           };
@@ -196,13 +229,13 @@ export class BookingPaymentService {
       }
 
       // No transaction ID provided or booking not pending
-      if (currentStatus.isPending()) {
+      if (booking.isPending()) {
         // Still processing, show pending status
         return {
           success: true,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: currentStatus.toString(),
+          bookingStatus: booking.getStatus().toString(),
           transactionId: query.transaction_id,
           message: "Payment still processing",
         };
@@ -213,14 +246,15 @@ export class BookingPaymentService {
         success: true,
         bookingId: booking.getId(),
         bookingReference: booking.getBookingReference(),
-        bookingStatus: currentStatus.toString(),
+        bookingStatus: booking.getStatus().toString(),
         transactionId: query.transaction_id,
-        message: `Booking status: ${currentStatus.toString()}`,
+        message: `Booking status: ${booking.getStatus().toString()}`,
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Error handling payment status callback for booking ${bookingId}: ${error.message}`,
-        error.stack,
+        `Error handling payment status callback for booking ${bookingId}: ${err.message}`,
+        err.stack,
       );
 
       return {
@@ -229,7 +263,7 @@ export class BookingPaymentService {
         bookingReference: "UNKNOWN",
         bookingStatus: "UNKNOWN",
         transactionId: query?.transaction_id,
-        message: `Error processing payment status: ${error.message}`,
+        message: `Error processing payment status: ${err.message}`,
       };
     }
   }
@@ -245,14 +279,28 @@ export class BookingPaymentService {
   }
 
   private async saveBookingAndPublishEvents(booking: Booking): Promise<Booking> {
-    const savedBooking = await this.bookingRepository.save(booking);
+    // Collect events to publish after transaction commits
+    const eventsToPublish: Booking[] = [];
 
-    // If this is a new booking (no ID before save), mark it as created to trigger domain events
-    if (!booking.getId() && savedBooking.getId()) {
-      savedBooking.markAsCreated();
+    // Use transaction to ensure atomicity of booking save and event preparation
+    const savedBooking = await this.prisma.$transaction(async (tx) => {
+      // Save booking within transaction
+      const saved = await this.bookingRepository.saveWithTransaction(booking, tx);
+
+      // If this is a new booking, mark it as created to trigger domain events
+      if (!booking.getId() && saved.getId()) {
+        saved.markAsCreated();
+        eventsToPublish.push(saved); // Prepare for event publishing
+      }
+
+      return saved;
+    });
+
+    // After transaction commits successfully, publish events
+    for (const bookingWithEvents of eventsToPublish) {
+      await this.domainEventPublisher.publish(bookingWithEvents);
     }
 
-    await this.domainEventPublisher.publish(savedBooking);
     return savedBooking;
   }
 }

@@ -68,12 +68,16 @@ export class BookingTimeProcessorService {
     const { hours, minutes } = pickupTime.to24Hour();
     startDateTime.setHours(hours, minutes, 0, 0);
     // For day bookings, end time is start time + 12 hours
-    endDateTime.setHours(
+
+    // For day bookings, end time is strictly start time + 12 hours
+    const endFromStart = new Date(startDateTime);
+    endFromStart.setHours(
       startDateTime.getHours() + BookingTimeProcessorService.DAY_DURATION_HOURS,
       minutes,
       0,
       0,
     );
+    endDateTime.setTime(endFromStart.getTime());
   }
 
   /**

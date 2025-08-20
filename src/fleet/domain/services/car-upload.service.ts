@@ -30,6 +30,9 @@ export class CarUploadService {
   async createCarWithDocuments(request: CarUploadRequest): Promise<CarUploadResult> {
     const { carData } = request;
 
+    // Use a stable folder for all uploads in this request
+    const uploadFolderPath = `cars/${carData.ownerId}/${Date.now()}`;
+
     try {
       // Step 1: Validate unique registration number (domain business rule)
       const existingCar = await this.carRepository.findByRegistrationNumber(
@@ -42,12 +45,12 @@ export class CarUploadService {
 
       // Step 2: Upload all files to S3 to get URLs
       const [uploadedImages, motCertificate, insuranceCertificate] = await Promise.all([
-        this.uploadCarImages(carData, request.images),
-        this.uploadDocument(carData, request.motCertificate, DocumentType.MOT_CERTIFICATE),
+        this.uploadCarImages(request.images, uploadFolderPath),
+        this.uploadDocument(request.motCertificate, DocumentType.MOT_CERTIFICATE, uploadFolderPath),
         this.uploadDocument(
-          carData,
           request.insuranceCertificate,
           DocumentType.INSURANCE_CERTIFICATE,
+          uploadFolderPath,
         ),
       ]);
 
@@ -71,6 +74,7 @@ export class CarUploadService {
         motCertificateUrl,
         insuranceCertificateUrl,
       };
+
       const car = Car.create(carParams);
 
       // Step 5: Persist the car - relationship with fleet established via ownerId
@@ -85,21 +89,28 @@ export class CarUploadService {
       };
     } catch (error) {
       // Clean up any uploaded files on failure
-      await this.cleanupUploadedFiles(`temp-${Date.now()}`);
-      throw new CarUploadServiceError(error.message, { originalError: error.name });
+      try {
+        await this.cleanupUploadedFiles(uploadFolderPath);
+      } catch {
+        // swallow cleanup failures
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      const originalError =
+        error instanceof Error ? { name: error.name, stack: error.stack } : error;
+      throw new CarUploadServiceError(message, { originalError });
     }
   }
 
   private async uploadCarImages(
-    carData: CarUploadData,
     images: FileUploadData[],
+    folderPath: string,
   ): Promise<CarDocument[]> {
     const uploadPromises = images.map(async (image) => {
       const result = await this.fileStorageService.uploadFile({
         fileName: image.fileName,
         contentType: image.contentType,
         buffer: image.buffer,
-        folder: `cars/${carData.ownerId}/${Date.now()}`, // Consistent folder structure
+        folder: folderPath,
       });
 
       if (!result.success) {
@@ -117,15 +128,15 @@ export class CarUploadService {
   }
 
   private async uploadDocument(
-    carData: CarUploadData,
     file: FileUploadData,
     documentType: DocumentType,
+    folderPath: string,
   ): Promise<CarDocument> {
     const result = await this.fileStorageService.uploadFile({
       fileName: file.fileName,
       contentType: file.contentType,
       buffer: file.buffer,
-      folder: `cars/${carData.ownerId}/${Date.now()}`, // Use timestamp since car ID doesn't exist yet
+      folder: folderPath,
     });
 
     if (!result.success) {
@@ -148,7 +159,7 @@ export class CarUploadService {
     }
   }
 
-  private async cleanupUploadedFiles(_carId: string): Promise<void> {
+  private async cleanupUploadedFiles(folderPath: string): Promise<void> {
     // Note: In a production system, you might want to keep track of uploaded files
     // and delete them individually. For now, this is a placeholder for cleanup logic.
     // The actual cleanup would depend on your file storage implementation.

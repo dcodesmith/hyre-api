@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   BookingLeg,
   type BookingLegProps,
@@ -11,7 +12,6 @@ describe("BookingLeg Entity", () => {
   const legEndTime = new Date(tomorrow.getTime() + 17 * 60 * 60 * 1000); // 5 PM
 
   const validCreateParams: CreateBookingLegParams = {
-    bookingId: "booking-123",
     legDate: tomorrow,
     legStartTime: legStartTime,
     legEndTime: legEndTime,
@@ -49,7 +49,7 @@ describe("BookingLeg Entity", () => {
 
   // Restores timers after each test to prevent interference
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   // --- Creation ---
@@ -57,7 +57,7 @@ describe("BookingLeg Entity", () => {
     it("should create a new booking leg with valid parameters", () => {
       const leg = createBookingLeg();
 
-      expect(leg.getBookingId()).toBe("booking-123");
+      expect(leg.getBookingId()).toBeUndefined();
       expect(leg.getLegDate()).toEqual(tomorrow);
       expect(leg.getLegStartTime()).toEqual(legStartTime);
       expect(leg.getLegEndTime()).toEqual(legEndTime);
@@ -69,7 +69,6 @@ describe("BookingLeg Entity", () => {
 
     it("should create booking leg with default values for optional parameters", () => {
       const minimalParams: CreateBookingLegParams = {
-        bookingId: "booking-456",
         legDate: tomorrow,
         legStartTime: legStartTime,
         legEndTime: legEndTime,
@@ -295,8 +294,8 @@ describe("BookingLeg Entity", () => {
         const now = new Date();
         const endTime = new Date(now.getTime() + 60 * 60 * 1000);
 
-        jest.useFakeTimers();
-        jest.setSystemTime(now);
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
 
         const leg = createBookingLeg({
           legStartTime: now,
@@ -310,8 +309,8 @@ describe("BookingLeg Entity", () => {
         const startTime = new Date(Date.now() - 60 * 60 * 1000);
         const now = new Date();
 
-        jest.useFakeTimers();
-        jest.setSystemTime(now);
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
 
         const leg = createBookingLeg({
           legStartTime: startTime,
@@ -561,22 +560,22 @@ describe("BookingLeg Entity", () => {
       });
 
       // Test before start time
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date(2024, 0, 1, 8, 0, 0)); // 8:00 AM
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2024, 0, 1, 8, 0, 0)); // 8:00 AM
 
       expect(leg.isUpcoming()).toBe(true);
       expect(leg.isActive()).toBe(false);
       expect(leg.isCompleted()).toBe(false);
 
       // Test during active time
-      jest.setSystemTime(new Date(2024, 0, 1, 12, 0, 0)); // 12:00 PM
+      vi.setSystemTime(new Date(2024, 0, 1, 12, 0, 0)); // 12:00 PM
 
       expect(leg.isUpcoming()).toBe(false);
       expect(leg.isActive()).toBe(true);
       expect(leg.isCompleted()).toBe(false);
 
       // Test after end time
-      jest.setSystemTime(new Date(2024, 0, 1, 18, 0, 0)); // 6:00 PM
+      vi.setSystemTime(new Date(2024, 0, 1, 18, 0, 0)); // 6:00 PM
 
       expect(leg.isUpcoming()).toBe(false);
       expect(leg.isActive()).toBe(false);

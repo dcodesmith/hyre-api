@@ -35,9 +35,8 @@ export class BankVerificationService {
     expectedAccountName: string,
   ): Promise<BankVerificationResult> {
     this.logger.info("Starting bank account verification", {
-      accountNumber: accountNumber.slice(-4), // Log only last 4 digits for security
+      accountNumber: accountNumber.slice(-4),
       bankCode,
-      expectedAccountName,
     });
 
     try {
@@ -69,11 +68,21 @@ export class BankVerificationService {
         };
       }
 
+      const verifiedName = verificationResponse.accountName?.trim();
+      if (!verifiedName) {
+        this.logger.warn("Verification succeeded but account name missing", {
+          accountNumberLast4: accountNumber.slice(-4),
+          bankCode,
+        });
+        return {
+          isValid: false,
+          bankName: bankInfo.name,
+          errorMessage: "Verification provider did not return an account name",
+        };
+      }
+
       // Validate account name matches
-      const isNameMatch = this.validateAccountNameMatch(
-        verificationResponse.accountName,
-        expectedAccountName,
-      );
+      const isNameMatch = this.validateAccountNameMatch(verifiedName, expectedAccountName);
 
       if (!isNameMatch) {
         this.logger.warn("Account name mismatch", {
@@ -87,7 +96,7 @@ export class BankVerificationService {
           isValid: false,
           accountName: verificationResponse.accountName,
           bankName: bankInfo.name,
-          errorMessage: `Account name mismatch. Expected: ${expectedAccountName}, Found: ${verificationResponse.accountName}`,
+          errorMessage: "Account name mismatch.",
         };
       }
 

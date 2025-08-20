@@ -1,4 +1,5 @@
 import { Decimal } from "decimal.js";
+import { vi } from "vitest";
 import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
@@ -11,8 +12,8 @@ import { BookingStatus } from "../value-objects/booking-status.vo";
 import { BookingType } from "../value-objects/booking-type.vo";
 import { DateRange } from "../value-objects/date-range.vo";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
-import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
 import { BookingLeg } from "./booking-leg.entity";
+import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
 
 describe("Booking Entity", () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -106,7 +107,7 @@ describe("Booking Entity", () => {
    * Creates a cancelled booking.
    */
   const createCancelledBooking = (): Booking => {
-    const booking = createBookingWithId();
+    const booking = createConfirmedBooking();
     booking.cancel("Test reason");
     booking.clearEvents();
     return booking;
@@ -114,7 +115,7 @@ describe("Booking Entity", () => {
 
   // Restores timers after each test to prevent interference
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   // --- Creation ---
@@ -279,8 +280,8 @@ describe("Booking Entity", () => {
   });
 
   describe("Status: Cancel", () => {
-    it("should cancel a pending booking and set the cancellation details", () => {
-      const booking = createBookingWithId();
+    it("should cancel a confirmed booking and set the cancellation details", () => {
+      const booking = createConfirmedBooking();
       booking.cancel("Customer request");
 
       expect(booking.getStatus().isCancelled()).toBeTruthy();
@@ -293,10 +294,22 @@ describe("Booking Entity", () => {
     });
 
     it("should cancel with a default reason", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
       booking.cancel();
 
       expect(booking.getCancellationReason()).toBe("Booking cancelled by customer");
+    });
+
+    it("should throw an error when cancelling a pending booking", () => {
+      const booking = createBookingWithId();
+
+      expect(() => booking.cancel()).toThrow("Cannot cancel booking in PENDING status");
+    });
+
+    it("should throw an error when cancelling an active booking", () => {
+      const booking = createActiveBooking();
+
+      expect(() => booking.cancel()).toThrow("Cannot cancel booking in ACTIVE status");
     });
 
     it("should throw an error when cancelling a completed booking", () => {
@@ -309,7 +322,7 @@ describe("Booking Entity", () => {
 
   describe("Chauffeur Assignment", () => {
     it("should assign a chauffeur and emit an event", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
 
       expect(booking.getChauffeurId()).toBe("chauffeur-456");
@@ -321,7 +334,7 @@ describe("Booking Entity", () => {
     });
 
     it("should not emit an event when assigning the same chauffeur", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
 
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
       booking.clearEvents();
@@ -331,7 +344,7 @@ describe("Booking Entity", () => {
     });
 
     it("should emit an unassignment event when reassigning a chauffeur", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
 
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
       booking.clearEvents();
@@ -340,14 +353,16 @@ describe("Booking Entity", () => {
       const events = booking.getUncommittedEvents();
 
       expect(events).toHaveLength(2);
-      expect(events[1]).toBeInstanceOf(BookingChauffeurUnassignedEvent);
-      expect((events[1] as BookingChauffeurUnassignedEvent).previousChauffeurId).toBe(
+      expect(events[0]).toBeInstanceOf(BookingChauffeurUnassignedEvent);
+      expect((events[0] as BookingChauffeurUnassignedEvent).previousChauffeurId).toBe(
         "chauffeur-456",
       );
+      expect(events[1]).toBeInstanceOf(BookingChauffeurAssignedEvent);
+      expect((events[1] as BookingChauffeurAssignedEvent).chauffeurId).toBe("chauffeur-999");
     });
 
     it("should throw an error when assigning an empty chauffeur ID", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
 
       expect(() => booking.assignChauffeur("", "fleet-owner-789", "admin-123")).toThrow(
         "Chauffeur ID is required",
@@ -355,18 +370,17 @@ describe("Booking Entity", () => {
     });
 
     it("should throw an error when assigning a chauffeur to a completed booking", () => {
-      const booking = createActiveBooking();
-      booking.complete();
+      const booking = createCompletedBooking();
 
       expect(() =>
         booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123"),
-      ).toThrow("Cannot assign chauffeur to completed or cancelled booking");
+      ).toThrow("Cannot assign chauffeur to completed, cancelled or pending booking");
     });
   });
 
   describe("Chauffeur Unassignment", () => {
     const createChauffeurAssignedBooking = () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
 
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
       booking.clearEvents();
@@ -400,7 +414,6 @@ describe("Booking Entity", () => {
     it("should throw an error when unassigning from a completed booking", () => {
       const booking = createChauffeurAssignedBooking();
 
-      booking.confirm();
       booking.activate();
       booking.complete();
 
@@ -411,7 +424,6 @@ describe("Booking Entity", () => {
 
     it("should throw an error when unassigning from an active booking", () => {
       const booking = createChauffeurAssignedBooking();
-      booking.confirm();
       booking.activate();
 
       expect(() => booking.unassignChauffeur("fleet-owner-789", "admin-123")).toThrow(
@@ -437,8 +449,8 @@ describe("Booking Entity", () => {
       const booking = createConfirmedBooking();
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
 
-      jest.useFakeTimers();
-      jest.setSystemTime(validDateRange.startDate.getTime());
+      vi.useFakeTimers();
+      vi.setSystemTime(validDateRange.startDate.getTime());
 
       expect(booking.isEligibleForActivation()).toBeTruthy();
     });
@@ -449,8 +461,8 @@ describe("Booking Entity", () => {
 
       booking.assignChauffeur("chauffeur-456", "fleet-owner-789", "admin-123");
 
-      jest.useFakeTimers();
-      jest.setSystemTime(validDateRange.startDate.getTime() - 1000);
+      vi.useFakeTimers();
+      vi.setSystemTime(validDateRange.startDate.getTime() - 1000);
 
       expect(booking.isEligibleForActivation()).toBeFalsy(); // Before start time
     });
@@ -458,8 +470,8 @@ describe("Booking Entity", () => {
     it("should be eligible for completion when conditions are met", () => {
       const booking = createActiveBooking();
 
-      jest.useFakeTimers();
-      jest.setSystemTime(validDateRange.endDate.getTime());
+      vi.useFakeTimers();
+      vi.setSystemTime(validDateRange.endDate.getTime());
 
       expect(booking.isEligibleForCompletion()).toBeTruthy();
     });
@@ -471,8 +483,8 @@ describe("Booking Entity", () => {
 
       const activeBooking = createActiveBooking();
 
-      jest.useFakeTimers();
-      jest.setSystemTime(validDateRange.endDate.getTime() - 1000);
+      vi.useFakeTimers();
+      vi.setSystemTime(validDateRange.endDate.getTime() - 1000);
 
       expect(activeBooking.isEligibleForCompletion()).toBeFalsy(); // Before end time
     });
@@ -487,32 +499,32 @@ describe("Booking Entity", () => {
       const booking = createConfirmedBooking();
       const twelveHoursInMilliseconds = validDateRange.startDate.getTime() - 12 * 60 * 60 * 1000;
 
-      jest.useFakeTimers();
-      jest.setSystemTime(twelveHoursInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(twelveHoursInMilliseconds);
 
       expect(booking.isEligibleForCancellation()).toBeTruthy();
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("should not be eligible for cancellation 12 hours before start time", () => {
       const booking = createConfirmedBooking();
       const elevenHoursInMilliseconds = validDateRange.startDate.getTime() - 11 * 60 * 60 * 1000;
 
-      jest.useFakeTimers();
-      jest.setSystemTime(elevenHoursInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(elevenHoursInMilliseconds);
 
       expect(booking.isEligibleForCancellation()).toBeFalsy();
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     // is eligible for end reminder
     it("should be eligible for end reminder", () => {
       const booking = createActiveBooking();
       const oneHourBeforeEndInMilliseconds = validDateRange.endDate.getTime() - 1 * 60 * 60 * 1000;
-      jest.useFakeTimers();
-      jest.setSystemTime(oneHourBeforeEndInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(oneHourBeforeEndInMilliseconds);
 
       expect(booking.isEligibleForEndReminder()).toBeTruthy();
     });
@@ -520,8 +532,8 @@ describe("Booking Entity", () => {
     it("should not be eligible for end reminder", () => {
       const booking = createActiveBooking();
       const twoHoursBeforeEndInMilliseconds = validDateRange.endDate.getTime() - 2 * 60 * 60 * 1000;
-      jest.useFakeTimers();
-      jest.setSystemTime(twoHoursBeforeEndInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(twoHoursBeforeEndInMilliseconds);
 
       expect(booking.isEligibleForEndReminder()).toBeFalsy();
     });
@@ -532,8 +544,8 @@ describe("Booking Entity", () => {
       const oneHourBeforeStartInMilliseconds =
         validDateRange.startDate.getTime() - 1 * 60 * 60 * 1000;
 
-      jest.useFakeTimers();
-      jest.setSystemTime(oneHourBeforeStartInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(oneHourBeforeStartInMilliseconds);
 
       expect(booking.isEligibleForStartReminder()).toBeTruthy();
     });
@@ -543,8 +555,8 @@ describe("Booking Entity", () => {
       const twoHoursBeforeStartInMilliseconds =
         validDateRange.startDate.getTime() - 2 * 60 * 60 * 1000;
 
-      jest.useFakeTimers();
-      jest.setSystemTime(twoHoursBeforeStartInMilliseconds);
+      vi.useFakeTimers();
+      vi.setSystemTime(twoHoursBeforeStartInMilliseconds);
 
       expect(booking.isEligibleForStartReminder()).toBeFalsy();
     });
@@ -617,7 +629,7 @@ describe("Booking Entity", () => {
 
   describe("Getters and Properties", () => {
     it("should return all property values correctly", () => {
-      const booking = createBookingWithId();
+      const booking = createConfirmedBooking();
       booking.cancel("Test cancellation");
 
       expect(booking.getId()).toBe("booking-123");

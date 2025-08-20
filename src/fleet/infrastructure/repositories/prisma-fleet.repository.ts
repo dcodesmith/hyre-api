@@ -1,10 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../shared/database/prisma.service";
-import { Car } from "../../domain/entities/car.entity";
 import { Fleet } from "../../domain/entities/fleet.entity";
-import { FleetRepository } from "../../domain/repositories/fleet.repository";
-import { CarApprovalStatus } from "../../domain/value-objects/car-approval-status.vo";
-import { CarStatus } from "../../domain/value-objects/car-status.vo";
+import { FleetRepository, TransactionContext } from "../../domain/repositories/fleet.repository";
 
 @Injectable()
 export class PrismaFleetRepository implements FleetRepository {
@@ -78,6 +76,12 @@ export class PrismaFleetRepository implements FleetRepository {
     return fleet;
   }
 
+  async saveWithTransaction(fleet: Fleet, tx: TransactionContext): Promise<Fleet> {
+    // For now, just return the fleet as-is (same as regular save)
+    // In a real implementation with separate Fleet table, would use tx
+    return fleet;
+  }
+
   async delete(id: string): Promise<void> {
     // Mark fleet as inactive rather than deleting
     await this.prisma.user.update({
@@ -98,11 +102,7 @@ export class PrismaFleetRepository implements FleetRepository {
       },
       include: {
         cars: true,
-        chauffeurs: {
-          select: {
-            id: true,
-          },
-        },
+        chauffeurs: true,
       },
     });
 
@@ -134,39 +134,49 @@ export class PrismaFleetRepository implements FleetRepository {
     return results.map((result) => this.mapToFleet(result));
   }
 
-  private mapToFleet(prismaData: any): Fleet {
-    const cars = prismaData.cars.map((carData: any) => this.mapToCar(carData));
-    const chauffeurIds = prismaData.chauffeurs.map((c: any) => c.id);
+  private mapToFleet(
+    prismaData: Prisma.UserGetPayload<{
+      include: {
+        cars: true;
+        chauffeurs: {
+          select: {
+            id: true;
+          };
+        };
+      };
+    }>,
+  ): Fleet {
+    const chauffeurIds = prismaData.chauffeurs.map(({ id }) => id);
 
     return Fleet.reconstitute(
       prismaData.id,
-      prismaData.id, // Fleet owner is the user
+      prismaData.fleetOwnerId, // Fleet owner is the user
       prismaData.name || "Default Fleet",
-      cars,
       chauffeurIds,
+      true,
       prismaData.createdAt,
       prismaData.updatedAt,
     );
   }
 
-  private mapToCar(prismaCarData: any): Car {
-    return Car.reconstitute(prismaCarData.id, {
-      make: prismaCarData.make,
-      model: prismaCarData.model,
-      year: prismaCarData.year,
-      color: prismaCarData.color,
-      registrationNumber: prismaCarData.registrationNumber,
-      ownerId: prismaCarData.ownerId,
-      dayRate: Number(prismaCarData.dayRate),
-      nightRate: Number(prismaCarData.nightRate),
-      hourlyRate: Number(prismaCarData.hourlyRate),
-      status: CarStatus.create(prismaCarData.status),
-      approvalStatus: CarApprovalStatus.create(prismaCarData.approvalStatus),
-      createdAt: prismaCarData.createdAt,
-      imageUrls: prismaCarData.imageUrls,
-      motCertificateUrl: prismaCarData.motCertificateUrl,
-      insuranceCertificateUrl: prismaCarData.insuranceCertificateUrl,
-      updatedAt: prismaCarData.updatedAt,
-    });
-  }
+  // private mapToCar(prismaCarData: any): Car {
+  //   return Car.reconstitute(prismaCarData.id, {
+  //     make: prismaCarData.make,
+  //     model: prismaCarData.model,
+  //     year: prismaCarData.year,
+  //     color: prismaCarData.color,
+  //     registrationNumber: prismaCarData.registrationNumber,
+  //     ownerId: prismaCarData.ownerId,
+  //     dayRate: Number(prismaCarData.dayRate),
+  //     nightRate: Number(prismaCarData.nightRate),
+  //     hourlyRate: Number(prismaCarData.hourlyRate),
+  //     status: CarStatus.create(prismaCarData.status),
+  //     approvalStatus: CarApprovalStatus.create(prismaCarData.approvalStatus),
+  //     createdAt: prismaCarData.createdAt,
+  //     imageUrls: prismaCarData.imageUrls,
+  //     motCertificateUrl: prismaCarData.motCertificateUrl,
+  //     insuranceCertificateUrl: prismaCarData.insuranceCertificateUrl,
+  //     updatedAt: prismaCarData.updatedAt,
+  //   });
+  // }
 }

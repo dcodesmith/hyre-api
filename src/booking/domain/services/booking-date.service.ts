@@ -52,7 +52,10 @@ export class BookingDateService {
    * Determines if a leg is the last leg of a booking
    */
   isLastLeg(legDate: Date, bookingEndDate: Date): boolean {
-    return isSameDay(legDate, bookingEndDate);
+    const endBoundary = isEqual(bookingEndDate, startOfDay(bookingEndDate))
+      ? addDays(bookingEndDate, -1)
+      : bookingEndDate;
+    return isSameDay(legDate, endBoundary);
   }
 
   /**

@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";
-import { OtpVerificationError } from "../../domain/errors/iam.errors";
+import { ApprovalStatusError, TokenValidationError } from "../../domain/errors/iam.errors";
 import { OtpGeneratedEvent } from "../../domain/events/otp-generated.event";
 import { OtpVerifiedEvent } from "../../domain/events/otp-verified.event";
 import { UserAuthenticatedEvent } from "../../domain/events/user-authenticated.event";
@@ -17,13 +17,13 @@ import { PhoneNumber } from "../../domain/value-objects/phone-number.vo";
 export interface OtpGenerationResponse {
   success: boolean;
   message: string;
-  expiresAt: Date;
+  expiresAt: number;
   phoneNumber: string;
 }
 
 export interface LoginResponse {
   success: boolean;
-  user: {
+  user?: {
     id: string;
     email: string;
     phoneNumber: string;
@@ -38,7 +38,6 @@ export interface LoginResponse {
 
 export interface AuthRequest {
   email: string;
-  role: string;
 }
 
 export interface VerifyOtpRequest {
@@ -120,7 +119,7 @@ export class AuthenticationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<LoginResponse> {
-    this.logger.info("Verifying email OTP", { email: request.email });
+    this.logger.info("Verifying email OTP", { email: request.email, role: request.role });
 
     // Verify OTP first
     const verificationResult = await this.otpAuthenticationService.verifyOtp(
@@ -146,8 +145,22 @@ export class AuthenticationService {
     let isNewUser = false;
 
     if (!user) {
-      // New user - create account with just email (phone number can be added later)
+      // NEW USER - create account based on role
       isNewUser = true;
+
+      // Validate that only customer and fleetOwner can register publicly
+      if (request.role === "staff" || request.role === "chauffeur" || request.role === "admin") {
+        this.logger.warn("Attempted public registration with restricted role", {
+          email: request.email,
+          role: request.role,
+        });
+
+        return {
+          success: false,
+          user: undefined,
+          message: `${request.role} accounts must be created by authorized users`,
+        };
+      }
 
       // Use a placeholder phone number that the user can update later
       const placeholderPhone = PhoneNumber.create("0000000000", "+1");
@@ -159,17 +172,47 @@ export class AuthenticationService {
           placeholderPhone.getFullNumber(),
           undefined, // No name initially - user can add it later
         );
-      } else {
+      } else if (request.role === "customer") {
         user = User.registerAsCustomer(
           request.email,
           placeholderPhone.getFullNumber(),
           undefined, // No name initially - user can add it later
         );
+      } else {
+        // This should never happen due to validation above, but just in case
+        return {
+          success: false,
+          user: undefined,
+          message: "Invalid role for public registration",
+        };
       }
 
       user = await this.userRepository.save(user);
 
       this.logger.info("New user account created", {
+        email: request.email,
+        userId: user.getId(),
+        role: request.role,
+      });
+    } else {
+      // EXISTING USER - validate role matches
+      const userRoles = user.getRoles().map((role) => role.toString());
+
+      if (!userRoles.includes(request.role)) {
+        this.logger.warn("Role mismatch for existing user", {
+          email: request.email,
+          requestedRole: request.role,
+          actualRoles: userRoles,
+        });
+
+        return {
+          success: false,
+          user: undefined,
+          message: `User ${request.email} has role(s) [${userRoles.join(", ")}] but requested role "${request.role}"`,
+        };
+      }
+
+      this.logger.info("Existing user authenticated", {
         email: request.email,
         userId: user.getId(),
         role: request.role,
@@ -206,6 +249,7 @@ export class AuthenticationService {
       {
         email: request.email,
         userId: user.getId(),
+        role: request.role,
       },
     );
 
@@ -216,38 +260,6 @@ export class AuthenticationService {
       message: isNewUser
         ? "Welcome to Hyre! Registration successful"
         : "Welcome back! Login successful",
-    };
-  }
-
-  // Check if user can authenticate
-  async canUserAuthenticate(
-    userId: string,
-  ): Promise<{ canAuthenticate: boolean; reason?: string }> {
-    const user = await this.userRepository.findById(userId);
-
-    if (!user) {
-      return {
-        canAuthenticate: false,
-        reason: "User not found",
-      };
-    }
-
-    if (!user.isApproved()) {
-      return {
-        canAuthenticate: false,
-        reason: "User account is not approved",
-      };
-    }
-
-    if (user.requiresOtpAuthentication()) {
-      return {
-        canAuthenticate: false,
-        reason: "User cannot receive OTP notifications",
-      };
-    }
-
-    return {
-      canAuthenticate: true,
     };
   }
 
@@ -368,13 +380,13 @@ export class AuthenticationService {
     const validation = this.jwtTokenService.validateRefreshToken(refreshToken);
 
     if (!validation.isValid) {
-      throw new OtpVerificationError(`Invalid refresh token: ${validation.error}`);
+      throw new TokenValidationError(`Invalid refresh token: ${validation.error}`);
     }
 
     const user = await this.userRepository.findByIdOrThrow(validation.userId);
 
     if (!user.isApproved()) {
-      throw new OtpVerificationError("User account is not approved");
+      throw new ApprovalStatusError(user.getApprovalStatus().toString(), "refresh token");
     }
 
     return this.jwtTokenService.refreshAccessToken(refreshToken, user);
@@ -407,7 +419,7 @@ export class AuthenticationService {
     const user = await this.userRepository.findByIdOrThrow(userId);
 
     if (!user.isApproved()) {
-      throw new OtpVerificationError("User account is not approved");
+      throw new ApprovalStatusError(user.getApprovalStatus().toString(), "refresh token");
     }
 
     const tokens = this.jwtTokenService.generateTokens(user);

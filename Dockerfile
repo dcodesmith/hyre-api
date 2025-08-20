@@ -16,15 +16,14 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma client and build TypeScript
-RUN npx prisma generate
-RUN pnpm build
+RUN npx prisma generate && pnpm build
 
 # Stage 2: Production stage
 FROM node:18-alpine AS production
 
 WORKDIR /app
 
-RUN corepack enable pnpm
+RUN corepack enable pnpm && apk add --no-cache curl
 
 # Copy package files
 COPY package*.json pnpm-lock.yaml ./
@@ -46,7 +45,8 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+  CMD wget -qO- http://localhost:3000/health > /dev/null || exit 1
+
 
 # Run the worker
 CMD ["pnpm", "start"]

@@ -32,7 +32,7 @@ export class PhoneNumber extends ValueObject<PhoneNumberProps> {
     const cleanedCountryCode = countryCode.startsWith("+") ? countryCode : `+${countryCode}`;
 
     // Validate phone number format (Nigerian format as default)
-    if (countryCode === "+234" && !PhoneNumber.isValidNigerianNumber(cleanedPhone)) {
+    if (cleanedCountryCode === "+234" && !PhoneNumber.isValidNigerianNumber(cleanedPhone)) {
       throw new Error("Invalid Nigerian phone number format");
     }
 
@@ -45,8 +45,8 @@ export class PhoneNumber extends ValueObject<PhoneNumberProps> {
   private static isValidNigerianNumber(phoneNumber: string): boolean {
     // Nigerian numbers: 11 digits starting with 0, or 10 digits without 0
     const patterns = [
-      /^0[789][01]\d{8}$/, // 11 digits starting with 0
-      /^[789][01]\d{7}$/, // 10 digits without 0
+      /^0\d{10}$/, // 11 digits, local format with leading 0
+      /^\d{10}$/, // 10 digits, local format without leading 0
     ];
 
     return patterns.some((pattern) => pattern.test(phoneNumber));

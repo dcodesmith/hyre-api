@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";
 import { UserRepository } from "../../domain/repositories/user.repository";
-import { RoleAuthorizationService } from "../../domain/services/role-authorization.service";
 import { UserRegistrationService } from "../../domain/services/user-registration.service";
 import {
   AddChauffeurDto,
@@ -12,20 +12,22 @@ import {
   RegisterFleetOwnerDto,
   UserRegistrationResponseDto,
 } from "../../presentation/dto";
+import { BaseIamApplicationService } from "./base-iam-application.service";
 
 /**
  * Application service responsible for user registration operations
  * Following SRP - focused only on user registration and creation
  */
 @Injectable()
-export class UserRegistrationApplicationService {
+export class UserRegistrationApplicationService extends BaseIamApplicationService {
   constructor(
-    @Inject("UserRepository") private readonly userRepository: UserRepository,
+    @Inject("UserRepository") userRepository: UserRepository,
+    domainEventPublisher: DomainEventPublisher,
+    prisma: PrismaService,
     private readonly userRegistrationService: UserRegistrationService,
-    private readonly roleAuthorizationService: RoleAuthorizationService,
-    private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
   ) {
+    super(userRepository, domainEventPublisher, prisma);
     this.logger.setContext(UserRegistrationApplicationService.name);
   }
 
@@ -43,9 +45,8 @@ export class UserRegistrationApplicationService {
       name: dto.name,
     });
 
-    // Save and publish events
-    await this.userRepository.save(user);
-    await this.domainEventPublisher.publish(user);
+    // Save and publish events atomically using transactional pattern
+    await this.saveUserAndPublishEvents(user);
 
     this.logger.info("Customer registered successfully", { userId: user.getId() });
 
@@ -68,9 +69,8 @@ export class UserRegistrationApplicationService {
       city: dto.city,
     });
 
-    // Save and publish events
-    await this.userRepository.save(user);
-    await this.domainEventPublisher.publish(user);
+    // Save and publish events atomically using transactional pattern
+    await this.saveUserAndPublishEvents(user);
 
     this.logger.info("Fleet owner registered successfully", { userId: user.getId() });
 
@@ -86,9 +86,7 @@ export class UserRegistrationApplicationService {
       phoneNumber: dto.phoneNumber,
     });
 
-    // Validate fleet owner authorization
     const fleetOwner = await this.userRepository.findByIdOrThrow(fleetOwnerId);
-    this.roleAuthorizationService.requireAuthorization(fleetOwner, "add_chauffeur");
 
     // Create chauffeur using domain service
     const chauffeur = await this.userRegistrationService.createChauffeur({
@@ -99,9 +97,8 @@ export class UserRegistrationApplicationService {
       name: dto.name,
     });
 
-    // Save and publish events
-    await this.userRepository.save(chauffeur);
-    await this.domainEventPublisher.publish(chauffeur);
+    // Save and publish events atomically using transactional pattern
+    await this.saveUserAndPublishEvents(chauffeur);
 
     this.logger.info("Chauffeur added successfully", {
       chauffeurId: chauffeur.getId(),
@@ -126,9 +123,8 @@ export class UserRegistrationApplicationService {
       name: dto.name,
     });
 
-    // Save and publish events
-    const savedUser = await this.userRepository.save(user);
-    await this.domainEventPublisher.publish(savedUser);
+    // Save and publish events atomically using transactional pattern
+    const savedUser = await this.saveUserAndPublishEvents(user);
 
     this.logger.info("Staff member created successfully", {
       staffId: savedUser.getId(),
@@ -148,4 +144,5 @@ export class UserRegistrationApplicationService {
       approvalStatus: user.getApprovalStatus().toString(),
     };
   }
+
 }

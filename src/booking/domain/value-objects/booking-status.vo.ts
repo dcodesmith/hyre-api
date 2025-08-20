@@ -68,13 +68,9 @@ export class BookingStatus extends ValueObject<BookingStatusProps> {
 
   public canTransitionTo(newStatus: BookingStatus): boolean {
     const validTransitions: Record<BookingStatusEnum, BookingStatusEnum[]> = {
-      [BookingStatusEnum.PENDING]: [
-        BookingStatusEnum.CONFIRMED,
-        BookingStatusEnum.CANCELLED,
-        BookingStatusEnum.REJECTED,
-      ],
+      [BookingStatusEnum.PENDING]: [BookingStatusEnum.CONFIRMED, BookingStatusEnum.REJECTED],
       [BookingStatusEnum.CONFIRMED]: [BookingStatusEnum.ACTIVE, BookingStatusEnum.CANCELLED],
-      [BookingStatusEnum.ACTIVE]: [BookingStatusEnum.COMPLETED, BookingStatusEnum.CANCELLED],
+      [BookingStatusEnum.ACTIVE]: [BookingStatusEnum.COMPLETED],
       [BookingStatusEnum.COMPLETED]: [],
       [BookingStatusEnum.CANCELLED]: [],
       [BookingStatusEnum.REJECTED]: [],
@@ -84,7 +80,7 @@ export class BookingStatus extends ValueObject<BookingStatusProps> {
   }
 
   public canBeCancelled(): boolean {
-    return this.isCompleted() || this.isActive() || this.isCancelled();
+    return this.isCompleted();
   }
 
   toString(): string {

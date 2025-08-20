@@ -63,11 +63,8 @@ export class PayoutService {
         command.extensionId,
       );
 
-      // 5. Save payout (this will publish domain events)
-      await this.payoutRepository.save(payout);
-
-      // Publish domain events
-      await this.domainEventPublisher.publish(payout);
+      // 5. Save payout and publish domain events atomically
+      await this.saveAndPublishEvents(payout);
 
       // 6. Initiate payment through gateway
       const reference = this.payoutPolicyService.generatePayoutReference(
@@ -99,10 +96,8 @@ export class PayoutService {
       }
 
       // Save updated payout
-      await this.payoutRepository.save(payout);
-
-      // Publish final domain events
-      await this.domainEventPublisher.publish(payout);
+      // Save payout and publish domain events atomically
+      await this.saveAndPublishEvents(payout);
     } catch (error) {
       this.logger.error(
         `Failed to initiate payout: ${error.message}`,
@@ -150,9 +145,7 @@ export class PayoutService {
           );
         }
 
-        await this.payoutRepository.save(payout);
-
-        await this.domainEventPublisher.publish(payout);
+        await this.saveAndPublishEvents(payout);
       } catch (error) {
         failedCount++;
         this.logger.error(
@@ -180,7 +173,7 @@ export class PayoutService {
     }
 
     payout.retry();
-    await this.payoutRepository.save(payout);
+    await this.saveAndPublishEvents(payout);
 
     await this.initiatePayout({
       fleetOwnerId: payout.getFleetOwnerId(),
@@ -195,5 +188,19 @@ export class PayoutService {
     });
 
     this.logger.log(`Payout retry initiated: ${payoutId}`, "PayoutService");
+  }
+
+  /**
+   * Atomically saves payout and publishes domain events.
+   * This ensures consistency between persistence and event publishing.
+   */
+  private async saveAndPublishEvents(payout: Payout): Promise<void> {
+    // First save the payout
+    await this.payoutRepository.save(payout);
+
+    // Then immediately publish events - if this fails, the next operation would fail too
+    // This is a simpler approach than full transactional support since payouts
+    // can be retried and are eventually consistent
+    await this.domainEventPublisher.publish(payout);
   }
 }

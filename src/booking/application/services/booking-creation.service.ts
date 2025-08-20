@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { UserRepository } from "../../../iam/domain/repositories/user.repository";
+import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingCarDto } from "../../domain/dtos/car.dto";
@@ -34,6 +35,7 @@ export class BookingCreationService {
     @Inject("BookingRepository") private readonly bookingRepository: BookingRepository,
     @Inject("CarRepository") private readonly carRepository: CarRepository,
     @Inject("UserRepository") private readonly userRepository: UserRepository,
+    private readonly prisma: PrismaService,
     private readonly bookingDomainService: BookingDomainService,
     private readonly bookingTimeProcessor: BookingTimeProcessorService,
     private readonly bookingAmountVerifier: BookingAmountVerifierService,
@@ -197,14 +199,28 @@ export class BookingCreationService {
   }
 
   private async saveBookingAndPublishEvents(booking: Booking): Promise<Booking> {
-    const savedBooking = await this.bookingRepository.save(booking);
+    // Collect events to publish after transaction commits
+    const eventsToPublish: Booking[] = [];
 
-    // If this is a new booking (no ID before save), mark it as created to trigger domain events
-    if (!booking.getId() && savedBooking.getId()) {
-      savedBooking.markAsCreated();
+    // Use transaction to ensure atomicity of booking save and event preparation
+    const savedBooking = await this.prisma.$transaction(async (tx) => {
+      // Save booking within transaction
+      const saved = await this.bookingRepository.saveWithTransaction(booking, tx);
+
+      // If this is a new booking, mark it as created to trigger domain events
+      if (!booking.getId() && saved.getId()) {
+        saved.markAsCreated();
+        eventsToPublish.push(saved); // Prepare for event publishing
+      }
+
+      return saved;
+    });
+
+    // After transaction commits successfully, publish events
+    for (const bookingWithEvents of eventsToPublish) {
+      await this.domainEventPublisher.publish(bookingWithEvents);
     }
 
-    await this.domainEventPublisher.publish(savedBooking);
     return savedBooking;
   }
 }

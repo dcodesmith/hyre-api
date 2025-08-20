@@ -3,8 +3,8 @@ import { validateAmount } from "../../../shared/domain/value-objects/validation-
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 export interface BookingLegProps {
-  id: string;
-  bookingId: string;
+  id?: string; // Optional - DB will assign
+  bookingId?: string; // Optional - will be set during persistence
   legDate: Date;
   legStartTime: Date;
   legEndTime: Date;
@@ -15,7 +15,6 @@ export interface BookingLegProps {
 }
 
 export interface CreateBookingLegParams {
-  bookingId: string;
   legDate: Date;
   legStartTime: Date;
   legEndTime: Date;
@@ -27,7 +26,8 @@ export interface CreateBookingLegParams {
 
 export class BookingLeg extends Entity<string> {
   private constructor(private readonly props: BookingLegProps) {
-    super(props.id);
+    // Use temporary ID for Entity base class, will be replaced by DB
+    super(props.id || generateSecureRandomId());
   }
 
   public static create(params: CreateBookingLegParams): BookingLeg {
@@ -40,15 +40,14 @@ export class BookingLeg extends Entity<string> {
     validateAmount(params.itemsNetValueForLeg);
     validateAmount(params.fleetOwnerEarningForLeg);
 
-    const id = generateSecureRandomId();
-
-    return new BookingLeg({
-      id,
-      ...params,
-    });
+    return new BookingLeg({ ...params });
   }
 
   public static reconstitute(props: BookingLegProps): BookingLeg {
+    // For reconstitution, both id and bookingId must be present
+    if (!props.id || !props.bookingId) {
+      throw new Error("ID and bookingId are required for reconstitution");
+    }
     return new BookingLeg(props);
   }
 
@@ -83,7 +82,7 @@ export class BookingLeg extends Entity<string> {
   }
 
   // Getters
-  public getBookingId(): string {
+  public getBookingId(): string | undefined {
     return this.props.bookingId;
   }
 

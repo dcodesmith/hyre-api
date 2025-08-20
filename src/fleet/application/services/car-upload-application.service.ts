@@ -58,7 +58,7 @@ export class CarUploadApplicationService {
         dayRate: validatedData.dayRate,
         nightRate: validatedData.nightRate,
         hourlyRate: validatedData.hourlyRate,
-        images: validatedData.images.map((file) => ({
+        images: (validatedData.images ?? []).map((file) => ({
           fileName: file.originalname,
           contentType: file.mimetype,
           buffer: file.buffer,

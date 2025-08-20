@@ -2,6 +2,11 @@ import { Car } from "../entities/car.entity";
 import { CarApprovalStatus } from "../value-objects/car-approval-status.vo";
 import { CarStatus } from "../value-objects/car-status.vo";
 
+// Transaction context type - using Prisma's transaction client type
+export type TransactionContext = Parameters<
+  Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]
+>[0];
+
 export interface CarSearchCriteria {
   ownerId?: string;
   status?: CarStatus;

@@ -26,7 +26,7 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
   async validateChauffeurExists(chauffeurId: string): Promise<boolean> {
     try {
       const chauffeur = await this.userRepository.findById(chauffeurId);
-      return chauffeur?.isChauffeur();
+      return !!chauffeur?.isChauffeur();
     } catch {
       return false;
     }

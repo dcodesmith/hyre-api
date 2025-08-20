@@ -9,7 +9,7 @@ export class OtpGeneratedEvent extends DomainEvent {
     public readonly email: string,
     public readonly phoneNumber: string,
     public readonly otpType: "registration" | "login",
-    public readonly expiresAt: Date,
+    public readonly expiresAt: number,
   ) {
     super(aggregateId);
   }

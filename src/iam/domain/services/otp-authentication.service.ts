@@ -5,7 +5,7 @@ import { User } from "../entities/user.entity";
 
 export interface OtpGenerationResult {
   otpCode: string;
-  expiresAt: Date;
+  expiresAt: number;
   phoneNumber?: string;
   email?: string;
   deliveryMethod: "sms" | "email";
@@ -18,7 +18,7 @@ export interface OtpVerificationResult {
 
 interface OtpData {
   code: string;
-  expiresAt: Date;
+  expiresAt: number;
   attempts: number;
   deliveryMethod: "sms" | "email";
 }
@@ -32,7 +32,7 @@ export class OtpAuthenticationService {
 
   async generateOtp(email: string): Promise<OtpGenerationResult> {
     const otpCode = this.generateOtpCode();
-    const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000;
     const key = this.getEmailOtpKey(email);
 
     const otpData: OtpData = {
@@ -75,7 +75,7 @@ export class OtpAuthenticationService {
     const storedOtp: OtpData = JSON.parse(storedOtpJson);
 
     // Check if OTP has expired
-    if (new Date() > storedOtp.expiresAt) {
+    if (Date.now() > storedOtp.expiresAt) {
       await this.redisService.del(key);
       return {
         isValid: false,
@@ -98,7 +98,19 @@ export class OtpAuthenticationService {
     // Verify OTP code
     if (storedOtp.code !== providedOtp) {
       // Update attempts in Redis
-      await this.redisService.setex(key, this.OTP_EXPIRY_MINUTES * 60, JSON.stringify(storedOtp));
+      // await this.redisService.setex(key, this.OTP_EXPIRY_MINUTES * 60, JSON.stringify(storedOtp));
+
+      // Do not refresh OTP expiry on failed attempts
+
+      // Using setex with the full TTL here extends the OTP lifetime on every failure, enabling brute-force window extension.
+      // Preserve the original expiry by reusing remaining TTL computed from storedOtp.expiresAt.
+
+      // Update attempts in Redis without extending original expiry
+      const remainingTtlSeconds = Math.max(
+        1,
+        Math.floor((storedOtp.expiresAt - Date.now()) / 1000),
+      );
+      await this.redisService.setex(key, remainingTtlSeconds, JSON.stringify(storedOtp));
 
       return {
         isValid: false,
@@ -112,14 +124,6 @@ export class OtpAuthenticationService {
     return {
       isValid: true,
     };
-  }
-
-  canUserUseOtpAuth(user: User): boolean {
-    return user.requiresOtpAuthentication();
-  }
-
-  isOtpRequired(user: User): boolean {
-    return user.requiresOtpAuthentication();
   }
 
   // Utility methods
@@ -144,15 +148,15 @@ export class OtpAuthenticationService {
     }
 
     const storedOtp: OtpData = JSON.parse(storedOtpJson);
-    return new Date() <= storedOtp.expiresAt && storedOtp.attempts < this.MAX_ATTEMPTS;
+    return Date.now() <= storedOtp.expiresAt && storedOtp.attempts < this.MAX_ATTEMPTS;
   }
 
-  async getOtpExpiryTime(email: string): Promise<Date | null> {
+  async getOtpExpiryTime(email: string): Promise<number | null> {
     const key = this.getEmailOtpKey(email);
     return this.getOtpExpiryTimeByKey(key);
   }
 
-  private async getOtpExpiryTimeByKey(key: string): Promise<Date | null> {
+  private async getOtpExpiryTimeByKey(key: string): Promise<number | null> {
     const storedOtpJson = await this.redisService.get(key);
     if (!storedOtpJson) return null;
 
@@ -192,7 +196,7 @@ export class OtpAuthenticationService {
     const storedOtp: OtpData = JSON.parse(storedOtpJson);
 
     // Check if OTP has expired
-    if (new Date() > storedOtp.expiresAt) {
+    if (Date.now() > storedOtp.expiresAt) {
       await this.redisService.del(key);
       return null;
     }
@@ -211,7 +215,7 @@ export class OtpAuthenticationService {
       const storedOtpJson = await this.redisService.get(key);
       if (storedOtpJson) {
         const storedOtp: OtpData = JSON.parse(storedOtpJson);
-        if (new Date() > storedOtp.expiresAt) {
+        if (Date.now() > storedOtp.expiresAt) {
           await this.redisService.del(key);
         }
       }

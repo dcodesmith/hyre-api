@@ -1,7 +1,7 @@
 import { Process, Processor } from "@nestjs/bull";
 import { Injectable } from "@nestjs/common";
 import { Job } from "bull";
-import { BookingApplicationService } from "../../../booking/application/services/booking-appication.service";
+import { BookingApplicationService } from "../../../booking/application/services/booking-application.service";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { StatusUpdateJobData } from "../../application/services/scheduler.service";
 

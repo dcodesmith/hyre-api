@@ -17,7 +17,7 @@ import { BookingCompletedHandler } from "./application/event-handlers/booking-co
 import { BookingCreatedHandler } from "./application/event-handlers/booking-created.handler";
 import { BookingPaymentConfirmedHandler } from "./application/event-handlers/booking-payment-confirmed.handler";
 import { PaymentVerificationCompletedHandler } from "./application/event-handlers/payment-verification-completed.handler";
-import { BookingApplicationService } from "./application/services/booking-appication.service";
+import { BookingApplicationService } from "./application/services/booking-application.service";
 import { BookingCreationService } from "./application/services/booking-creation.service";
 import { BookingLifecycleService } from "./application/services/booking-lifecycle.service";
 import { BookingPaymentService } from "./application/services/booking-payment.service";

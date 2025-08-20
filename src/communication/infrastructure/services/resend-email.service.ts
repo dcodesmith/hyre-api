@@ -57,15 +57,12 @@ export class ResendEmailService extends EmailService {
         messageId: data?.id,
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to send email: ${error.message}`,
-        error.stack,
-        "ResendEmailService",
-      );
-
+      const msg = error instanceof Error ? error.message : JSON.stringify(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to send email: ${msg}`, stack, "ResendEmailService");
       return {
         success: false,
-        error: error.message,
+        error: msg,
       };
     }
   }

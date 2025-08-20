@@ -191,8 +191,8 @@ export class SessionCleanupService {
 
         for (const key of keys) {
           const ttl = await this.redisService.ttl(key);
-          if (ttl === -1 || ttl === 0) {
-            // No TTL or expired
+          if (ttl === 0) {
+            // Expired
             await this.redisService.del(key);
             totalCleaned++;
           }

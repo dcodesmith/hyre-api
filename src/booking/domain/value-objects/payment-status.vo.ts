@@ -22,6 +22,11 @@ export class PaymentStatus extends ValueObject<PaymentStatusType> {
   }
 
   public static create(status: string): PaymentStatus {
+    if (typeof status !== "string" || status.trim() === "") {
+      // Ensure deterministic error messaging even for non-string inputs
+      throw new InvalidPaymentStatusError(String(status));
+    }
+
     const normalizedStatus = status.toUpperCase() as PaymentStatusType;
 
     switch (normalizedStatus) {

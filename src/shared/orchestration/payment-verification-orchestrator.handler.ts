@@ -1,5 +1,5 @@
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { BookingApplicationService } from "../../booking/application/services/booking-appication.service";
+import { BookingApplicationService } from "../../booking/application/services/booking-application.service";
 import { PaymentVerificationCompletedEvent } from "../../payment/domain/events/payment-verification-completed.event";
 import { LoggerService } from "../logging/logger.service";
 

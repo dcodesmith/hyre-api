@@ -6,6 +6,7 @@ import {
   CarRates,
   CarRepository,
   CarSearchCriteria,
+  TransactionContext,
 } from "../../domain/repositories/car.repository";
 import { CarApprovalStatus } from "../../domain/value-objects/car-approval-status.vo";
 import { CarStatus } from "../../domain/value-objects/car-status.vo";
@@ -144,7 +145,7 @@ export class CachedFleetCarRepository implements CarRepository {
       const keys = [this.AVAILABLE_CARS_KEY, this.PENDING_CARS_KEY];
 
       // Also invalidate search caches
-      const searchKeys = await this.redis.keys(`${this.SEARCH_KEY_PREFIX}:*`);
+      const searchKeys = await this.redis.scanKeys(`${this.SEARCH_KEY_PREFIX}:*`);
       keys.push(...searchKeys);
 
       if (keys.length > 0) {

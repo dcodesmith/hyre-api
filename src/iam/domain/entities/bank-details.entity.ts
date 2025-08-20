@@ -51,7 +51,7 @@ export class BankDetails extends AggregateRoot {
   }
 
   // Getters
-  public getId(): string {
+  public getId(): string | undefined {
     return this.props.id;
   }
 
@@ -152,10 +152,12 @@ export class BankDetails extends AggregateRoot {
     isVerified: boolean;
     lastVerifiedAt?: Date;
   } {
+    const maskedAccountNumber = this.props.accountNumber.replace(/\d(?=\d{4})/g, "*");
+
     return {
       id: this.props.id,
       bankName: this.props.bankName,
-      accountNumber: this.props.accountNumber,
+      accountNumber: maskedAccountNumber,
       isVerified: this.props.isVerified,
       lastVerifiedAt: this.props.lastVerifiedAt,
     };

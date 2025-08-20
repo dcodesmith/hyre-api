@@ -22,7 +22,7 @@ export interface GenerateTokenOptions {
 export interface TokenPair {
   accessToken: string;
   refreshToken?: string;
-  expiresAt: Date;
+  expiresAt: number;
 }
 
 export interface TokenValidationResult {
@@ -272,14 +272,19 @@ export class JwtTokenService {
     };
   }
 
-  private calculateExpirationDate(expiresIn: string | number): Date {
+  private calculateExpirationDate(expiresIn: string | number): number {
     if (typeof expiresIn === "number") {
-      return new Date(Date.now() + expiresIn * 1000);
+      return Date.now() + expiresIn * 1000;
     }
 
     // Parse string format like "15m", "1h", "7d"
     const unit = expiresIn.slice(-1);
     const value = Number.parseInt(expiresIn.slice(0, -1));
+
+    // Fallback for invalid values
+    if (!Number.isFinite(value) || value <= 0) {
+      return Date.now() + 15 * 60 * 1000; // 15 minutes
+    }
 
     let milliseconds = 0;
     switch (unit) {
@@ -299,6 +304,6 @@ export class JwtTokenService {
         milliseconds = 15 * 60 * 1000; // Default to 15 minutes
     }
 
-    return new Date(Date.now() + milliseconds);
+    return Date.now() + milliseconds;
   }
 }

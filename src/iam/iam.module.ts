@@ -9,7 +9,6 @@ import { ChauffeurAddedHandler } from "./application/event-handlers/chauffeur-ad
 import { FleetOwnerApprovedHandler } from "./application/event-handlers/fleet-owner-approved.handler";
 import { UserRegisteredHandler } from "./application/event-handlers/user-registered.handler";
 import { AuthenticationService } from "./application/services/authentication.service";
-import { AuthorizationService } from "./application/services/authorization.service";
 // Application Services
 import { ChauffeurManagementApplicationService } from "./application/services/chauffeur-management-application.service";
 import { OnboardingApplicationService } from "./application/services/onboarding-application.service";
@@ -19,14 +18,12 @@ import { UserProfileApplicationService } from "./application/services/user-profi
 import { UserRegistrationApplicationService } from "./application/services/user-registration-application.service";
 import { ApprovalWorkflowService } from "./domain/services/approval-workflow.service";
 import { BankVerificationService } from "./domain/services/bank-verification.service";
-import { BookingAuthorizationService } from "./domain/services/booking-authorization.service";
 import { FleetAuthorizationService } from "./domain/services/fleet-authorization.service";
 import { JwtTokenService } from "./domain/services/jwt-token.service";
 import { OtpAuthenticationService } from "./domain/services/otp-authentication.service";
 import { RoleAuthorizationService } from "./domain/services/role-authorization.service";
 import { SessionCleanupService } from "./domain/services/session-cleanup.service";
 import { TokenBlacklistService } from "./domain/services/token-blacklist.service";
-import { UserManagementAuthorizationService } from "./domain/services/user-management-authorization.service";
 import { UserRegistrationService } from "./domain/services/user-registration.service";
 import { JwtAuthGuard } from "./infrastructure/guards/jwt-auth.guard";
 import { RolesGuard } from "./infrastructure/guards/roles.guard";
@@ -47,7 +44,6 @@ const applicationServices = [
 
   // Other application services
   AuthenticationService,
-  AuthorizationService,
   OnboardingApplicationService,
 ];
 
@@ -56,10 +52,8 @@ const domainServices = [
   // Main orchestrator authorization service
   RoleAuthorizationService,
 
-  // Granular authorization services
-  BookingAuthorizationService,
+  // Granular authorization services (only what's still needed)
   FleetAuthorizationService,
-  UserManagementAuthorizationService,
 
   // Other domain services
   UserRegistrationService,

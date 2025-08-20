@@ -76,10 +76,6 @@ export class UserRole extends ValueObject<UserRoleProps> {
     return [UserRoleEnum.fleetOwner, UserRoleEnum.chauffeur].includes(this.props.value);
   }
 
-  public usesOtpAuth(): boolean {
-    return this.props.value !== UserRoleEnum.admin;
-  }
-
   public canAccessAdminPanel(): boolean {
     return [UserRoleEnum.admin, UserRoleEnum.staff].includes(this.props.value);
   }

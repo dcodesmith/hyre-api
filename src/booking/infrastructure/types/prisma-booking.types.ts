@@ -45,7 +45,7 @@ export function getMissingFinancialFields(booking: PrismaBookingFinancials): str
   const fields = [
     { name: "totalAmount", value: booking.totalAmount },
     { name: "netTotal", value: booking.netTotal },
-    { name: "platformServiceFeeAmount", value: booking.platformCustomerServiceFeeAmount },
+    { name: "platformCustomerServiceFeeAmount", value: booking.platformCustomerServiceFeeAmount },
     { name: "vatAmount", value: booking.vatAmount },
     { name: "fleetOwnerPayoutAmountNet", value: booking.fleetOwnerPayoutAmountNet },
   ];

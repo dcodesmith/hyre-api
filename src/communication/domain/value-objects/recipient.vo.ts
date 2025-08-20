@@ -46,7 +46,7 @@ export class Recipient extends ValueObject<RecipientProps> {
     email?: string,
     phoneNumber?: string,
   ): Recipient {
-    if (!id || id.trim().length === 0) {
+    if (!id || id?.trim()?.length === 0) {
       throw new Error("Recipient ID cannot be empty");
     }
 

@@ -2,6 +2,9 @@ import { User } from "../entities/user.entity";
 import { ApprovalStatus } from "../value-objects/approval-status.vo";
 import { UserRole } from "../value-objects/user-role.vo";
 
+// Transaction context type - using Prisma's transaction client type
+export type TransactionContext = Parameters<Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]>[0];
+
 export interface UserSearchFilters {
   role?: UserRole;
   approvalStatus?: ApprovalStatus;
@@ -28,6 +31,7 @@ export interface UserListResult {
 export interface UserRepository {
   // Basic CRUD operations
   save(user: User): Promise<User>;
+  saveWithTransaction(user: User, tx: TransactionContext): Promise<User>;
   findById(id: string): Promise<User | null>;
   findByIdOrThrow(id: string): Promise<User>;
   delete(id: string): Promise<void>;

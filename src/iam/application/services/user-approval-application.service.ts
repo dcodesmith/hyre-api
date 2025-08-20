@@ -1,9 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { UserRepository } from "../../domain/repositories/user.repository";
 import { ApprovalWorkflowService } from "../../domain/services/approval-workflow.service";
-import { RoleAuthorizationService } from "../../domain/services/role-authorization.service";
+import { BaseIamApplicationService } from "./base-iam-application.service";
 
 export interface UserApprovalResponse {
   userId: string;
@@ -32,14 +33,15 @@ export interface UserSearchResponse {
  * Following SRP - focused only on user approval and rejection processes
  */
 @Injectable()
-export class UserApprovalApplicationService {
+export class UserApprovalApplicationService extends BaseIamApplicationService {
   constructor(
-    @Inject("UserRepository") private readonly userRepository: UserRepository,
-    private readonly roleAuthorizationService: RoleAuthorizationService,
+    @Inject("UserRepository") userRepository: UserRepository,
+    domainEventPublisher: DomainEventPublisher,
+    prisma: PrismaService,
     private readonly approvalWorkflowService: ApprovalWorkflowService,
-    private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
   ) {
+    super(userRepository, domainEventPublisher, prisma);
     this.logger.setContext(UserApprovalApplicationService.name);
   }
 
@@ -54,15 +56,6 @@ export class UserApprovalApplicationService {
     const user = await this.userRepository.findByIdOrThrow(userId);
     const approver = await this.userRepository.findByIdOrThrow(approvedBy);
 
-    // Validate authorization
-    this.roleAuthorizationService.requireAuthorization(
-      approver,
-      "approve_user",
-      undefined,
-      undefined,
-      { targetUserRole: user.getPrimaryRole().toString() },
-    );
-
     // Process approval through domain service
     const result = this.approvalWorkflowService.processApprovalDecision(
       user,
@@ -74,9 +67,8 @@ export class UserApprovalApplicationService {
       approver,
     );
 
-    // Save and publish events
-    await this.userRepository.save(user);
-    await this.domainEventPublisher.publish(user);
+    // Save and publish events atomically
+    await this.saveUserAndPublishEvents(user);
 
     this.logger.info("User approved successfully", {
       userId,
@@ -100,15 +92,6 @@ export class UserApprovalApplicationService {
     const user = await this.userRepository.findByIdOrThrow(userId);
     const rejector = await this.userRepository.findByIdOrThrow(rejectedBy);
 
-    // Validate authorization
-    this.roleAuthorizationService.requireAuthorization(
-      rejector,
-      "approve_user",
-      undefined,
-      undefined,
-      { targetUserRole: user.getPrimaryRole().toString() },
-    );
-
     // Process rejection through domain service
     const result = this.approvalWorkflowService.processApprovalDecision(
       user,
@@ -120,9 +103,8 @@ export class UserApprovalApplicationService {
       rejector,
     );
 
-    // Save and publish events
-    await this.userRepository.save(user);
-    await this.domainEventPublisher.publish(user);
+    // Save and publish events atomically
+    await this.saveUserAndPublishEvents(user);
 
     this.logger.info("User rejected", { userId, rejectedBy });
 
@@ -137,9 +119,6 @@ export class UserApprovalApplicationService {
     requesterId: string,
     options: { page?: number; limit?: number } = {},
   ): Promise<UserSearchResponse> {
-    const requester = await this.userRepository.findByIdOrThrow(requesterId);
-    this.roleAuthorizationService.requireAuthorization(requester, "approve_user");
-
     const result = await this.userRepository.findPendingApprovals(undefined, {
       page: options.page || 1,
       limit: options.limit || 20,
@@ -163,4 +142,5 @@ export class UserApprovalApplicationService {
       totalPages: result.totalPages,
     };
   }
+
 }

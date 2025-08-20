@@ -55,7 +55,7 @@ export class TokenBlacklistService {
    */
   async getBlacklistCount(): Promise<number> {
     const pattern = `${this.BLACKLIST_KEY_PREFIX}*`;
-    const keys = await this.redisService.keys(pattern);
+    const keys = await this.redisService.scanKeys(pattern);
     return keys.length;
   }
 
@@ -64,12 +64,12 @@ export class TokenBlacklistService {
    */
   async cleanupExpiredTokens(): Promise<number> {
     const pattern = `${this.BLACKLIST_KEY_PREFIX}*`;
-    const keys = await this.redisService.keys(pattern);
+    const keys = await this.redisService.scanKeys(pattern);
 
     let deletedCount = 0;
     for (const key of keys) {
       const ttl = await this.redisService.ttl(key);
-      if (ttl === -1 || ttl === 0) {
+      if (ttl === -1 || ttl === 0 || ttl === -2) {
         // No TTL set or expired
         await this.redisService.del(key);
         deletedCount++;

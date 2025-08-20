@@ -98,8 +98,7 @@ export class FleetApplicationService {
       car.updateStatus(CarStatus.create(dto.status));
     }
 
-    const updatedCar = await this.carRepository.save(car);
-    await this.publishDomainEvents(updatedCar);
+    const updatedCar = await this.saveAndPublishEvents(car);
 
     return this.mapCarToSummary(updatedCar);
   }
@@ -177,7 +176,7 @@ export class FleetApplicationService {
     const cars = await this.carRepository.findByOwnerId(fleet.getOwnerId());
 
     return {
-      id: fleet.getOwnerId(),
+      id: fleet.getId(),
       name: fleet.getName(),
       ownerId: fleet.getOwnerId(),
       carCount: cars.length,
@@ -205,6 +204,16 @@ export class FleetApplicationService {
       displayName: car.getDisplayName(),
       createdAt: car.getCreatedAt(),
     };
+  }
+
+  private async saveAndPublishEvents(car: Car): Promise<Car> {
+    // Save car first
+    const savedCar = await this.carRepository.save(car);
+
+    // Then immediately publish events
+    await this.domainEventPublisher.publish(savedCar);
+
+    return savedCar;
   }
 
   private async publishDomainEvents(aggregate: Fleet | Car): Promise<void> {

@@ -89,6 +89,17 @@ export class Booking extends AggregateRoot {
     return new Booking(props);
   }
 
+  // Enforce presence of ID before emitting any domain event
+  private requireId(): string {
+    const id = this.props.id;
+    if (!id) {
+      throw new Error(
+        "Aggregate ID is required for emitting domain events. Persist the Booking first.",
+      );
+    }
+    return id;
+  }
+
   /**
    * Adds the booking created domain event after the booking has been persisted and has an ID
    * This should be called after the booking is saved to the database
@@ -122,7 +133,7 @@ export class Booking extends AggregateRoot {
 
     this.addDomainEvent(
       new BookingConfirmedEvent(
-        this.getId(),
+        this.requireId(),
         this.props.bookingReference,
         this.props.customerId,
         this.props.chauffeurId,
@@ -157,7 +168,6 @@ export class Booking extends AggregateRoot {
         this.props.bookingReference,
         this.props.customerId,
         this.props.chauffeurId,
-        this.getId(),
       ),
     );
   }
@@ -202,8 +212,12 @@ export class Booking extends AggregateRoot {
   }
 
   public assignChauffeur(chauffeurId: string, fleetOwnerId: string, assignedBy: string): void {
-    if (this.props.status.isCompleted() || this.props.status.isCancelled()) {
-      throw new Error("Cannot assign chauffeur to completed or cancelled booking");
+    if (
+      this.props.status.isCompleted() ||
+      this.props.status.isCancelled() ||
+      this.props.status.isPending()
+    ) {
+      throw new Error("Cannot assign chauffeur to completed, cancelled or pending booking");
     }
 
     if (this.props.chauffeurId === chauffeurId) {
@@ -218,18 +232,6 @@ export class Booking extends AggregateRoot {
     this.props.chauffeurId = chauffeurId;
     this.props.updatedAt = new Date();
 
-    // Emit assignment event
-    this.addDomainEvent(
-      new BookingChauffeurAssignedEvent(
-        this.getId(),
-        this.props.bookingReference,
-        chauffeurId,
-        fleetOwnerId,
-        assignedBy,
-        this.props.customerId,
-      ),
-    );
-
     // If there was a previous chauffeur, emit unassignment event
     if (previousChauffeurId) {
       this.addDomainEvent(
@@ -243,6 +245,18 @@ export class Booking extends AggregateRoot {
         ),
       );
     }
+
+    // Emit assignment event
+    this.addDomainEvent(
+      new BookingChauffeurAssignedEvent(
+        this.getId(),
+        this.props.bookingReference,
+        chauffeurId,
+        fleetOwnerId,
+        assignedBy,
+        this.props.customerId,
+      ),
+    );
   }
 
   public unassignChauffeur(fleetOwnerId: string, unassignedBy: string, reason?: string): void {
@@ -357,6 +371,19 @@ export class Booking extends AggregateRoot {
   public isConfirmed(): boolean {
     return this.props.status.isConfirmed();
   }
+
+  public isActive(): boolean {
+    return this.props.status.isActive();
+  }
+
+  public isCompleted(): boolean {
+    return this.props.status.isCompleted();
+  }
+
+  public isCancelled(): boolean {
+    return this.props.status.isCancelled();
+  }
+
   // Getters
   public getId(): string | undefined {
     return this.props.id;

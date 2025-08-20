@@ -1,4 +1,13 @@
-import { Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from "@nestjs/common";
 import { z } from "zod";
 import { User } from "../../iam/domain/entities/user.entity";
 import {
@@ -9,9 +18,10 @@ import { JwtAuthGuard } from "../../iam/infrastructure/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../iam/infrastructure/guards/optional-jwt-auth.guard";
 import { ZodBody, ZodParam, ZodQuery } from "../../shared/decorators/zod-body.decorator";
 import { LoggerService } from "../../shared/logging/logger.service";
-import { BookingApplicationService } from "../application/services/booking-appication.service";
+import { BookingApplicationService } from "../application/services/booking-application.service";
 import { PaymentStatusResult } from "../application/services/booking-payment.service";
 import { ChauffeurAssignmentService } from "../application/services/chauffeur-assignment.service";
+import { BookingNotFoundError } from "../domain/errors/booking.errors";
 import { DateRange } from "../domain/value-objects/date-range.vo";
 import {
   AssignChauffeurDto,
@@ -86,7 +96,7 @@ export class BookingController {
     // Get the booking first
     const booking = await this.bookingService.getBookingById(bookingId);
     if (!booking) {
-      throw new Error("Booking not found");
+      throw new BookingNotFoundError(bookingId);
     }
 
     // Assign chauffeur
@@ -97,7 +107,7 @@ export class BookingController {
     });
 
     if (!result.success) {
-      throw new Error(result.message);
+      throw new BadRequestException(result.message);
     }
 
     return {
@@ -124,7 +134,7 @@ export class BookingController {
     // Get the booking first
     const booking = await this.bookingService.getBookingById(bookingId);
     if (!booking) {
-      throw new Error("Booking not found");
+      throw new BookingNotFoundError(bookingId);
     }
 
     // Unassign chauffeur
@@ -135,7 +145,7 @@ export class BookingController {
     });
 
     if (!result.success) {
-      throw new Error(result.message);
+      throw new BadRequestException(result.message);
     }
 
     return {
@@ -162,14 +172,23 @@ export class BookingController {
     // Validate permissions - only fleet owners can see their chauffeurs, admin/staff can see all
     if (query.fleetOwnerId && query.fleetOwnerId !== currentUser.getId()) {
       if (!currentUser.isAdminOrStaff()) {
-        throw new Error("Insufficient permissions to view chauffeurs for another fleet owner");
+        throw new ForbiddenException(
+          "Insufficient permissions to view chauffeurs for another fleet owner",
+        );
       }
     }
 
     // Create date range
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-    const dateRange = DateRange.create(startDate, endDate);
+    let dateRange: DateRange;
+
+    try {
+      dateRange = DateRange.create(startDate, endDate);
+    } catch (error) {
+      // Surface validation errors as HTTP 400
+      throw new BadRequestException(error instanceof Error ? error.message : "Invalid date range");
+    }
 
     // Get available chauffeurs
     const chauffeurs = await this.chauffeurAssignmentService.getAvailableChauffeurs(
@@ -203,7 +222,7 @@ export class BookingController {
     // Get the booking to extract date range
     const booking = await this.bookingService.getBookingById(bookingId);
     if (!booking) {
-      throw new Error("Booking not found");
+      throw new BookingNotFoundError(bookingId);
     }
 
     // Check availability

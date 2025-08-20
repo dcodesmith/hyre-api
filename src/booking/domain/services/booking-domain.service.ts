@@ -147,10 +147,15 @@ export class BookingDomainService {
     legPricingData: LegPricingData,
     costCalculation: BookingCostCalculation,
   ): void {
+    // Sanity check: legPrices should match number of booking dates
+    if (legPricingData.legPrices.length !== bookingDates.length) {
+      throw new Error(
+        `Leg price count (${legPricingData.legPrices.length}) does not match booking dates (${bookingDates.length})`,
+      );
+    }
+
     bookingDates.forEach((legDate, index) => {
-      const itemsNetValueForLeg = costCalculation.fleetOwnerPayoutAmountNet
-        .mul(1 / bookingDates.length)
-        .toNumber();
+      const itemsNetValueForLeg = costCalculation.netTotal.mul(1 / bookingDates.length).toNumber();
 
       // Calculate fleet owner earning for this leg
       const fleetOwnerEarningForLeg = costCalculation.fleetOwnerPayoutAmountNet
@@ -164,8 +169,8 @@ export class BookingDomainService {
           ? setHours(addDays(legDate, 1), legPricingData.endHours) // If end time is less than start time, it's on the next day
           : setHours(legDate, legPricingData.endHours);
 
+      // Create leg without any IDs - they will be set during persistence
       const leg = BookingLeg.create({
-        bookingId: booking.getId(),
         legDate,
         legStartTime,
         legEndTime,

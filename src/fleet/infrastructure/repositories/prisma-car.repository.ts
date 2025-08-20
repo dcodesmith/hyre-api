@@ -1,10 +1,15 @@
 import { Injectable } from "@nestjs/common";
+import {
+  CarApprovalStatus as PrismaCarApprovalStatus,
+  Status as PrismaStatus,
+} from "@prisma/client";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Car } from "../../domain/entities/car.entity";
 import {
   CarRates,
   CarRepository,
   CarSearchCriteria,
+  TransactionContext,
 } from "../../domain/repositories/car.repository";
 import { CarApprovalStatus } from "../../domain/value-objects/car-approval-status.vo";
 import { CarStatus } from "../../domain/value-objects/car-status.vo";
@@ -125,7 +130,8 @@ export class PrismaCarRepository implements CarRepository {
   }
 
   async save(car: Car): Promise<Car> {
-    const carData = {
+    const createData = {
+      id: car.getId(),
       make: car.getMake(),
       model: car.getModel(),
       year: car.getYear(),
@@ -135,19 +141,31 @@ export class PrismaCarRepository implements CarRepository {
       dayRate: car.getDayRate(),
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
-      status: car.getStatus().toString() as any,
-      approvalStatus: car.getApprovalStatus().toString() as any,
+      status: car.getStatus().toString() as PrismaStatus,
+      approvalStatus: car.getApprovalStatus().toString() as PrismaCarApprovalStatus,
+      createdAt: car.getCreatedAt(),
+      updatedAt: car.getUpdatedAt(),
+    };
+
+    // Update data excludes ownerId as it's a relation field that shouldn't change
+    const updateData = {
+      make: car.getMake(),
+      model: car.getModel(),
+      year: car.getYear(),
+      color: car.getColor(),
+      registrationNumber: car.getRegistrationNumber(),
+      dayRate: car.getDayRate(),
+      nightRate: car.getNightRate(),
+      hourlyRate: car.getHourlyRate(),
+      status: car.getStatus().toString() as PrismaStatus,
+      approvalStatus: car.getApprovalStatus().toString() as PrismaCarApprovalStatus,
       updatedAt: car.getUpdatedAt(),
     };
 
     await this.prisma.car.upsert({
       where: { id: car.getId() },
-      create: {
-        id: car.getId(),
-        ...carData,
-        createdAt: car.getCreatedAt(),
-      },
-      update: carData,
+      create: createData,
+      update: updateData,
     });
 
     return car;

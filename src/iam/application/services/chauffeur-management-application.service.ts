@@ -1,7 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { UserRepository } from "../../domain/repositories/user.repository";
-import { RoleAuthorizationService } from "../../domain/services/role-authorization.service";
 
 export interface UserSearchResponse {
   users: Array<{
@@ -27,7 +26,6 @@ export interface UserSearchResponse {
 export class ChauffeurManagementApplicationService {
   constructor(
     @Inject("UserRepository") private readonly userRepository: UserRepository,
-    private readonly roleAuthorizationService: RoleAuthorizationService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(ChauffeurManagementApplicationService.name);
@@ -37,12 +35,6 @@ export class ChauffeurManagementApplicationService {
     fleetOwnerId: string,
     requesterId?: string,
   ): Promise<UserSearchResponse> {
-    // Authorization check
-    if (requesterId && requesterId !== fleetOwnerId) {
-      const requester = await this.userRepository.findByIdOrThrow(requesterId);
-      this.roleAuthorizationService.requireAuthorization(requester, "view_admin_panel");
-    }
-
     const result = await this.userRepository.findChauffeursByFleetOwner(fleetOwnerId, {
       page: 1,
       limit: 100,

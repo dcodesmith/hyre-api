@@ -3,7 +3,6 @@ import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";
 import { UnauthorizedActionError, UserNotFoundError } from "../../domain/errors/iam.errors";
 import { UserRepository } from "../../domain/repositories/user.repository";
-import { RoleAuthorizationService } from "../../domain/services/role-authorization.service";
 import { UserRole } from "../../domain/value-objects/user-role.vo";
 import { UpdateUserProfileDto } from "../../presentation/dto";
 
@@ -31,7 +30,6 @@ export interface UserSearchResponse {
 export class UserProfileApplicationService {
   constructor(
     @Inject("UserRepository") private readonly userRepository: UserRepository,
-    private readonly roleAuthorizationService: RoleAuthorizationService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(UserProfileApplicationService.name);
@@ -63,7 +61,9 @@ export class UserProfileApplicationService {
     // Authorization check
     if (requesterId) {
       const requester = await this.userRepository.findByIdOrThrow(requesterId);
-      this.roleAuthorizationService.requireAuthorization(requester, "view_admin_panel");
+      if (!requester.isAdmin() && !requester.isStaff()) {
+        throw new UnauthorizedActionError("view_admin_panel", "Access denied");
+      }
     }
 
     // Convert filters to domain objects
@@ -124,14 +124,8 @@ export class UserProfileApplicationService {
     // Authorization check
     if (requesterId && requesterId !== userId) {
       const requester = await this.userRepository.findByIdOrThrow(requesterId);
-      const canAccess = this.roleAuthorizationService.canUserAccessResource(
-        requester,
-        "user_profile",
-        userId,
-      );
-
-      if (!canAccess) {
-        throw new UnauthorizedActionError("update user profile", "Insufficient permissions");
+      if (!requester.isAdmin() && !requester.isStaff()) {
+        throw new UnauthorizedActionError("update user profile", "Can only update own profile");
       }
     }
 

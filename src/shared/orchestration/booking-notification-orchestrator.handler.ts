@@ -1,5 +1,5 @@
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { BookingApplicationService } from "../../booking/application/services/booking-appication.service";
+import { BookingApplicationService } from "../../booking/application/services/booking-application.service";
 import { BookingActivatedEvent } from "../../booking/domain/events/booking-activated.event";
 import { NotificationService } from "../../communication/application/services/notification.service";
 import { BookingStatusUpdateData } from "../../communication/domain/services/notification-factory.service";
@@ -59,9 +59,9 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
   ): Promise<BookingStatusUpdateData> {
     // Gather data from all relevant domains in parallel
     const [booking, customer, car] = await Promise.allSettled([
-      this.getBookingData(event.bookingId),
+      this.getBookingData(event.aggregateId),
       this.getCustomerData(event.customerId),
-      this.getCarData(event.bookingId), // Get car through booking to avoid extra field in event
+      this.getCarData(event.aggregateId), // Get car through booking to avoid extra field in event
     ]);
 
     // Extract successful results with fallbacks
@@ -70,7 +70,7 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
     const carData = car.status === "fulfilled" ? car.value : null;
 
     if (!bookingData) {
-      throw new Error(`Cannot assemble notification data: booking ${event.bookingId} not found`);
+      throw new Error(`Cannot assemble notification data: booking ${event.aggregateId} not found`);
     }
 
     // Assemble cross-domain notification payload

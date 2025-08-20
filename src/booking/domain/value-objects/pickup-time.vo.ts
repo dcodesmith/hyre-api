@@ -4,7 +4,7 @@ export class PickupTime {
   }
 
   private validate(value: string): void {
-    const timePattern = /^(1[0-2]|[1-9]):[0-5][0-9]\s(AM|PM)$/;
+    const timePattern = /^(1[0-2]|[1-9]):[0-5]\d\s(AM|PM)$/;
     if (!timePattern.test(value)) {
       throw new Error(
         `Invalid pickup time format: ${value}. Expected format: "8:00 AM" or "11:30 PM"`,
@@ -21,7 +21,7 @@ export class PickupTime {
   }
 
   public to24Hour(): { hours: number; minutes: number } {
-    const [time, period] = this.value.split(" ");
+    const [time, period] = this.value.trim().split(/\s+/);
     const [hoursStr, minutesStr = "00"] = time.split(":");
 
     let hours = Number.parseInt(hoursStr);

@@ -6,7 +6,6 @@ export class BookingActivatedEvent extends DomainEvent {
     public readonly bookingReference: string,
     public readonly customerId: string,
     public readonly chauffeurId: string,
-    public readonly bookingId: string,
   ) {
     super(aggregateId);
   }

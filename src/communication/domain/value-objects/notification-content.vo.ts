@@ -50,8 +50,15 @@ export class NotificationContent extends ValueObject<NotificationContentProps> {
     // Replace template variables in subject and body
     for (const [key, value] of Object.entries(this.props.templateVariables)) {
       const placeholder = `{{${key}}}`;
-      interpolatedSubject = interpolatedSubject.replace(new RegExp(placeholder, "g"), value);
-      interpolatedBody = interpolatedBody.replace(new RegExp(placeholder, "g"), value);
+
+      if (interpolatedSubject.includes(placeholder)) {
+        // Avoid dynamic RegExp: safe, linear-time literal replacement
+        interpolatedSubject = interpolatedSubject.split(placeholder).join(value);
+      }
+
+      if (interpolatedBody.includes(placeholder)) {
+        interpolatedBody = interpolatedBody.split(placeholder).join(value);
+      }
     }
 
     return new NotificationContent({

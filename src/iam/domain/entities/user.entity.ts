@@ -1,5 +1,4 @@
 import { AggregateRoot } from "../../../shared/domain/aggregate-root";
-import { generateUserId } from "../../../shared/domain/value-objects/validation-utils";
 import {
   ApprovalStatusError,
   FleetOwnerRelationshipError,
@@ -90,20 +89,12 @@ export class User extends AggregateRoot {
     return user;
   }
 
-  public static registerAsFleetOwner(
-    email: string,
-    phoneNumber: string,
-    name: string,
-    address?: string,
-    city?: string,
-  ): User {
+  public static registerAsFleetOwner(email: string, phoneNumber: string, name: string): User {
     const user = new User({
       userType: UserType.registered(),
       email,
       phoneNumber,
       name,
-      address,
-      city,
       hasOnboarded: false,
       roles: [UserRole.fleetOwner()],
       approvalStatus: ApprovalStatus.pending(), // Fleet owners need approval
@@ -155,8 +146,8 @@ export class User extends AggregateRoot {
   public static createStaff(
     adminId: string,
     email: string,
-    phoneNumber?: string,
-    name?: string,
+    phoneNumber: string,
+    name: string,
   ): User {
     if (!adminId || adminId.trim().length === 0) {
       throw new InvalidRegistrationError("Admin ID is required for staff creation");
@@ -175,46 +166,6 @@ export class User extends AggregateRoot {
       updatedAt: new Date(),
     });
 
-    user.addDomainEvent(
-      new UserRegisteredEvent(
-        adminId,
-        email,
-        phoneNumber.toString(),
-        UserRole.staff().toString(),
-        RegistrationType.adminCreated(adminId).toString(),
-      ),
-    );
-
-    return user;
-  }
-
-  public static createAdmin(email: string, phoneNumber?: string, name?: string): User {
-    const userId = generateUserId();
-
-    const user = new User({
-      id: userId,
-      userType: UserType.registered(),
-      email,
-      phoneNumber,
-      name,
-      hasOnboarded: true, // Admins are automatically onboarded
-      roles: [UserRole.admin()],
-      approvalStatus: ApprovalStatus.approved("system"),
-      registrationType: RegistrationType.selfRegistration(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    user.addDomainEvent(
-      new UserRegisteredEvent(
-        userId,
-        email,
-        phoneNumber.toString(),
-        UserRole.admin().toString(),
-        RegistrationType.selfRegistration().toString(),
-      ),
-    );
-
     return user;
   }
 
@@ -223,7 +174,7 @@ export class User extends AggregateRoot {
   }
 
   // Getters
-  public getId(): string {
+  public getId(): string | undefined {
     return this.props.id;
   }
 
@@ -544,60 +495,6 @@ export class User extends AggregateRoot {
       throw new FleetOwnerRelationshipError("Chauffeur belongs to different fleet owner");
     }
   }
-
-  // Security and validation
-  public canPerformAction(action: string, _resource?: string, targetUserId?: string): boolean {
-    if (!this.isApproved()) {
-      return false;
-    }
-
-    switch (action) {
-      case "make_booking":
-        return this.canMakeBookings();
-
-      case "approve_documents":
-        return this.canApproveDocuments();
-
-      case "add_chauffeur":
-        return this.canAddChauffeurs();
-
-      case "assign_chauffeur":
-        return this.canAssignChauffeurs();
-
-      case "add_staff":
-        return this.canAddStaff();
-
-      case "access_admin_panel":
-        return this.canAccessAdminPanel();
-
-      case "modify_booking":
-        // Users can only modify their own bookings
-        return this.isCustomer() && (!targetUserId || targetUserId === this.props.id);
-
-      case "view_chauffeur_bookings":
-        // Chauffeurs can view their own bookings, fleet owners can view their chauffeurs' bookings
-        return (
-          (this.isChauffeur() && (!targetUserId || targetUserId === this.props.id)) ||
-          (this.isFleetOwner() && !!targetUserId)
-        );
-
-      default:
-        return false;
-    }
-  }
-
-  public requiresOtpAuthentication(): boolean {
-    return this.getPrimaryRole().usesOtpAuth();
-  }
-
-  // public canReceiveNotifications(): boolean {
-  //   return this.props.phoneNumber?.canReceiveSms() || !!this.props.email;
-  // }
-
-  // Utility methods
-  // public getDisplayName(): string {
-  //   return this.props.name || this.props.email || this.props.phoneNumber.getDisplayFormat();
-  // }
 
   public toSummary(): {
     id: string;

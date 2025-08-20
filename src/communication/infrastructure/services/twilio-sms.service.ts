@@ -2,15 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { Twilio } from "twilio";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
 import { LoggerService } from "../../../shared/logging/logger.service";
-import { SmsRequest, SmsResponse, SmsService } from "../../domain/services/sms.service.interface";
-
-export enum Template {
-  BookingStatusUpdate = "bookingStatusUpdate",
-  ClientBookingLegStartReminder = "clientBookingLegStartReminder",
-  ChauffeurBookingLegStartReminder = "chauffeurBookingLegStartReminder",
-  ClientBookingLegEndReminder = "clientBookingLegEndReminder",
-  ChauffeurBookingLegEndReminder = "chauffeurBookingLegEndReminder",
-}
+import {
+  SmsRequest,
+  SmsResponse,
+  SmsService,
+  Template,
+} from "../../domain/services/sms.service.interface";
 
 @Injectable()
 export class TwilioSmsService extends SmsService {
@@ -26,7 +23,9 @@ export class TwilioSmsService extends SmsService {
     const twilioConfig = this.configService.twilio;
 
     this.twilioClient = new Twilio(twilioConfig.accountSid, twilioConfig.authToken);
-    this.whatsappNumber = `whatsapp:+${twilioConfig.whatsappNumber}`;
+    const rawWa = twilioConfig.whatsappNumber;
+    const normalizedWa = rawWa.startsWith("+") ? rawWa : `+${rawWa}`;
+    this.whatsappNumber = rawWa.startsWith("whatsapp:") ? rawWa : `whatsapp:${normalizedWa}`;
   }
 
   async send(request: SmsRequest): Promise<SmsResponse> {
@@ -94,17 +93,23 @@ export class TwilioSmsService extends SmsService {
         messageId: message.sid,
       };
     } catch (error) {
-      // Fallback to plain SMS if WhatsApp template fails
-      this.logger.warn(
-        `WhatsApp template failed, falling back to SMS: ${error.message}`,
-        "TwilioSmsService",
-      );
+      // Fallback to plain SMS if WhatsApp template fails AND a plain message is provided
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`WhatsApp template failed: ${msg}`, "TwilioSmsService");
 
-      return await this.sendPlainSms(request);
+      if (request.message && request.message.trim().length > 0) {
+        this.logger.warn("Falling back to plain SMS path", "TwilioSmsService");
+        return await this.sendPlainSms(request);
+      }
+
+      return {
+        success: false,
+        error: `WhatsApp template failed and no plain SMS message provided: ${msg}`,
+      };
     }
   }
 
-  private getContentSid(templateKey: string): string {
+  private getContentSid(templateKey: Template): string {
     const contentSidMapping: Record<Template, string> = {
       [Template.BookingStatusUpdate]: "HX199f51dda921d5a781b2424b82b931a5",
       [Template.ClientBookingLegStartReminder]: "HX862149f716a87ae25ce34151140bfc60",
@@ -113,7 +118,13 @@ export class TwilioSmsService extends SmsService {
       [Template.ChauffeurBookingLegEndReminder]: "HX9faf29432a18e9f8f8283a5e281e5a3c",
     };
 
-    return contentSidMapping[templateKey] || "";
+    const sid = contentSidMapping[templateKey];
+
+    if (!sid) {
+      throw new Error(`Content SID not found for template: ${templateKey}`);
+    }
+
+    return sid;
   }
 
   // Legacy method to maintain compatibility with existing message sending

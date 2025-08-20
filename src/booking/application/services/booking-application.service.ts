@@ -33,12 +33,13 @@ export class BookingApplicationService {
       await this.bookingCreationService.createPendingBooking(dto, user);
 
     // Create payment intent and attach to booking
-    const paymentIntent = await this.bookingPaymentService.createAndAttachPaymentIntent(
-      savedBooking,
-      user,
-      dto,
-      timeResult,
-    );
+    const { paymentIntentId, checkoutUrl } =
+      await this.bookingPaymentService.createAndAttachPaymentIntent(
+        savedBooking,
+        user,
+        dto,
+        timeResult,
+      );
 
     this.logger.log(
       `Created pending booking ${savedBooking.getBookingReference()} with total amount: ${savedBooking.getTotalAmount()?.toString()}`,
@@ -49,8 +50,8 @@ export class BookingApplicationService {
       totalAmount: savedBooking.getTotalAmount() || 0,
       netTotal: savedBooking.getNetTotal() || 0,
       fleetOwnerPayoutAmountNet: savedBooking.getFleetOwnerPayoutAmountNet() || 0,
-      checkoutUrl: paymentIntent.checkoutUrl,
-      paymentIntentId: paymentIntent.paymentIntentId,
+      checkoutUrl,
+      paymentIntentId,
       breakdown: {
         netTotal: savedBooking.getNetTotal() || 0,
         platformServiceFee: savedBooking.getPlatformServiceFeeAmount() || 0,

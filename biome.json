@@ -56,7 +56,7 @@
     "formatter": {
       "quoteStyle": "double"
     },
-    "globals": ["beforeEach", "afterEach", "describe", "test", "expect", "it", "jest"]
+    "globals": ["beforeEach", "afterEach", "describe", "test", "expect", "it", "jest", "vi", "beforeAll", "afterAll"]
   },
   "overrides": [
     {

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { CqrsModule } from "@nestjs/cqrs";
 import { OtpAuthenticationService } from "../iam/domain/services/otp-authentication.service";
 import { OtpGeneratedHandler } from "./application/event-handlers/otp-generated.handler";
 import { NotificationService } from "./application/services/notification.service";
@@ -40,6 +41,7 @@ const infrastructureServices = [
 ];
 
 @Module({
+  imports: [CqrsModule],
   providers: [
     ...applicationServices,
     ...eventHandlers,

@@ -1,5 +1,5 @@
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { BookingApplicationService } from "../../booking/application/services/booking-appication.service";
+import { BookingApplicationService } from "../../booking/application/services/booking-application.service";
 import { BookingChauffeurAssignedEvent } from "../../booking/domain/events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../../booking/domain/events/booking-chauffeur-unassigned.event";
 import { NotificationService } from "../../communication/application/services/notification.service";

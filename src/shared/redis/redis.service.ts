@@ -36,6 +36,18 @@ export class RedisService implements OnModuleDestroy {
     return this.redis.keys(pattern);
   }
 
+  // In RedisService
+  async scanKeys(pattern: string): Promise<string[]> {
+    let cursor = "0";
+    const keys: string[] = [];
+    do {
+      const [next, batch] = await this.redis.scan(cursor, "MATCH", pattern, "COUNT", "1000");
+      cursor = next;
+      if (Array.isArray(batch)) keys.push(...batch);
+    } while (cursor !== "0");
+    return keys;
+  }
+
   async exists(key: string): Promise<boolean> {
     const result = await this.redis.exists(key);
     return result === 1;

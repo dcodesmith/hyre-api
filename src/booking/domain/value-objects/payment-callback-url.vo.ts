@@ -11,10 +11,11 @@ export class PaymentCallbackUrl {
     }
   }
 
-  public static create(_domain: string, bookingId: string): PaymentCallbackUrl {
-    const frontendUrl = "http://localhost:3001"; // Frontend domain
-    const url = `${frontendUrl}/payment-status?bookingId=${bookingId}`;
-    return new PaymentCallbackUrl(url);
+  public static create(domain: string, bookingId: string): PaymentCallbackUrl {
+    const base = new URL(domain);
+    base.pathname = "/payment-status";
+    base.search = new URLSearchParams({ bookingId }).toString();
+    return new PaymentCallbackUrl(base.toString());
   }
 
   public toString(): string {

@@ -1,4 +1,7 @@
-export abstract class CarDomainError extends Error {
+import { BaseDomainError } from "../../../shared/domain/errors/base-domain.error";
+
+export abstract class CarDomainError extends BaseDomainError {
+  readonly context = "Car";
   abstract readonly code: string;
   constructor(
     message: string,

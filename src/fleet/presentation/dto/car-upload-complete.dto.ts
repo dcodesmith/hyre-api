@@ -40,7 +40,7 @@ export const carUploadCompleteSchema = z.object({
 
   year: z.coerce
     .number()
-    .min(new Date().getFullYear() - 10, "Year must be 10 years or older")
+    .min(new Date().getFullYear() - 10, "Car must not be older than 10 years")
     .max(new Date().getFullYear(), "Year cannot be more than current year"),
 
   color: z

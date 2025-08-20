@@ -10,7 +10,7 @@ export interface OtpNotificationData {
   email: string;
   otpCode: string;
   otpType: "registration" | "login";
-  expiresAt: Date;
+  expiresAt: number;
 }
 
 export interface WelcomeNotificationData {
@@ -53,7 +53,7 @@ export class AuthNotificationFactoryService {
         email: data.email,
         otpCode: data.otpCode,
         otpType: data.otpType,
-        expiresAt: data.expiresAt.toLocaleString(),
+        expiresAt: new Date(data.expiresAt).toLocaleString(),
       },
     );
 
