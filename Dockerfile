@@ -34,8 +34,7 @@ RUN pnpm install --prod --frozen-lockfile
 
 # Copy Prisma schema and generate client (needed at runtime)
 COPY prisma ./prisma
-RUN npx prisma generate
-
+RUN pnpm dlx prisma generate
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
