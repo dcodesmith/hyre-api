@@ -1,7 +1,7 @@
 name: SonarCloud Analysis
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feat/base-flow ]
   pull_request:
     branches: [ main ]
 
@@ -27,7 +27,7 @@ jobs:
       - name: Generate Prisma client and build
         run: pnpm build
       - name: Run tests with coverage
-        run: pnpm test:coverage
+        run: pnpm run test:coverage:ci
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5.3.0
         env:
