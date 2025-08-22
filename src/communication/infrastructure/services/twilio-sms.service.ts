@@ -48,12 +48,18 @@ export class TwilioSmsService extends SmsService {
 
   private async sendPlainSms(request: SmsRequest): Promise<SmsResponse> {
     try {
+      if (!request.message || request.message.trim().length === 0) {
+        return {
+          success: false,
+          error: "Plain SMS requires a non-empty message body",
+        };
+      }
       const message = await this.twilioClient.messages.create({
         body: request.message,
         from: this.configService.twilio.phoneNumber,
         to: request.to,
       });
-
+      // …rest of implementation…
       this.logger.log(`SMS sent successfully with SID: ${message.sid}`);
 
       return {
