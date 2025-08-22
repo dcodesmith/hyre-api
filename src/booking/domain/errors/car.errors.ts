@@ -56,16 +56,6 @@ export class CarInServiceError extends CarDomainError {
   }
 }
 
-export class CarOnHoldError extends CarDomainError {
-  readonly code = "CAR_ON_HOLD";
-  constructor(carId: string, reason?: string) {
-    super(`Car ${carId} is on hold and cannot be booked${reason ? `: ${reason}` : ""}`, {
-      carId,
-      reason,
-    });
-  }
-}
-
 export class CarOwnerNotFoundError extends CarDomainError {
   readonly code = "CAR_OWNER_NOT_FOUND";
   constructor(carId: string, ownerId: string) {

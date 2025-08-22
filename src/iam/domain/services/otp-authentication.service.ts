@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { RedisService } from "../../../shared/redis/redis.service";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
-import { User } from "../entities/user.entity";
 
 export interface OtpGenerationResult {
   otpCode: string;

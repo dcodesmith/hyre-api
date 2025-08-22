@@ -91,8 +91,7 @@ export class TwilioSmsService extends SmsService {
       };
     } catch (error) {
       // Fallback to plain SMS if WhatsApp template fails AND a plain message is provided
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`WhatsApp template failed: ${msg}`);
+      this.logger.warn(`WhatsApp template failed: ${error.message}`);
 
       if (request.message && request.message.trim().length > 0) {
         this.logger.warn("Falling back to plain SMS path");
@@ -101,7 +100,7 @@ export class TwilioSmsService extends SmsService {
 
       return {
         success: false,
-        error: `WhatsApp template failed and no plain SMS message provided: ${msg}`,
+        error: `WhatsApp template failed and no plain SMS message provided: ${error.message}`,
       };
     }
   }

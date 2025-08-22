@@ -36,8 +36,7 @@ export class ResendEmailService extends EmailService {
       });
 
       if (error) {
-        this.logger.error(`Resend email error: ${JSON.stringify(error)}`,
-undefined);
+        this.logger.error(`Resend email error: ${error.message}`);
         return {
           success: false,
           error: error.message || "Unknown Resend error",

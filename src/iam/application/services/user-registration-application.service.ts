@@ -85,8 +85,6 @@ export class UserRegistrationApplicationService extends BaseIamApplicationServic
       phoneNumber: dto.phoneNumber,
     });
 
-    const fleetOwner = await this.userRepository.findByIdOrThrow(fleetOwnerId);
-
     // Create chauffeur using domain service
     const chauffeur = await this.userRegistrationService.createChauffeur({
       fleetOwnerId,
@@ -143,5 +141,4 @@ export class UserRegistrationApplicationService extends BaseIamApplicationServic
       approvalStatus: user.getApprovalStatus().toString(),
     };
   }
-
 }

@@ -93,7 +93,6 @@ export class BookingPaymentService {
     });
 
     if (paymentIntent.success) {
-      // TypeScript control flow analysis + never types guarantee type safety
       booking.setPaymentIntent(paymentIntent.paymentIntentId);
 
       return {
@@ -102,7 +101,6 @@ export class BookingPaymentService {
       };
     }
 
-    // TypeScript knows this is PaymentIntentFailure due to exhaustive narrowing
     this.logger.error(
       `Failed to create payment intent for booking ${booking.getBookingReference()}: ${paymentIntent.error}`,
     );
@@ -153,77 +151,7 @@ export class BookingPaymentService {
       // If we have a transaction ID from Flutterwave, verify the payment
       if (query.transaction_id && booking.isPending()) {
         this.logger.info(`Verifying payment for transaction: ${query.transaction_id}`);
-
-        try {
-          if (!booking.getPaymentIntent()) {
-            this.logger.warn(
-              `No paymentIntent stored for booking ${bookingId}; cannot verify transaction ${query.transaction_id}`,
-            );
-            return {
-              success: false,
-              bookingId: booking.getId(),
-              bookingReference: booking.getBookingReference(),
-              bookingStatus: booking.getStatus().toString(),
-              transactionId: query.transaction_id,
-              message: "Payment intent missing; cannot verify payment yet",
-              paymentVerified: false,
-            };
-          }
-
-          const paymentVerification = await this.paymentVerificationService.verifyPayment({
-            transactionId: query.transaction_id,
-            paymentIntentId: booking.getPaymentIntent(),
-          });
-
-          if (paymentVerification.isSuccess) {
-            this.logger.info(`Payment verified successfully for booking ${bookingId}`);
-
-            // Confirm the booking with the payment
-            await this.confirmBookingWithPayment(bookingId, query.transaction_id);
-
-            return {
-              success: true,
-              bookingId: booking.getId(),
-              bookingReference: booking.getBookingReference(),
-              bookingStatus: "CONFIRMED",
-              transactionId: query.transaction_id,
-              message: "Payment verified and booking confirmed",
-              paymentVerified: true,
-            };
-          } else {
-            this.logger.error(
-              `Payment verification failed for booking ${bookingId}: ${paymentVerification.errorMessage}`,
-            );
-            return {
-              success: false,
-              bookingId: booking.getId(),
-              bookingReference: booking.getBookingReference(),
-              bookingStatus: booking.getStatus().toString(),
-              transactionId: query.transaction_id,
-              message: `Payment verification failed: ${paymentVerification.errorMessage}`,
-              paymentVerified: false,
-            };
-          }
-        } catch (verificationError: unknown) {
-          const error =
-            verificationError instanceof Error
-              ? verificationError
-              : new Error(String(verificationError));
-
-          this.logger.error(
-            `Payment verification error for booking ${bookingId}: ${error.message}`,
-            error.stack,
-          );
-
-          return {
-            success: false,
-            bookingId: booking.getId(),
-            bookingReference: booking.getBookingReference(),
-            bookingStatus: booking.getStatus().toString(),
-            transactionId: query.transaction_id,
-            message: "Payment verification failed due to technical error",
-          };
-        }
+        return await this.verifyPaymentTransaction(booking, query);
       }
 
       // No transaction ID provided or booking not pending
@@ -248,11 +176,10 @@ export class BookingPaymentService {
         transactionId: query.transaction_id,
         message: `Booking status: ${booking.getStatus().toString()}`,
       };
-    } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error(String(error));
+    } catch (error) {
       this.logger.error(
-        `Error handling payment status callback for booking ${bookingId}: ${err.message}`,
-        err.stack,
+        `Error handling payment status callback for booking ${bookingId}: ${error.message}`,
+        error.stack,
       );
 
       return {
@@ -261,7 +188,78 @@ export class BookingPaymentService {
         bookingReference: "UNKNOWN",
         bookingStatus: "UNKNOWN",
         transactionId: query?.transaction_id,
-        message: `Error processing payment status: ${err.message}`,
+        message: `Error processing payment status: ${error.message}`,
+      };
+    }
+  }
+
+  private async verifyPaymentTransaction(
+    booking: Booking,
+    query: PaymentStatusQueryDto,
+  ): Promise<PaymentStatusResult> {
+    const bookingId = booking.getId();
+    try {
+      if (!booking.getPaymentIntent()) {
+        this.logger.warn(
+          `No paymentIntent stored for booking ${bookingId}; cannot verify transaction ${query.transaction_id}`,
+        );
+        return {
+          success: false,
+          bookingId: booking.getId(),
+          bookingReference: booking.getBookingReference(),
+          bookingStatus: booking.getStatus().toString(),
+          transactionId: query.transaction_id,
+          message: "Payment intent missing; cannot verify payment yet",
+          paymentVerified: false,
+        };
+      }
+
+      const paymentVerification = await this.paymentVerificationService.verifyPayment({
+        transactionId: query.transaction_id,
+        paymentIntentId: booking.getPaymentIntent(),
+      });
+
+      if (paymentVerification.isSuccess) {
+        this.logger.info(`Payment verified successfully for booking ${bookingId}`);
+
+        // Confirm the booking with the payment
+        await this.confirmBookingWithPayment(bookingId, query.transaction_id);
+
+        return {
+          success: true,
+          bookingId: booking.getId(),
+          bookingReference: booking.getBookingReference(),
+          bookingStatus: "CONFIRMED",
+          transactionId: query.transaction_id,
+          message: "Payment verified and booking confirmed",
+          paymentVerified: true,
+        };
+      } else {
+        this.logger.error(
+          `Payment verification failed for booking ${bookingId}: ${paymentVerification.errorMessage}`,
+        );
+        return {
+          success: false,
+          bookingId: booking.getId(),
+          bookingReference: booking.getBookingReference(),
+          bookingStatus: booking.getStatus().toString(),
+          transactionId: query.transaction_id,
+          message: `Payment verification failed: ${paymentVerification.errorMessage}`,
+          paymentVerified: false,
+        };
+      }
+    } catch (verificationError) {
+      this.logger.error(
+        `Payment verification error for booking ${bookingId}: ${verificationError.error}`,
+      );
+
+      return {
+        success: false,
+        bookingId: booking.getId(),
+        bookingReference: booking.getBookingReference(),
+        bookingStatus: booking.getStatus().toString(),
+        transactionId: query.transaction_id,
+        message: "Payment verification failed due to technical error",
       };
     }
   }

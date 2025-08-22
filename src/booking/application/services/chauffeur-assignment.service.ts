@@ -146,6 +146,7 @@ export class ChauffeurAssignmentService {
       chauffeurId,
       fleetOwnerId,
     );
+
     if (!belongsToFleet) {
       return { isValid: false, reason: "Chauffeur does not belong to this fleet" };
     }
@@ -156,6 +157,7 @@ export class ChauffeurAssignmentService {
       booking.getDateRange().startDate,
       booking.getDateRange().endDate,
     );
+
     if (!isAvailable) {
       return { isValid: false, reason: "Chauffeur is not available for the booking period" };
     }

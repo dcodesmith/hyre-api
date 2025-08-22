@@ -123,14 +123,6 @@ export class BookingCostCalculatorService {
 
     const fleetOwnerPayoutAmountNet = netTotal.minus(platformFleetOwnerCommissionAmount);
 
-    // const totalAmountNumber = totalAmount();
-    // const netTotalNumber = netTotal.toNumber();
-    // const platformCustomerServiceFeeAmountNumber = platformCustomerServiceFeeAmount.toNumber();
-    // const subtotalBeforeVatNumber = subtotalBeforeVat.toNumber();
-    // const vatAmountNumber = vatAmount.toNumber();
-    // const platformFleetOwnerCommissionAmountNumber = platformFleetOwnerCommissionAmount.toNumber();
-    // const fleetOwnerPayoutAmountNetNumber = fleetOwnerPayoutAmountNet.toNumber();
-
     // Validate all amounts
     // validateAmount(totalAmountNumber);
     // validateAmount(netTotalNumber);

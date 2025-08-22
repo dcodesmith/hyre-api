@@ -19,7 +19,7 @@ export class SameDayBookingRestrictionError extends BaseDomainError {
 export class PaymentIntentCreationError extends BaseDomainError {
   readonly code = "PAYMENT_INTENT_CREATION";
   readonly context = "booking";
-  constructor(details?: string) {
-    super(`Failed to create payment intent${details ? `: ${details}` : ""}`);
+  constructor(details: string) {
+    super(`Failed to create payment intent: ${details}`);
   }
 }

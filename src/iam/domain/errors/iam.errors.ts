@@ -14,7 +14,8 @@ export class UnauthorizedActionError extends BaseDomainError {
   readonly context = "IAM";
 
   constructor(action: string, reason?: string) {
-    super(`Unauthorized action: ${action}${reason ? ` - ${reason}` : ""}`);
+    const message = reason ? `Unauthorized action: ${action} - ${reason}` : `Unauthorized action: ${action}`;
+    super(message);
   }
 }
 

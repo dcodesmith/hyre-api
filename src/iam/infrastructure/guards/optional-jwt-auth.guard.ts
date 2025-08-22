@@ -34,38 +34,29 @@ export class OptionalJwtAuthGuard implements CanActivate {
       return true;
     }
 
-    try {
-      const token = this.jwtService.extractTokenFromBearer(authHeader);
+    // Validate token and extract payload
+    const validationResult = this.jwtService.validateAccessToken(authHeader);
 
-      // Validate token and extract payload
-      const validationResult = this.jwtService.validateAccessToken(token);
-
-      if (!validationResult.isValid || !validationResult.payload?.userId) {
-        // Invalid token - proceed as guest user
-        request.user = undefined;
-        request.userId = undefined;
-        return true;
-      }
-
-      const userId = validationResult.payload.userId;
-      const user = await this.userRepository.findById(userId);
-
-      if (!user) {
-        // User not found - proceed as guest user
-        request.user = undefined;
-        request.userId = undefined;
-        return true;
-      }
-
-      // Valid authenticated user - attach to request
-      request.user = user;
-      request.userId = userId;
-      return true;
-    } catch (_error) {
-      // Any error in token processing - proceed as guest user
+    if (!validationResult.isValid || !validationResult.payload?.userId) {
+      // Invalid token - proceed as guest user
       request.user = undefined;
       request.userId = undefined;
       return true;
     }
+
+    const userId = validationResult.payload.userId;
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      // User not found - proceed as guest user
+      request.user = undefined;
+      request.userId = undefined;
+      return false;
+    }
+
+    // Valid authenticated user - attach to request
+    request.user = user;
+    request.userId = userId;
+    return true;
   }
 }

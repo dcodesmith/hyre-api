@@ -35,13 +35,13 @@ export class WebhookController {
 
       // Verify webhook signature
       if (!signature) {
-        this.logger.error("Missing webhook signature", undefined);
+        this.logger.error("Missing webhook signature");
         throw new Error("Missing webhook signature");
       }
 
       const isValid = this.webhookService.verifyWebhookSignature(rawBody, signature);
       if (!isValid) {
-        this.logger.error("Invalid webhook signature", undefined);
+        this.logger.error("Invalid webhook signature");
         throw new Error("Invalid webhook signature");
       }
 
@@ -52,8 +52,7 @@ export class WebhookController {
 
       return { status: "success" };
     } catch (error) {
-      this.logger.error(`Webhook processing failed: ${error.message}`,
-error.stack);
+      this.logger.error(`Webhook processing failed: ${error.message}`);
 
       // Still return 200 to acknowledge receipt to Flutterwave
       // This prevents them from retrying the webhook

@@ -6,7 +6,6 @@ import {
   CarRates,
   CarRepository,
   CarSearchCriteria,
-  TransactionContext,
 } from "../../domain/repositories/car.repository";
 import { CarApprovalStatus } from "../../domain/value-objects/car-approval-status.vo";
 import { CarStatus } from "../../domain/value-objects/car-status.vo";

@@ -9,12 +9,7 @@ import {
 } from "../errors/fleet.errors";
 import { CarRepository } from "../repositories/car.repository";
 import { CarDocument, DocumentType } from "../value-objects/car-document.vo";
-import {
-  CarUploadData,
-  CarUploadRequest,
-  CarUploadResult,
-  FileUploadData,
-} from "./external/car-upload.interface";
+import { CarUploadRequest, CarUploadResult, FileUploadData } from "./external/car-upload.interface";
 
 /**
  * Domain service responsible for orchestrating car creation with file uploads
@@ -94,10 +89,8 @@ export class CarUploadService {
       } catch {
         // swallow cleanup failures
       }
-      const message = error instanceof Error ? error.message : String(error);
-      const originalError =
-        error instanceof Error ? { name: error.name, stack: error.stack } : error;
-      throw new CarUploadServiceError(message, { originalError });
+
+      throw new CarUploadServiceError(error.message, { originalError: error });
     }
   }
 

@@ -105,26 +105,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
     errorType: string,
     context?: string,
   ): void {
-    const contextSuffix = context ? " - Context: " + context : "";
+    const contextSuffix = context ? ` - Context: ${context}` : "";
     const logMessage = `${request.method} ${request.url} - Status: ${status} - Type: ${errorType}${contextSuffix}`;
 
     try {
       // Use injected logger service
       if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
         // Server errors - full stack trace
-        this.logger.error(logMessage,
-exception instanceof Error ? exception.stack : String(exception));
+        this.logger.error(
+          logMessage,
+          exception instanceof Error ? exception.message : "Unknown error",
+        );
       } else if (status >= 400) {
         // Client errors - warning level
-        this.logger.warn(`${logMessage} - ${exception instanceof Error ? exception.message : String(exception)}`);
+        this.logger.warn(
+          logMessage,
+          exception instanceof Error ? exception.message : "Unknown error",
+        );
       }
     } catch (loggerError) {
       // Fallback to internal logger if injected logger fails
-      this.internalLogger.error(`Logging failed: ${loggerError}`);
-      this.internalLogger.error(
-        logMessage,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
+      this.internalLogger.error(`Logging failed: ${loggerError.message}`);
     }
   }
 

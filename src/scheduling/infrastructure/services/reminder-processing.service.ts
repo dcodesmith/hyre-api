@@ -58,8 +58,10 @@ export class ReminderProcessingService {
         await this.notificationService.sendBookingStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(`Failed to process booking start reminder for ${booking.getId()}: ${error.message}`,
-error.stack);
+        this.logger.error(
+          `Failed to process booking start reminder for ${booking.getId()}: ${error.message}`,
+          error.stack,
+        );
       }
     }
 
@@ -107,8 +109,10 @@ error.stack);
         await this.notificationService.sendBookingEndReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(`Failed to process booking end reminder for ${booking.getId()}: ${error.message}`,
-error.stack);
+        this.logger.error(
+          `Failed to process booking end reminder for ${booking.getId()}: ${error.message}`,
+          error.stack,
+        );
       }
     }
 
@@ -159,10 +163,10 @@ error.stack);
           legEndTime: leg.legEndTime.toISOString(),
           pickupLocation: leg.booking.pickupAddress,
           returnLocation: leg.booking.dropOffAddress,
-          customerId: leg.booking.customerId!,
+          customerId: leg.booking.customerId,
           customerEmail: leg.booking.customer?.email,
           customerPhone: leg.booking.customer?.phoneNumber,
-          chauffeurId: leg.booking.chauffeurId!,
+          chauffeurId: leg.booking.chauffeurId,
           chauffeurEmail: leg.booking.chauffeur?.email,
           chauffeurPhone: leg.booking.chauffeur?.phoneNumber,
         };
@@ -170,8 +174,10 @@ error.stack);
         await this.notificationService.sendBookingLegStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(`Failed to process booking leg start reminder for ${leg.id}: ${error.message}`,
-error.stack);
+        this.logger.error(
+          `Failed to process booking leg start reminder for ${leg.id}: ${error.message}`,
+          error.stack,
+        );
       }
     }
 
@@ -222,10 +228,10 @@ error.stack);
           legEndTime: leg.legEndTime.toISOString(),
           pickupLocation: leg.booking.pickupAddress,
           returnLocation: leg.booking.dropOffAddress,
-          customerId: leg.booking.customerId!,
+          customerId: leg.booking.customerId,
           customerEmail: leg.booking.customer?.email,
           customerPhone: leg.booking.customer?.phoneNumber,
-          chauffeurId: leg.booking.chauffeurId!,
+          chauffeurId: leg.booking.chauffeurId,
           chauffeurEmail: leg.booking.chauffeur?.email,
           chauffeurPhone: leg.booking.chauffeur?.phoneNumber,
         };
@@ -233,8 +239,9 @@ error.stack);
         await this.notificationService.sendBookingLegStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(`Failed to process booking leg end reminder for ${leg.id}: ${error.message}`,
-error.stack);
+        this.logger.error(
+          `Failed to process booking leg end reminder for ${leg.id}: ${error.message}`,
+        );
       }
     }
 

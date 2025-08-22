@@ -76,7 +76,9 @@ export class JwtTokenService {
     return result;
   }
 
-  validateAccessToken(token: string): TokenValidationResult {
+  validateAccessToken(authHeader: string): TokenValidationResult {
+    const token = this.extractTokenFromBearer(authHeader);
+
     try {
       const payload = this.jwtService.verify<TokenPayload>(token, {
         secret: this.JWT_SECRET,
