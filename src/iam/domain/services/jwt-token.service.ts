@@ -50,16 +50,16 @@ export class JwtTokenService {
   generateTokens(user: User, options: GenerateTokenOptions = {}): TokenPair {
     const payload = this.createTokenPayload(user);
 
-    const expiresIn = options.expiresIn || this.ACCESS_TOKEN_EXPIRY;
+    const expiresIn = options.expiresIn ?? this.ACCESS_TOKEN_EXPIRY;
     const accessToken = this.jwtService.sign(payload, {
       secret: this.JWT_SECRET,
       expiresIn,
     });
 
-    const result: TokenPair = {
-      accessToken,
-      expiresAt: this.calculateExpirationDate(expiresIn),
-    };
+    const decoded = this.jwtService.decode<{ exp?: number }>(accessToken);
+    const expiresAt =
+      decoded?.exp != null ? decoded.exp * 1000 : this.calculateExpirationDate(expiresIn);
+    const result: TokenPair = { accessToken, expiresAt };
 
     if (options.includeRefreshToken) {
       const refreshPayload = {
@@ -77,7 +77,13 @@ export class JwtTokenService {
   }
 
   validateAccessToken(authHeader: string): TokenValidationResult {
-    const token = this.extractTokenFromBearer(authHeader);
+    const token = authHeader?.startsWith("Bearer ")
+      ? this.extractTokenFromBearer(authHeader)
+      : authHeader;
+
+    if (!token) {
+      return { isValid: false, error: "Missing token" };
+    }
 
     try {
       const payload = this.jwtService.verify<TokenPayload>(token, {

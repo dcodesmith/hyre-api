@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import {
   FlutterwaveClient,
   FlutterwaveError,
@@ -89,6 +90,11 @@ export class FlutterwavePaymentIntentService extends PaymentIntentService {
         error: response.message || "Failed to create payment intent",
       };
     } catch (error) {
+      this.logger.error(
+        `Flutterwave createPaymentIntent failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
       if (error instanceof FlutterwaveError) {
         return {
           success: false,
@@ -104,6 +110,7 @@ export class FlutterwavePaymentIntentService extends PaymentIntentService {
   }
 
   private generateIdempotencyKey(): string {
-    return `hyre_${Date.now()}_${generateSecureRandomId()}`;
+    const unique = typeof randomUUID === "function" ? randomUUID() : generateSecureRandomId();
+    return `hyre_${Date.now()}_${unique}`;
   }
 }

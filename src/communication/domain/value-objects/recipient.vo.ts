@@ -1,4 +1,9 @@
 import { ValueObject } from "../../../shared/domain/value-object";
+import {
+  RecipientContactRequiredError,
+  RecipientIdRequiredError,
+  RecipientNameRequiredError,
+} from "../errors/recipient.errors";
 
 export enum RecipientRole {
   CUSTOMER = "CUSTOMER",
@@ -47,15 +52,15 @@ export class Recipient extends ValueObject<RecipientProps> {
     phoneNumber?: string,
   ): Recipient {
     if (!id || id?.trim()?.length === 0) {
-      throw new Error("Recipient ID cannot be empty");
+      throw new RecipientIdRequiredError();
     }
 
     if (!name || name.trim().length === 0) {
-      throw new Error("Recipient name cannot be empty");
+      throw new RecipientNameRequiredError();
     }
 
     if (!email && !phoneNumber) {
-      throw new Error("Recipient must have either email or phone number");
+      throw new RecipientContactRequiredError();
     }
 
     return new Recipient({

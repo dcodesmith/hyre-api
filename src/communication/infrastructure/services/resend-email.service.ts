@@ -9,6 +9,15 @@ import {
 } from "../../domain/services/email.service.interface";
 import { NotificationContent } from "../../domain/value-objects/notification-content.vo";
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 @Injectable()
 export class ResendEmailService extends EmailService {
   private readonly resend: Resend;
@@ -73,7 +82,7 @@ export class ResendEmailService extends EmailService {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${interpolatedContent.subject}</title>
+          <title>${escapeHtml(interpolatedContent.subject)}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -110,8 +119,8 @@ export class ResendEmailService extends EmailService {
             <h1>${this.configService.app.name}</h1>
           </div>
           <div class="content">
-            <h2>${interpolatedContent.subject}</h2>
-            <div style="white-space: pre-line;">${interpolatedContent.body}</div>
+            <h2>${escapeHtml(interpolatedContent.subject)}</h2>
+            <div style="white-space: pre-line;">${escapeHtml(interpolatedContent.body)}</div>
           </div>
           <div class="footer">
             <p>This is an automated message from ${this.configService.app.name}.</p>

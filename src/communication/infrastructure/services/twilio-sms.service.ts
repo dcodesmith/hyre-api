@@ -30,7 +30,7 @@ export class TwilioSmsService extends SmsService {
 
   async send(request: SmsRequest): Promise<SmsResponse> {
     try {
-      this.logger.log(`Sending SMS to ${request.to}`);
+      this.logger.log(`Sending SMS to ${this.maskPhone(request.to)}`);
 
       if (request.templateKey && request.variables) {
         return await this.sendWhatsAppMessage(request);
@@ -127,6 +127,13 @@ export class TwilioSmsService extends SmsService {
     }
 
     return sid;
+  }
+
+  private maskPhone(value: string): string {
+    const v = value.replace(/^whatsapp:/, "");
+    const digits = v.replace(/\D/g, "");
+    if (digits.length <= 4) return `***${digits}`;
+    return `${v.slice(0, v.length - 4).replace(/\d/g, "*")}${v.slice(-4)}`;
   }
 
   // Legacy method to maintain compatibility with existing message sending

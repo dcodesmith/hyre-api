@@ -163,15 +163,15 @@ export class ChauffeurAssignmentService {
     }
 
     // 4. Use domain service for business rule validation
-    try {
-      // this.bookingChauffeurService.validateAssignmentEligibility(booking);
-      return { isValid: true };
-    } catch (error) {
-      return {
-        isValid: false,
-        reason: error instanceof Error ? error.message : "Business rule validation failed",
-      };
-    }
+    // try {
+    //   this.bookingChauffeurService.validateAssignmentEligibility(booking);
+    //   return { isValid: true };
+    // } catch (error) {
+    //   return {
+    //     isValid: false,
+    //     reason: error instanceof Error ? error.message : "Business rule validation failed",
+    //   };
+    // }
   }
 
   private async publishDomainEvents(booking: Booking): Promise<void> {

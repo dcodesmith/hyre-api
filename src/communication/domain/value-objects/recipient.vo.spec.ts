@@ -66,30 +66,30 @@ describe("Recipient Value Object", () => {
     it("should throw error when ID is empty", () => {
       expect(() =>
         Recipient.create("", "John Doe", RecipientRole.CUSTOMER, "john@example.com"),
-      ).toThrow("Recipient ID cannot be empty");
+      ).toThrow(RecipientIdRequiredError);
     });
 
     it("should throw error when ID is whitespace only", () => {
       expect(() =>
         Recipient.create("   ", "John Doe", RecipientRole.CUSTOMER, "john@example.com"),
-      ).toThrow("Recipient ID cannot be empty");
+      ).toThrow(RecipientIdRequiredError);
     });
 
     it("should throw error when name is empty", () => {
       expect(() =>
         Recipient.create("customer-123", "", RecipientRole.CUSTOMER, "john@example.com"),
-      ).toThrow("Recipient name cannot be empty");
+      ).toThrow(RecipientNameRequiredError);
     });
 
     it("should throw error when name is whitespace only", () => {
       expect(() =>
         Recipient.create("customer-123", "   ", RecipientRole.CUSTOMER, "john@example.com"),
-      ).toThrow("Recipient name cannot be empty");
+      ).toThrow(RecipientNameRequiredError);
     });
 
     it("should throw error when both email and phone are missing", () => {
       expect(() => Recipient.create("customer-123", "John Doe", RecipientRole.CUSTOMER)).toThrow(
-        "Recipient must have either email or phone number",
+        RecipientContactRequiredError,
       );
     });
   });
@@ -244,7 +244,7 @@ describe("Recipient Value Object", () => {
     it("should handle different role combinations", () => {
       const roles = [RecipientRole.CUSTOMER, RecipientRole.CHAUFFEUR, RecipientRole.FLEET_OWNER];
 
-      roles.forEach((role) => {
+      for (const role of roles) {
         const recipient = Recipient.create(
           `${role.toLowerCase()}-123`,
           "Test User",
@@ -253,7 +253,7 @@ describe("Recipient Value Object", () => {
         );
 
         expect(recipient.role).toBe(role);
-      });
+      }
     });
   });
 });
