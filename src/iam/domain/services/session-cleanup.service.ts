@@ -153,7 +153,7 @@ export class SessionCleanupService {
    */
   async cleanupExpiredSessions(): Promise<void> {
     try {
-      const patterns = ["user:*:session:*", "temp_booking:*", "rate_limit:*"];
+      const patterns = ["session:*", "temp_booking:*", "rate_limit:*"];
 
       let totalCleaned = 0;
 
