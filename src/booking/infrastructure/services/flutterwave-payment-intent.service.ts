@@ -73,6 +73,7 @@ export class FlutterwavePaymentIntentService extends PaymentIntentService {
       const response = await this.flutterwaveClient.post<FlutterwavePaymentResponse>(
         "/v3/payments",
         payload,
+        { headers: { "X-Idempotency-Key": idempotencyKey } },
       );
 
       if (response.status === "success" && response.data) {
