@@ -51,9 +51,7 @@ export class BookingPaymentService {
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
     private readonly configService: TypedConfigService,
-  ) {
-    this.logger.setContext(BookingPaymentService.name);
-  }
+  ) {}
 
   async createAndAttachPaymentIntent(
     booking: Booking,
@@ -122,7 +120,7 @@ export class BookingPaymentService {
 
     await this.saveBookingAndPublishEvents(booking);
 
-    this.logger.log("Booking confirmed with payment", booking.getBookingReference());
+    this.logger.log("Booking confirmed with payment");
   }
 
   async handlePaymentStatusCallback(

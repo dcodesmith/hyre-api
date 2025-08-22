@@ -28,7 +28,6 @@ export class UserRegistrationApplicationService extends BaseIamApplicationServic
     private readonly logger: LoggerService,
   ) {
     super(userRepository, domainEventPublisher, prisma);
-    this.logger.setContext(UserRegistrationApplicationService.name);
   }
 
   async registerCustomer(dto: RegisterCustomerDto): Promise<UserRegistrationResponseDto> {

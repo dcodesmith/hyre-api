@@ -30,14 +30,14 @@ export class TwilioSmsService extends SmsService {
 
   async send(request: SmsRequest): Promise<SmsResponse> {
     try {
-      this.logger.log(`Sending SMS to ${request.to}`, "TwilioSmsService");
+      this.logger.log(`Sending SMS to ${request.to}`);
 
       if (request.templateKey && request.variables) {
         return await this.sendWhatsAppMessage(request);
       }
       return await this.sendPlainSms(request);
     } catch (error) {
-      this.logger.error(`Failed to send SMS: ${error.message}`, error.stack, "TwilioSmsService");
+      this.logger.error(`Failed to send SMS: ${error.message}`, error.stack);
 
       return {
         success: false,
@@ -54,7 +54,7 @@ export class TwilioSmsService extends SmsService {
         to: request.to,
       });
 
-      this.logger.log(`SMS sent successfully with SID: ${message.sid}`, "TwilioSmsService");
+      this.logger.log(`SMS sent successfully with SID: ${message.sid}`);
 
       return {
         success: true,
@@ -83,10 +83,7 @@ export class TwilioSmsService extends SmsService {
         to: whatsappTo,
       });
 
-      this.logger.log(
-        `WhatsApp template message sent successfully with SID: ${message.sid}`,
-        "TwilioSmsService",
-      );
+      this.logger.log(`WhatsApp template message sent successfully with SID: ${message.sid}`);
 
       return {
         success: true,
@@ -95,10 +92,10 @@ export class TwilioSmsService extends SmsService {
     } catch (error) {
       // Fallback to plain SMS if WhatsApp template fails AND a plain message is provided
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`WhatsApp template failed: ${msg}`, "TwilioSmsService");
+      this.logger.warn(`WhatsApp template failed: ${msg}`);
 
       if (request.message && request.message.trim().length > 0) {
-        this.logger.warn("Falling back to plain SMS path", "TwilioSmsService");
+        this.logger.warn("Falling back to plain SMS path");
         return await this.sendPlainSms(request);
       }
 

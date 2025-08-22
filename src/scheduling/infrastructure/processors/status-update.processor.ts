@@ -15,46 +15,34 @@ export class StatusUpdateProcessor {
 
   @Process("confirmed-to-active")
   async handleConfirmedToActive(job: Job<StatusUpdateJobData>) {
-    this.logger.log(
-      `Processing confirmed to active status update job: ${job.id}`,
-      "StatusUpdateProcessor",
-    );
+    this.logger.log(`Processing confirmed to active status update job: ${job.id}`);
 
     try {
       const result = await this.bookingApplicationService.processBookingStatusUpdates();
 
-      this.logger.log(`Confirmed to active updates processed: ${result}`, "StatusUpdateProcessor");
+      this.logger.log(`Confirmed to active updates processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process confirmed to active updates: ${error.message}`,
-        error.stack,
-        "StatusUpdateProcessor",
-      );
+      this.logger.error(`Failed to process confirmed to active updates: ${error.message}`,
+error.stack);
       throw error;
     }
   }
 
   @Process("active-to-completed")
   async handleActiveToCompleted(job: Job<StatusUpdateJobData>) {
-    this.logger.log(
-      `Processing active to completed status update job: ${job.id}`,
-      "StatusUpdateProcessor",
-    );
+    this.logger.log(`Processing active to completed status update job: ${job.id}`);
 
     try {
       const result = await this.bookingApplicationService.processBookingStatusUpdates();
 
-      this.logger.log(`Active to completed updates processed: ${result}`, "StatusUpdateProcessor");
+      this.logger.log(`Active to completed updates processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process active to completed updates: ${error.message}`,
-        error.stack,
-        "StatusUpdateProcessor",
-      );
+      this.logger.error(`Failed to process active to completed updates: ${error.message}`,
+error.stack);
       throw error;
     }
   }

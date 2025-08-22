@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { LoggerService } from "../../../shared/logging/logger.service";
+import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
 import { Notification } from "../../domain/entities/notification.entity";
 import { NotificationRepository } from "../../domain/repositories/notification.repository";
 import { EmailService } from "../../domain/services/email.service.interface";
@@ -13,13 +13,16 @@ import { SmsService } from "../../domain/services/sms.service.interface";
 
 @Injectable()
 export class NotificationService {
+  private readonly logger: Logger;
   constructor(
     private readonly notificationRepository: NotificationRepository,
     private readonly notificationFactory: NotificationFactoryService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
-    private readonly logger: LoggerService,
-  ) {}
+    private readonly loggerService: LoggerService,
+  ) {
+    this.logger = this.loggerService.createLogger(NotificationService.name);
+  }
 
   async sendBookingStartReminders(data: BookingReminderData): Promise<string> {
     try {
@@ -30,18 +33,13 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.log(
+      this.logger.info(
         `Sent ${notifications.length} booking start reminder notifications for booking ${data.bookingId}`,
-        "NotificationService",
       );
 
       return `Sent ${notifications.length} booking start reminders`;
     } catch (error) {
-      this.logger.error(
-        `Failed to send booking start reminders: ${error.message}`,
-        error.stack,
-        "NotificationService",
-      );
+      this.logger.error(`Failed to send booking start reminders: ${error.message}`);
       throw error;
     }
   }
@@ -55,18 +53,13 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.log(
+      this.logger.info(
         `Sent ${notifications.length} booking end reminder notifications for booking ${data.bookingId}`,
-        "NotificationService",
       );
 
       return `Sent ${notifications.length} booking end reminders`;
     } catch (error) {
-      this.logger.error(
-        `Failed to send booking end reminders: ${error.message}`,
-        error.stack,
-        "NotificationService",
-      );
+      this.logger.error(`Failed to send booking end reminders: ${error.message}`);
       throw error;
     }
   }
@@ -80,18 +73,13 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.log(
+      this.logger.info(
         `Sent ${notifications.length} booking leg start reminder notifications for leg ${data.bookingLegId}`,
-        "NotificationService",
       );
 
       return `Sent ${notifications.length} booking leg start reminders`;
     } catch (error) {
-      this.logger.error(
-        `Failed to send booking leg start reminders: ${error.message}`,
-        error.stack,
-        "NotificationService",
-      );
+      this.logger.error(`Failed to send booking leg start reminders: ${error.message}`);
       throw error;
     }
   }
@@ -107,18 +95,11 @@ export class NotificationService {
       await this.notificationRepository.save(notification);
       await this.deliverNotification(notification);
 
-      this.logger.log(
-        `Sent booking status update notification for booking ${data.bookingId}`,
-        "NotificationService",
-      );
+      this.logger.info(`Sent booking status update notification for booking ${data.bookingId}`);
 
       return "Sent booking status update notification";
     } catch (error) {
-      this.logger.error(
-        `Failed to send booking status update: ${error.message}`,
-        error.stack,
-        "NotificationService",
-      );
+      this.logger.error(`Failed to send booking status update: ${error.message}`);
       throw error;
     }
   }
@@ -134,16 +115,12 @@ export class NotificationService {
         successCount++;
       } catch (error) {
         failureCount++;
-        this.logger.error(
-          `Failed to deliver notification ${notification.id}: ${error.message}`,
-          error.stack,
-          "NotificationService",
-        );
+        this.logger.error(`Failed to deliver notification ${notification.id}: ${error.message}`);
       }
     }
 
     const result = `Processed ${pendingNotifications.length} pending notifications: ${successCount} successful, ${failureCount} failed`;
-    this.logger.log(result, "NotificationService");
+    this.logger.info(result);
     return result;
   }
 
@@ -158,16 +135,12 @@ export class NotificationService {
         await this.deliverNotification(notification);
         retryCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to retry notification ${notification.id}: ${error.message}`,
-          error.stack,
-          "NotificationService",
-        );
+        this.logger.error(`Failed to retry notification ${notification.id}: ${error.message}`);
       }
     }
 
     const result = `Retried ${retryCount} failed notifications`;
-    this.logger.log(result, "NotificationService");
+    this.logger.info(result);
     return result;
   }
 
@@ -191,10 +164,7 @@ export class NotificationService {
       notification.markAsSent();
       await this.notificationRepository.save(notification);
 
-      this.logger.log(
-        `Successfully delivered notification ${notification.id}`,
-        "NotificationService",
-      );
+      this.logger.info(`Successfully delivered notification ${notification.id}`);
     } catch (error) {
       notification.markAsFailed(error.message);
       await this.notificationRepository.save(notification);

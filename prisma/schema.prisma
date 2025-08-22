@@ -13,7 +13,7 @@ model Car {
   model              String
   year               Int
   color              String
-  registrationNumber String
+  registrationNumber String @unique
 
   dayRate    Int // Assumed NET Regular daytime price
   nightRate  Int // Assumed NET Nighttime rate

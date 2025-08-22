@@ -12,13 +12,14 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(FleetOwnerApprovedEvent)
 export class FleetOwnerApprovalOrchestrator implements IEventHandler<FleetOwnerApprovedEvent> {
+  private readonly logger: any;
   constructor(
     private readonly userProfileService: UserProfileApplicationService,
     private readonly notificationService: NotificationService,
     private readonly payoutService: PayoutService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(FleetOwnerApprovalOrchestrator.name);
+    this.logger = this.loggerService.createLogger(FleetOwnerApprovalOrchestrator.name);
   }
 
   async handle(event: FleetOwnerApprovedEvent): Promise<void> {

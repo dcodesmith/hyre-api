@@ -11,10 +11,7 @@ export class ChauffeurAddedHandler implements IEventHandler<ChauffeurAddedEvent>
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: ChauffeurAddedEvent) {
-    this.logger.info(
-      `Chauffeur added to fleet: ${event.chauffeurId} -> Fleet Owner: ${event.fleetOwnerId}`,
-      "ChauffeurAddedHandler",
-    );
+    this.logger.info(`Chauffeur added to fleet: ${event.chauffeurId} -> Fleet Owner: ${event.fleetOwnerId}`);
 
     // This handler is focused purely on IAM domain concerns
     // Cross-domain coordination (notifications, onboarding)

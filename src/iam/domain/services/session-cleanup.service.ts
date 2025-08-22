@@ -47,15 +47,7 @@ export class SessionCleanupService {
         }),
       );
     } catch (error) {
-      this.logger.error(
-        "Failed to clear user sessions",
-        (error as Error).stack,
-        JSON.stringify({
-          userId,
-          email,
-          error: (error as Error).message,
-        }),
-      );
+      this.logger.error("Failed to clear user sessions", (error as Error).stack);
       throw error;
     }
   }
@@ -69,16 +61,9 @@ export class SessionCleanupService {
       const otpKey = `otp:email:${email.toLowerCase()}`;
       await this.redisService.del(otpKey);
 
-      this.logger.debug("Cleared OTP data", JSON.stringify({ email }));
+      this.logger.debug("Cleared OTP data");
     } catch (error) {
-      this.logger.error(
-        "Failed to clear OTP data",
-        (error as Error).stack,
-        JSON.stringify({
-          email,
-          error: (error as Error).message,
-        }),
-      );
+      this.logger.error("Failed to clear OTP data", (error as Error).stack);
     }
   }
 
@@ -102,14 +87,7 @@ export class SessionCleanupService {
         );
       }
     } catch (error) {
-      this.logger.error(
-        "Failed to clear user preferences",
-        (error as Error).stack,
-        JSON.stringify({
-          userId,
-          error: (error as Error).message,
-        }),
-      );
+      this.logger.error("Failed to clear user preferences", (error as Error).stack);
     }
   }
 
@@ -133,14 +111,7 @@ export class SessionCleanupService {
         );
       }
     } catch (error) {
-      this.logger.error(
-        "Failed to clear rate limits",
-        (error as Error).stack,
-        JSON.stringify({
-          userId,
-          error: (error as Error).message,
-        }),
-      );
+      this.logger.error("Failed to clear rate limits", (error as Error).stack);
     }
   }
 

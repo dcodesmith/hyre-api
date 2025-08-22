@@ -61,7 +61,8 @@ export class TestApp {
           error: () => {},
           warn: () => {},
           debug: () => {},
-          setContext: () => {},
+          verbose: () => {},
+          createLogger: () => {},
         })
         // Use mock notification service in tests
         .overrideProvider(NotificationService)

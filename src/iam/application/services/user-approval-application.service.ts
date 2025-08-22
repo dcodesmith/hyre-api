@@ -42,7 +42,6 @@ export class UserApprovalApplicationService extends BaseIamApplicationService {
     private readonly logger: LoggerService,
   ) {
     super(userRepository, domainEventPublisher, prisma);
-    this.logger.setContext(UserApprovalApplicationService.name);
   }
 
   async approveUser(

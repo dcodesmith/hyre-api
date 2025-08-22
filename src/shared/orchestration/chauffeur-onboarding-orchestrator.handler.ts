@@ -11,12 +11,13 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(ChauffeurAddedEvent)
 export class ChauffeurOnboardingOrchestrator implements IEventHandler<ChauffeurAddedEvent> {
+  private readonly logger: any;
   constructor(
     private readonly userProfileService: UserProfileApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(ChauffeurOnboardingOrchestrator.name);
+    this.logger = this.loggerService.createLogger(ChauffeurOnboardingOrchestrator.name);
   }
 
   async handle(event: ChauffeurAddedEvent): Promise<void> {

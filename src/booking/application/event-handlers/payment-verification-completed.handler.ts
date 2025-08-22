@@ -13,10 +13,7 @@ export class PaymentVerificationCompletedHandler
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: PaymentVerificationCompletedEvent): Promise<void> {
-    this.logger.info(
-      `Payment verification result received for booking: ${event.bookingId} - Success: ${event.isSuccess}`,
-      "PaymentVerificationCompletedHandler",
-    );
+    this.logger.info(`Payment verification result received for booking: ${event.bookingId} - Success: ${event.isSuccess}`);
 
     // This handler is focused purely on booking domain concerns
     // Cross-domain coordination (booking confirmation based on payment verification)

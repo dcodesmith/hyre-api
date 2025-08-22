@@ -58,16 +58,13 @@ export class ReminderProcessingService {
         await this.notificationService.sendBookingStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking start reminder for ${booking.getId()}: ${error.message}`,
-          error.stack,
-          "ReminderProcessingService",
-        );
+        this.logger.error(`Failed to process booking start reminder for ${booking.getId()}: ${error.message}`,
+error.stack);
       }
     }
 
     const result = `Processed ${processedCount} booking start reminders`;
-    this.logger.log(result, "ReminderProcessingService");
+    this.logger.log(result);
     return result;
   }
 
@@ -110,16 +107,13 @@ export class ReminderProcessingService {
         await this.notificationService.sendBookingEndReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking end reminder for ${booking.getId()}: ${error.message}`,
-          error.stack,
-          "ReminderProcessingService",
-        );
+        this.logger.error(`Failed to process booking end reminder for ${booking.getId()}: ${error.message}`,
+error.stack);
       }
     }
 
     const result = `Processed ${processedCount} booking end reminders`;
-    this.logger.log(result, "ReminderProcessingService");
+    this.logger.log(result);
     return result;
   }
 
@@ -176,16 +170,13 @@ export class ReminderProcessingService {
         await this.notificationService.sendBookingLegStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking leg start reminder for ${leg.id}: ${error.message}`,
-          error.stack,
-          "ReminderProcessingService",
-        );
+        this.logger.error(`Failed to process booking leg start reminder for ${leg.id}: ${error.message}`,
+error.stack);
       }
     }
 
     const result = `Processed ${processedCount} booking leg start reminders`;
-    this.logger.log(result, "ReminderProcessingService");
+    this.logger.log(result);
     return result;
   }
 
@@ -242,16 +233,13 @@ export class ReminderProcessingService {
         await this.notificationService.sendBookingLegStartReminders(reminderData);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking leg end reminder for ${leg.id}: ${error.message}`,
-          error.stack,
-          "ReminderProcessingService",
-        );
+        this.logger.error(`Failed to process booking leg end reminder for ${leg.id}: ${error.message}`,
+error.stack);
       }
     }
 
     const result = `Processed ${processedCount} booking leg end reminders`;
-    this.logger.log(result, "ReminderProcessingService");
+    this.logger.log(result);
     return result;
   }
 }

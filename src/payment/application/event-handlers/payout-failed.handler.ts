@@ -11,11 +11,8 @@ export class PayoutFailedHandler implements IEventHandler<PayoutFailedEvent> {
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: PayoutFailedEvent) {
-    this.logger.error(
-      `Payout failed: ${event.aggregateId} - Reason: ${event.failureReason}`,
-      undefined,
-      "PayoutFailedHandler",
-    );
+    this.logger.error(`Payout failed: ${event.aggregateId} - Reason: ${event.failureReason}`,
+undefined);
 
     // This handler is focused purely on payment domain concerns
     // Cross-domain coordination (notifications, admin alerts)

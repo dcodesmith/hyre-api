@@ -34,7 +34,6 @@ export class UserManagementService {
     private readonly userProfileService: UserProfileApplicationService,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(UserManagementService.name);
   }
 
   async registerCustomer(dto: RegisterCustomerDto): Promise<UserRegistrationResponseDto> {

@@ -1,18 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { TypedConfigService } from "../../../config/typed-config.service";
-import { LoggerService } from "../../../logging/logger.service";
+import { LoggerService, type Logger } from "../../../logging/logger.service";
 import { FlutterwaveConfig, FlutterwaveError, FlutterwaveResponse } from "./flutterwave.types";
 
 @Injectable()
 export class FlutterwaveClient {
   private readonly config: FlutterwaveConfig;
   private readonly httpClient: AxiosInstance;
+  private readonly logger: Logger;
 
   constructor(
     private readonly configService: TypedConfigService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
+    this.logger = this.loggerService.createLogger(FlutterwaveClient.name);
     this.config = this.configService.flutterwave;
 
     this.httpClient = axios.create({
@@ -36,14 +38,11 @@ export class FlutterwaveClient {
     config?: AxiosRequestConfig,
   ): Promise<FlutterwaveResponse<T>> {
     try {
-      this.logger.log(`Making POST request to Flutterwave: ${endpoint}`, "FlutterwaveClient");
+      this.logger.info(`Making POST request to Flutterwave: ${endpoint}`);
 
       const response = await this.httpClient.post<FlutterwaveResponse<T>>(endpoint, data, config);
 
-      this.logger.log(
-        `Flutterwave POST response: ${endpoint} - Status: ${response.data.status}`,
-        "FlutterwaveClient",
-      );
+      this.logger.info(`Flutterwave POST response: ${endpoint} - Status: ${response.data.status}`);
 
       return response.data;
     } catch (error) {
@@ -56,14 +55,11 @@ export class FlutterwaveClient {
    */
   async get<T>(endpoint: string, config?: AxiosRequestConfig): Promise<FlutterwaveResponse<T>> {
     try {
-      this.logger.log(`Making GET request to Flutterwave: ${endpoint}`, "FlutterwaveClient");
+      this.logger.info(`Making GET request to Flutterwave: ${endpoint}`);
 
       const response = await this.httpClient.get<FlutterwaveResponse<T>>(endpoint, config);
 
-      this.logger.log(
-        `Flutterwave GET response: ${endpoint} - Status: ${response.data.status}`,
-        "FlutterwaveClient",
-      );
+      this.logger.info(`Flutterwave GET response: ${endpoint} - Status: ${response.data.status}`);
 
       return response.data;
     } catch (error) {
@@ -89,19 +85,12 @@ export class FlutterwaveClient {
     // Request interceptor to log requests (with sensitive data masked)
     this.httpClient.interceptors.request.use(
       (config) => {
-        this.logger.log(
-          `Flutterwave request: ${config.method?.toUpperCase()} ${config.url}`,
-          "FlutterwaveClient",
-        );
+        this.logger.info(`Flutterwave request: ${config.method?.toUpperCase()} ${config.url}`);
 
         return config;
       },
       (error) => {
-        this.logger.error(
-          `Flutterwave request error: ${error.message}`,
-          error.stack,
-          "FlutterwaveClient",
-        );
+        this.logger.error(`Flutterwave request error: ${error.message}`);
         return Promise.reject(error);
       },
     );
@@ -112,11 +101,7 @@ export class FlutterwaveClient {
         return response;
       },
       (error) => {
-        this.logger.error(
-          `Flutterwave response error: ${error.message}`,
-          error.stack,
-          "FlutterwaveClient",
-        );
+        this.logger.error(`Flutterwave response error: ${error.message}`);
         return Promise.reject(error);
       },
     );
@@ -124,13 +109,8 @@ export class FlutterwaveClient {
 
   private handleError(error: unknown, operation: string): FlutterwaveError {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorStack = error instanceof Error ? error.stack : undefined;
 
-    this.logger.error(
-      `Flutterwave ${operation} failed: ${errorMessage}`,
-      errorStack,
-      "FlutterwaveClient",
-    );
+    this.logger.error(`Flutterwave ${operation} failed: ${errorMessage}`);
 
     if (error instanceof AxiosError && error.response) {
       const { status, data } = error.response;

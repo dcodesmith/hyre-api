@@ -31,19 +31,19 @@ export class WebhookService {
    * Process Flutterwave webhook for booking payments
    */
   async processFlutterwaveWebhook(webhook: FlutterwaveWebhookPayload): Promise<void> {
-    this.logger.log("Processing Flutterwave webhook", webhook.event);
+    this.logger.log("Processing Flutterwave webhook");
 
     try {
       // Only process successful charge events
       if (webhook.event !== "charge.completed" || webhook.data.status !== "successful") {
-        this.logger.log("Ignoring webhook event", `${webhook.event}:${webhook.data.status}`);
+        this.logger.log("Ignoring webhook event");
         return;
       }
 
       const bookingId = this.extractBookingId(webhook);
 
       if (!bookingId) {
-        this.logger.warn("No booking ID found in webhook payload", webhook.data.tx_ref);
+        this.logger.warn("No booking ID found in webhook payload");
         return;
       }
 
@@ -59,13 +59,10 @@ export class WebhookService {
 
       await this.domainEventPublisher.publish(paymentConfirmedEvent);
 
-      this.logger.log("Payment confirmed event published for booking", bookingId);
+      this.logger.log("Payment confirmed event published for booking");
     } catch (error) {
-      this.logger.error(
-        `Error processing Flutterwave webhook: ${error.message}`,
-        error.stack,
-        "WebhookService",
-      );
+      this.logger.error(`Error processing Flutterwave webhook: ${error.message}`,
+error.stack);
       throw error;
     }
   }

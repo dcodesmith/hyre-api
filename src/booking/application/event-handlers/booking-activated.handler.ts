@@ -11,7 +11,7 @@ export class BookingActivatedHandler implements IEventHandler<BookingActivatedEv
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: BookingActivatedEvent): Promise<void> {
-    this.logger.log(`Booking activated: ${event.bookingReference}`, "BookingActivatedHandler");
+    this.logger.log(`Booking activated: ${event.bookingReference}`);
 
     // This handler is focused purely on booking domain concerns
     // Any domain-specific side effects for booking activation would go here

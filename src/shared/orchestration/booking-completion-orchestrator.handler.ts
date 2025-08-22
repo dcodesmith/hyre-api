@@ -6,7 +6,7 @@ import { BookingStatusUpdateData } from "../../communication/domain/services/not
 import { FleetApplicationService } from "../../fleet/application/services/fleet-application.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
 import { PayoutService } from "../../payment/application/services/payout.service";
-import { LoggerService } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for booking completion workflows
@@ -15,33 +15,27 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(BookingCompletedEvent)
 export class BookingCompletionOrchestrator implements IEventHandler<BookingCompletedEvent> {
+  private readonly logger: Logger;
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly payoutService: PayoutService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly fleetApplicationService: FleetApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(BookingCompletionOrchestrator.name);
+    this.logger = this.loggerService.createLogger(BookingCompletionOrchestrator.name);
   }
 
   async handle(event: BookingCompletedEvent): Promise<void> {
-    this.logger.log(
-      `Orchestrating booking completion for booking: ${event.bookingReference}`,
-      BookingCompletionOrchestrator.name,
-    );
+    this.logger.info(`Orchestrating booking completion for booking: ${event.bookingReference}`);
 
     try {
       // Get booking data first
       const booking = await this.bookingApplicationService.getBookingById(event.aggregateId);
 
       if (!booking) {
-        this.logger.error(
-          `Booking not found: ${event.aggregateId}`,
-          undefined,
-          BookingCompletionOrchestrator.name,
-        );
+        this.logger.error(`Booking not found: ${event.aggregateId}`);
         return;
       }
 
@@ -51,15 +45,10 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
         this.orchestrateCompletionNotifications(event.aggregateId),
       ]);
 
-      this.logger.log(
-        `Booking completion orchestration finished for: ${event.bookingReference}`,
-        BookingCompletionOrchestrator.name,
-      );
+      this.logger.info(`Booking completion orchestration finished for: ${event.bookingReference}`);
     } catch (error) {
       this.logger.error(
         `Error orchestrating booking completion for ${event.bookingReference}: ${error.message}`,
-        error.stack,
-        BookingCompletionOrchestrator.name,
       );
     }
   }
@@ -83,10 +72,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
       const fleetOwnerData = fleetOwner.status === "fulfilled" ? fleetOwner.value : null;
 
       if (!bookingData || !carData || !fleetOwnerData) {
-        this.logger.warn(
-          `Cannot process payout: missing data for booking ${bookingId}`,
-          BookingCompletionOrchestrator.name,
-        );
+        this.logger.warn(`Cannot process payout: missing data for booking ${bookingId}`);
         return;
       }
 
@@ -94,9 +80,8 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
       const fleetOwnerPayoutAmount = bookingData.getFleetOwnerPayoutAmountNet();
 
       if (!fleetOwnerPayoutAmount || fleetOwnerPayoutAmount <= 0) {
-        this.logger.log(
+        this.logger.info(
           `No payout required for booking ${bookingId} - Amount: ${fleetOwnerPayoutAmount}`,
-          BookingCompletionOrchestrator.name,
         );
         return;
       }
@@ -105,9 +90,8 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
       // For now, we'll log that payout would be initiated
       // In a full implementation, we'd fetch bank details from fleet owner profile
 
-      this.logger.log(
+      this.logger.info(
         `Payout would be initiated for booking ${bookingId} - Amount: NGN ${fleetOwnerPayoutAmount}`,
-        BookingCompletionOrchestrator.name,
       );
 
       // Implement full payout initiation with bank details
@@ -124,8 +108,6 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
     } catch (error) {
       this.logger.error(
         `Error processing fleet owner payout for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        BookingCompletionOrchestrator.name,
       );
     }
   }
@@ -170,13 +152,11 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
         };
 
         await this.notificationService.sendBookingStatusUpdate(completionNotificationData);
-        this.logger.log(`Completion notification sent for booking: ${bookingId}`);
+        this.logger.info(`Completion notification sent for booking: ${bookingId}`);
       }
     } catch (error) {
       this.logger.error(
         `Error sending completion notifications for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        BookingCompletionOrchestrator.name,
       );
     }
   }
@@ -189,10 +169,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch customer data for booking ${bookingId}: ${error.message}`,
-        BookingCompletionOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }
@@ -205,10 +182,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch car data for booking ${bookingId}: ${error.message}`,
-        BookingCompletionOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }
@@ -227,7 +201,6 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
     } catch (error) {
       this.logger.warn(
         `Failed to fetch fleet owner data for booking ${bookingId}: ${error.message}`,
-        BookingCompletionOrchestrator.name,
       );
       return null;
     }

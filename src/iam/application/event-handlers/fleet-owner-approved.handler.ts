@@ -11,10 +11,7 @@ export class FleetOwnerApprovedHandler implements IEventHandler<FleetOwnerApprov
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: FleetOwnerApprovedEvent) {
-    this.logger.info(
-      `Fleet owner approved: ${event.fleetOwnerId} by ${event.approvedBy}`,
-      "FleetOwnerApprovedHandler",
-    );
+    this.logger.info(`Fleet owner approved: ${event.fleetOwnerId} by ${event.approvedBy}`);
 
     // This handler is focused purely on IAM domain concerns
     // Cross-domain coordination (notifications, onboarding, payout setup)

@@ -24,7 +24,6 @@ export class BookingApplicationService {
     private readonly bookingQueryService: BookingQueryService,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(BookingApplicationService.name);
   }
 
   async createPendingBooking(dto: CreateBookingDto, user?: User): Promise<CreateBookingResponse> {

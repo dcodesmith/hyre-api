@@ -2,7 +2,14 @@
   "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!dist/**", "!node_modules/**", "!coverage/**", "!*.log", "!*.tsbuildinfo"]
+    "includes": [
+      "**",
+      "!dist/**",
+      "!node_modules/**",
+      "!coverage/**",
+      "!*.log",
+      "!*.tsbuildinfo"
+    ]
   },
   "vcs": {
     "enabled": true,
@@ -56,11 +63,29 @@
     "formatter": {
       "quoteStyle": "double"
     },
-    "globals": ["beforeEach", "afterEach", "describe", "test", "expect", "it", "jest", "vi", "beforeAll", "afterAll"]
+    "globals": [
+      "beforeEach",
+      "afterEach",
+      "describe",
+      "test",
+      "expect",
+      "it",
+      "vi",
+      "vi.useRealTimers",
+      "vi.useFakeTimers",
+      "vi.setSystemTime",
+      "Vitest",
+      "Vitest",
+      "Vitest",
+      "beforeAll",
+      "afterAll"
+    ]
   },
   "overrides": [
     {
-      "includes": ["src/main.ts"],
+      "includes": [
+        "src/main.ts"
+      ],
       "linter": {
         "rules": {
           "correctness": {

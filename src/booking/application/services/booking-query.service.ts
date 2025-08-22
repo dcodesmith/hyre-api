@@ -14,7 +14,6 @@ export class BookingQueryService {
     @Inject("BookingRepository") private readonly bookingRepository: BookingRepository,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(BookingQueryService.name);
   }
 
   async getBookingById(bookingId: string): Promise<Booking> {

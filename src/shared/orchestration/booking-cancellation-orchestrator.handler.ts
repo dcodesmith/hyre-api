@@ -5,7 +5,7 @@ import { NotificationService } from "../../communication/application/services/no
 import { BookingStatusUpdateData } from "../../communication/domain/services/notification-factory.service";
 import { FleetApplicationService } from "../../fleet/application/services/fleet-application.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
-import { LoggerService } from "../logging/logger.service";
+import { LoggerService, type Logger } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for booking cancellation workflows
@@ -14,31 +14,26 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(BookingCancelledEvent)
 export class BookingCancellationOrchestrator implements IEventHandler<BookingCancelledEvent> {
+  private readonly logger: Logger;
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly fleetApplicationService: FleetApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(BookingCancellationOrchestrator.name);
+    this.logger = this.loggerService.createLogger(BookingCancellationOrchestrator.name);
   }
 
   async handle(event: BookingCancelledEvent): Promise<void> {
-    this.logger.info(
-      `Orchestrating booking cancellation workflows for: ${event.bookingReference}`,
-      BookingCancellationOrchestrator.name,
-    );
+    this.logger.info(`Orchestrating booking cancellation workflows for: ${event.bookingReference}`);
 
     try {
       // Get booking data from Booking domain
       const booking = await this.bookingApplicationService.getBookingById(event.aggregateId);
 
       if (!booking) {
-        this.logger.warn(
-          `Booking not found for cancellation notification: ${event.aggregateId}`,
-          BookingCancellationOrchestrator.name,
-        );
+        this.logger.warn(`Booking not found for cancellation notification: ${event.aggregateId}`);
         return;
       }
 
@@ -51,13 +46,10 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
 
       this.logger.info(
         `Booking cancellation orchestration completed for: ${event.bookingReference}`,
-        BookingCancellationOrchestrator.name,
       );
     } catch (error) {
       this.logger.error(
         `Error orchestrating booking cancellation for ${event.bookingReference}: ${error.message}`,
-        error.stack,
-        BookingCancellationOrchestrator.name,
       );
     }
   }
@@ -83,7 +75,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       if (!bookingData || !customerData) {
         this.logger.warn(
           `Cannot send customer cancellation notification: missing data for booking ${bookingId}`,
-          BookingCancellationOrchestrator.name,
         );
         return;
       }
@@ -109,8 +100,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
     } catch (error) {
       this.logger.error(
         `Error sending customer cancellation notification for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        BookingCancellationOrchestrator.name,
       );
     }
   }
@@ -124,10 +113,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
 
       if (!booking?.getChauffeurId()) {
-        this.logger.info(
-          `No chauffeur assigned to cancelled booking: ${bookingId}`,
-          BookingCancellationOrchestrator.name,
-        );
+        this.logger.info(`No chauffeur assigned to cancelled booking: ${bookingId}`);
         return;
       }
 
@@ -136,7 +122,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       if (chauffeur) {
         this.logger.info(
           `Cancellation notification sent to chauffeur: ${booking.getChauffeurId()} for booking: ${bookingId}`,
-          BookingCancellationOrchestrator.name,
         );
 
         // In a full implementation, this would send chauffeur-specific cancellation notification
@@ -151,8 +136,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
     } catch (error) {
       this.logger.error(
         `Error sending chauffeur cancellation notification for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        BookingCancellationOrchestrator.name,
       );
     }
   }
@@ -174,7 +157,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       if (!bookingData || !carData) {
         this.logger.warn(
           `Cannot send fleet owner cancellation notification: missing data for booking ${bookingId}`,
-          BookingCancellationOrchestrator.name,
         );
         return;
       }
@@ -184,7 +166,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       if (fleetOwner) {
         this.logger.info(
           `Cancellation notification sent to fleet owner: ${carData.ownerId} for booking: ${bookingId}`,
-          BookingCancellationOrchestrator.name,
         );
 
         // In a full implementation, this would send fleet owner-specific cancellation notification
@@ -200,8 +181,6 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
     } catch (error) {
       this.logger.error(
         `Error sending fleet owner cancellation notification for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        BookingCancellationOrchestrator.name,
       );
     }
   }
@@ -214,10 +193,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch customer data for booking ${bookingId}: ${error.message}`,
-        BookingCancellationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }
@@ -230,10 +206,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch car data for booking ${bookingId}: ${error.message}`,
-        BookingCancellationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }

@@ -25,10 +25,7 @@ export class ResendEmailService extends EmailService {
 
   async sendEmail(request: EmailRequest): Promise<EmailResponse> {
     try {
-      this.logger.log(
-        `Sending email to ${request.to} with subject: ${request.subject}`,
-        "ResendEmailService",
-      );
+      this.logger.log(`Sending email to ${request.to} with subject: ${request.subject}`);
 
       const { data, error } = await this.resend.emails.send({
         from: this.fromEmail,
@@ -39,18 +36,15 @@ export class ResendEmailService extends EmailService {
       });
 
       if (error) {
-        this.logger.error(
-          `Resend email error: ${JSON.stringify(error)}`,
-          undefined,
-          "ResendEmailService",
-        );
+        this.logger.error(`Resend email error: ${JSON.stringify(error)}`,
+undefined);
         return {
           success: false,
           error: error.message || "Unknown Resend error",
         };
       }
 
-      this.logger.log(`Email sent successfully with ID: ${data?.id}`, "ResendEmailService");
+      this.logger.log(`Email sent successfully with ID: ${data?.id}`);
 
       return {
         success: true,
@@ -59,7 +53,7 @@ export class ResendEmailService extends EmailService {
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Failed to send email: ${msg}`, stack, "ResendEmailService");
+      this.logger.error(`Failed to send email: ${msg}`, stack);
       return {
         success: false,
         error: msg,

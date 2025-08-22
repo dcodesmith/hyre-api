@@ -20,7 +20,6 @@ export class BookingLifecycleService {
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(BookingLifecycleService.name);
   }
 
   async cancelBooking(bookingId: string, reason?: string): Promise<void> {

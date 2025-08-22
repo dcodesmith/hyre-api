@@ -49,6 +49,12 @@ const infrastructureServices = [
     ...repositories,
     ...infrastructureServices,
   ],
-  exports: [NotificationService, NotificationRepository, EmailService, SmsService],
+  exports: [
+    NotificationService,
+    NotificationFactoryService, // Needed by orchestrators
+    NotificationRepository,
+    EmailService,
+    SmsService,
+  ],
 })
 export class CommunicationModule {}

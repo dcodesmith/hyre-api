@@ -112,17 +112,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // Use injected logger service
       if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
         // Server errors - full stack trace
-        this.logger.error(
-          logMessage,
-          exception instanceof Error ? exception.stack : String(exception),
-          "AllExceptionsFilter",
-        );
+        this.logger.error(logMessage,
+exception instanceof Error ? exception.stack : String(exception));
       } else if (status >= 400) {
         // Client errors - warning level
-        this.logger.warn(
-          `${logMessage} - ${exception instanceof Error ? exception.message : String(exception)}`,
-          "AllExceptionsFilter",
-        );
+        this.logger.warn(`${logMessage} - ${exception instanceof Error ? exception.message : String(exception)}`);
       }
     } catch (loggerError) {
       // Fallback to internal logger if injected logger fails

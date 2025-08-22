@@ -17,14 +17,16 @@ import { LoggerService } from "../logging/logger.service";
 export class ChauffeurAssignmentOrchestrator
   implements IEventHandler<BookingChauffeurAssignedEvent>
 {
+  private readonly logger: any;
+
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly fleetApplicationService: FleetApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(ChauffeurAssignmentOrchestrator.name);
+    this.logger = this.loggerService.createLogger(ChauffeurAssignmentOrchestrator.name);
   }
 
   async handle(event: BookingChauffeurAssignedEvent): Promise<void> {
@@ -193,13 +195,15 @@ export class ChauffeurAssignmentOrchestrator
 export class ChauffeurUnassignmentOrchestrator
   implements IEventHandler<BookingChauffeurUnassignedEvent>
 {
+  private readonly logger: any;
+
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(ChauffeurUnassignmentOrchestrator.name);
+    this.logger = this.loggerService.createLogger(ChauffeurUnassignmentOrchestrator.name);
   }
 
   async handle(event: BookingChauffeurUnassignedEvent): Promise<void> {

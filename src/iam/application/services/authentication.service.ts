@@ -269,7 +269,7 @@ export class AuthenticationService {
 
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      this.logger.warn("Logout attempted for non-existent user", { userId });
+      this.logger.warn("Logout attempted for non-existent user");
       return;
     }
 
@@ -307,18 +307,7 @@ export class AuthenticationService {
         otpDataCleared: true,
       });
     } catch (error) {
-      this.logger.error(
-        "Logout process failed",
-        (error as Error).stack,
-        JSON.stringify({
-          userId,
-          email: user.getEmail(),
-          timestamp: new Date().toISOString(),
-          action: "logout",
-          success: false,
-          error: (error as Error).message,
-        }),
-      );
+      this.logger.error("Logout process failed", (error as Error).stack);
       throw error;
     }
   }

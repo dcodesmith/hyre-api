@@ -32,7 +32,6 @@ export class UserProfileApplicationService {
     @Inject("UserRepository") private readonly userRepository: UserRepository,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(UserProfileApplicationService.name);
   }
 
   async getUserById(userId: string): Promise<User> {

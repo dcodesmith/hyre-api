@@ -9,10 +9,7 @@ export class BookingChauffeurAssignedHandler
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: BookingChauffeurAssignedEvent): Promise<void> {
-    this.logger.info(
-      `Chauffeur assigned to booking: ${event.bookingReference} - Chauffeur: ${event.chauffeurId}`,
-      "BookingChauffeurAssignedHandler",
-    );
+    this.logger.info(`Chauffeur assigned to booking: ${event.bookingReference} - Chauffeur: ${event.chauffeurId}`);
 
     // This handler is focused purely on booking domain concerns
     // Cross-domain coordination (notifications to chauffeur, customer, fleet owner)

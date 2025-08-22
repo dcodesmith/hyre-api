@@ -11,7 +11,7 @@ export class BookingCompletedHandler implements IEventHandler<BookingCompletedEv
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: BookingCompletedEvent): Promise<void> {
-    this.logger.log(`Booking completed: ${event.bookingReference}`, "BookingCompletedHandler");
+    this.logger.log(`Booking completed: ${event.bookingReference}`);
 
     // This handler is focused purely on booking domain concerns
     // Cross-domain coordination (payouts, notifications) is handled

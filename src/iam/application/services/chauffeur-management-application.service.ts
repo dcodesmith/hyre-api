@@ -28,7 +28,6 @@ export class ChauffeurManagementApplicationService {
     @Inject("UserRepository") private readonly userRepository: UserRepository,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(ChauffeurManagementApplicationService.name);
   }
 
   async getFleetChauffeurs(

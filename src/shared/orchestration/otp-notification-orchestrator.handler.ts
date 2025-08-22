@@ -3,7 +3,7 @@ import { NotificationService } from "../../communication/application/services/no
 import { NotificationFactoryService } from "../../communication/domain/services/notification-factory.service";
 import { OtpGeneratedEvent } from "../../iam/domain/events/otp-generated.event";
 import { OtpAuthenticationService } from "../../iam/domain/services/otp-authentication.service";
-import { LoggerService } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for OTP notification workflows
@@ -12,34 +12,27 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(OtpGeneratedEvent)
 export class OtpNotificationOrchestrator implements IEventHandler<OtpGeneratedEvent> {
+  private readonly logger: Logger;
   constructor(
     private readonly notificationFactory: NotificationFactoryService,
     private readonly notificationService: NotificationService,
     private readonly otpService: OtpAuthenticationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(OtpNotificationOrchestrator.name);
+    this.logger = this.loggerService.createLogger(OtpNotificationOrchestrator.name);
   }
 
   async handle(event: OtpGeneratedEvent): Promise<void> {
-    this.logger.info(
-      `Orchestrating OTP notification workflows for user: ${event.userId}`,
-      OtpNotificationOrchestrator.name,
-    );
+    this.logger.info(`Orchestrating OTP notification workflows for user: ${event.userId}`);
 
     try {
       // Orchestrate secure OTP delivery
       await this.orchestrateOtpDelivery(event);
 
-      this.logger.info(
-        `OTP notification orchestration completed for user: ${event.userId}`,
-        OtpNotificationOrchestrator.name,
-      );
+      this.logger.info(`OTP notification orchestration completed for user: ${event.userId}`);
     } catch (error) {
       this.logger.error(
         `Error orchestrating OTP notification for user ${event.userId}: ${error.message}`,
-        error.stack,
-        OtpNotificationOrchestrator.name,
       );
 
       // Re-throw to ensure the event handler failure is logged
@@ -61,11 +54,7 @@ export class OtpNotificationOrchestrator implements IEventHandler<OtpGeneratedEv
       const otpCode = await this.otpService.getOtp(event.email);
 
       if (!otpCode) {
-        this.logger.error(
-          `OTP code not found for email: ${event.email}`,
-          undefined,
-          OtpNotificationOrchestrator.name,
-        );
+        this.logger.error(`OTP code not found for email: ${event.email}`);
         return;
       }
 
@@ -81,16 +70,9 @@ export class OtpNotificationOrchestrator implements IEventHandler<OtpGeneratedEv
       // Send the notification via Communication domain
       await this.notificationService.sendNotification(notification);
 
-      this.logger.info(
-        `OTP email sent successfully to: ${event.email}`,
-        OtpNotificationOrchestrator.name,
-      );
+      this.logger.info(`OTP email sent successfully to: ${event.email}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to deliver OTP notification to ${event.email}: ${error.message}`,
-        error.stack,
-        OtpNotificationOrchestrator.name,
-      );
+      this.logger.error(`Failed to deliver OTP notification to ${event.email}: ${error.message}`);
       throw error;
     }
   }

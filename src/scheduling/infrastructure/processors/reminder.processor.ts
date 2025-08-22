@@ -15,80 +15,68 @@ export class ReminderProcessor {
 
   @Process("booking-start-reminder")
   async handleBookingStartReminder(job: Job<ReminderJobData>) {
-    this.logger.log(`Processing booking start reminder job: ${job.id}`, "ReminderProcessor");
+    this.logger.log(`Processing booking start reminder job: ${job.id}`);
 
     try {
       const result = await this.reminderProcessingService.processBookingStartReminders();
 
-      this.logger.log(`Booking start reminders processed: ${result}`, "ReminderProcessor");
+      this.logger.log(`Booking start reminders processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking start reminders: ${error.message}`,
-        error.stack,
-        "ReminderProcessor",
-      );
+      this.logger.error(`Failed to process booking start reminders: ${error.message}`,
+error.stack);
       throw error;
     }
   }
 
   @Process("booking-end-reminder")
   async handleBookingEndReminder(job: Job<ReminderJobData>) {
-    this.logger.log(`Processing booking end reminder job: ${job.id}`, "ReminderProcessor");
+    this.logger.log(`Processing booking end reminder job: ${job.id}`);
 
     try {
       const result = await this.reminderProcessingService.processBookingEndReminders();
 
-      this.logger.log(`Booking end reminders processed: ${result}`, "ReminderProcessor");
+      this.logger.log(`Booking end reminders processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking end reminders: ${error.message}`,
-        error.stack,
-        "ReminderProcessor",
-      );
+      this.logger.error(`Failed to process booking end reminders: ${error.message}`,
+error.stack);
       throw error;
     }
   }
 
   @Process("booking-leg-start-reminder")
   async handleBookingLegStartReminder(job: Job<ReminderJobData>) {
-    this.logger.log(`Processing booking leg start reminder job: ${job.id}`, "ReminderProcessor");
+    this.logger.log(`Processing booking leg start reminder job: ${job.id}`);
 
     try {
       const result = await this.reminderProcessingService.processBookingLegStartReminders();
 
-      this.logger.log(`Booking leg start reminders processed: ${result}`, "ReminderProcessor");
+      this.logger.log(`Booking leg start reminders processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking leg start reminders: ${error.message}`,
-        error.stack,
-        "ReminderProcessor",
-      );
+      this.logger.error(`Failed to process booking leg start reminders: ${error.message}`,
+error.stack);
       throw error;
     }
   }
 
   @Process("booking-leg-end-reminder")
   async handleBookingLegEndReminder(job: Job<ReminderJobData>) {
-    this.logger.log(`Processing booking leg end reminder job: ${job.id}`, "ReminderProcessor");
+    this.logger.log(`Processing booking leg end reminder job: ${job.id}`);
 
     try {
       const result = await this.reminderProcessingService.processBookingLegEndReminders();
 
-      this.logger.log(`Booking leg end reminders processed: ${result}`, "ReminderProcessor");
+      this.logger.log(`Booking leg end reminders processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking leg end reminders: ${error.message}`,
-        error.stack,
-        "ReminderProcessor",
-      );
+      this.logger.error(`Failed to process booking leg end reminders: ${error.message}`,
+error.stack);
       throw error;
     }
   }

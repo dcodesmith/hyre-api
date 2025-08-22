@@ -4,7 +4,7 @@ import {
   validatePositiveAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
-import { LoggerService } from "../../../shared/logging/logger.service";
+import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
 import { Payout } from "../../domain/entities/payout.entity";
 import { PayoutRepository } from "../../domain/repositories/payout.repository";
 import { PaymentGateway } from "../../domain/services/payment-gateway.interface";
@@ -15,13 +15,16 @@ import { InitiatePayoutCommand } from "../commands/initiate-payout.command";
 
 @Injectable()
 export class PayoutService {
+  private readonly logger: Logger;
   constructor(
     private readonly payoutRepository: PayoutRepository,
     private readonly payoutPolicyService: PayoutPolicyService,
     private readonly paymentGateway: PaymentGateway,
     private readonly domainEventPublisher: DomainEventPublisher,
-    private readonly logger: LoggerService,
-  ) {}
+    private readonly loggerService: LoggerService,
+  ) {
+    this.logger = this.loggerService.createLogger(PayoutService.name);
+  }
 
   async initiatePayout(command: InitiatePayoutCommand): Promise<void> {
     try {
@@ -85,25 +88,17 @@ export class PayoutService {
 
       if (gatewayResponse.isSuccess()) {
         payout.initiate(gatewayResponse.getReference());
-        this.logger.log(`Payout initiated successfully: ${payout.getId().value}`, "PayoutService");
+        this.logger.info(`Payout initiated successfully: ${payout.getId().value}`);
       } else {
         payout.markAsFailed(gatewayResponse.getErrorMessage());
-        this.logger.error(
-          `Payout initiation failed: ${gatewayResponse.getErrorMessage()}`,
-          undefined,
-          "PayoutService",
-        );
+        this.logger.error(`Payout initiation failed: ${gatewayResponse.getErrorMessage()}`);
       }
 
       // Save updated payout
       // Save payout and publish domain events atomically
       await this.saveAndPublishEvents(payout);
     } catch (error) {
-      this.logger.error(
-        `Failed to initiate payout: ${error.message}`,
-        error.stack,
-        "PayoutService",
-      );
+      this.logger.error(`Failed to initiate payout: ${error.message}`);
       throw error;
     }
   }
@@ -134,15 +129,11 @@ export class PayoutService {
         if (gatewayResponse.isSuccess()) {
           payout.initiate(gatewayResponse.getReference());
           processedCount++;
-          this.logger.log(`Pending payout processed: ${payout.getId().value}`, "PayoutService");
+          this.logger.info(`Pending payout processed: ${payout.getId().value}`);
         } else {
           payout.markAsFailed(gatewayResponse.getErrorMessage());
           failedCount++;
-          this.logger.error(
-            `Pending payout failed: ${gatewayResponse.getErrorMessage()}`,
-            undefined,
-            "PayoutService",
-          );
+          this.logger.error(`Pending payout failed: ${gatewayResponse.getErrorMessage()}`);
         }
 
         await this.saveAndPublishEvents(payout);
@@ -150,14 +141,12 @@ export class PayoutService {
         failedCount++;
         this.logger.error(
           `Error processing pending payout ${payout.getId().value}: ${error.message}`,
-          error.stack,
-          "PayoutService",
         );
       }
     }
 
     const result = `Processed pending payouts: ${processedCount} successful, ${failedCount} failed`;
-    this.logger.log(result, "PayoutService");
+    this.logger.info(result);
     return result;
   }
 
@@ -187,7 +176,7 @@ export class PayoutService {
       extensionId: payout.getExtensionId(),
     });
 
-    this.logger.log(`Payout retry initiated: ${payoutId}`, "PayoutService");
+    this.logger.info(`Payout retry initiated: ${payoutId}`);
   }
 
   /**

@@ -27,7 +27,7 @@ export class WebhookController {
     @Headers("verif-hash") signature: string,
     @ZodBody(FlutterwaveWebhookSchema) webhook: FlutterwaveWebhookPayload,
   ): Promise<{ status: string }> {
-    this.logger.log("Received Flutterwave webhook", webhook.event);
+    this.logger.log("Received Flutterwave webhook");
 
     try {
       // Get raw body for signature verification
@@ -35,28 +35,25 @@ export class WebhookController {
 
       // Verify webhook signature
       if (!signature) {
-        this.logger.error("Missing webhook signature", undefined, "WebhookController");
+        this.logger.error("Missing webhook signature", undefined);
         throw new Error("Missing webhook signature");
       }
 
       const isValid = this.webhookService.verifyWebhookSignature(rawBody, signature);
       if (!isValid) {
-        this.logger.error("Invalid webhook signature", undefined, "WebhookController");
+        this.logger.error("Invalid webhook signature", undefined);
         throw new Error("Invalid webhook signature");
       }
 
       // Process the webhook
       await this.webhookService.processFlutterwaveWebhook(webhook);
 
-      this.logger.log("Webhook processed successfully", webhook.event);
+      this.logger.log("Webhook processed successfully");
 
       return { status: "success" };
     } catch (error) {
-      this.logger.error(
-        `Webhook processing failed: ${error.message}`,
-        error.stack,
-        "WebhookController",
-      );
+      this.logger.error(`Webhook processing failed: ${error.message}`,
+error.stack);
 
       // Still return 200 to acknowledge receipt to Flutterwave
       // This prevents them from retrying the webhook

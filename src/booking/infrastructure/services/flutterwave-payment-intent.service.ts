@@ -34,7 +34,6 @@ export class FlutterwavePaymentIntentService extends PaymentIntentService {
     private readonly logger: LoggerService,
   ) {
     super();
-    this.logger.setContext(FlutterwavePaymentIntentService.name);
   }
 
   async createPaymentIntent(options: PaymentIntentOptions): Promise<PaymentIntentResult> {

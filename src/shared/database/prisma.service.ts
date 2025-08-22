@@ -1,12 +1,13 @@
 import { INestApplication, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { TypedConfigService } from "../config/typed-config.service";
-import { LoggerService } from "../logging/logger.service";
+import { LoggerService, type Logger } from "../logging/logger.service";
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger: Logger;
   constructor(
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
     private readonly configService: TypedConfigService,
   ) {
     super({
@@ -19,6 +20,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       // Add this line to enable lifecycle events
       errorFormat: "pretty",
     });
+    this.logger = this.loggerService.createLogger(PrismaService.name);
 
     // Log database queries in development (but not in test environment)
     if (this.configService.isDevelopment && !this.configService.app.testPort) {
@@ -30,18 +32,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     this.$on("error", (logEvent) => {
-      this.logger.error("Prisma error:", logEvent.message);
+      this.logger.error(`Prisma error: ${logEvent.message}`);
     });
   }
 
   async onModuleInit() {
     await this.$connect();
-    this.logger.log("Database connected successfully");
+    this.logger.info("Database connected successfully");
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
-    this.logger.log("Database disconnected");
+    this.logger.info("Database disconnected");
   }
 
   async enableShutdownHooks(app: INestApplication) {

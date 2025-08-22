@@ -13,10 +13,7 @@ export class BookingPaymentConfirmedHandler implements IEventHandler<BookingPaym
   async handle(event: BookingPaymentConfirmedEvent): Promise<void> {
     const { bookingId, paymentId } = event;
 
-    this.logger.log(
-      `Payment confirmed for booking ${bookingId} with payment ${paymentId}`,
-      "BookingPaymentConfirmedHandler",
-    );
+    this.logger.log(`Payment confirmed for booking ${bookingId} with payment ${paymentId}`);
 
     // This handler is focused purely on booking domain concerns
     // The actual booking confirmation and cross-domain workflows

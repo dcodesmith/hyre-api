@@ -3,6 +3,15 @@ import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 import { NotificationContent } from "../value-objects/notification-content.vo";
 import { NotificationType } from "../value-objects/notification-type.vo";
 import { Recipient } from "../value-objects/recipient.vo";
+import {
+  NotificationCannotBeMarkedAsDeliveredError,
+  NotificationCannotBeMarkedAsSentError,
+  NotificationCannotBeRetriedError,
+  NotificationFailureReasonRequiredError,
+  NotificationRecipientMissingBothContactsError,
+  NotificationRecipientMissingEmailError,
+  NotificationRecipientMissingPhoneError,
+} from "../errors/notification.errors";
 
 export enum NotificationStatus {
   PENDING = "PENDING",
@@ -50,20 +59,18 @@ export class Notification extends Entity<string> {
   ): Notification {
     // Validate that recipient supports the requested channel
     if (channel === DeliveryChannel.EMAIL && !recipient.hasEmail()) {
-      throw new Error("Recipient does not have email for email notification");
+      throw new NotificationRecipientMissingEmailError();
     }
 
     if (channel === DeliveryChannel.SMS && !recipient.hasPhoneNumber()) {
-      throw new Error("Recipient does not have phone number for SMS notification");
+      throw new NotificationRecipientMissingPhoneError();
     }
 
     if (
       channel === DeliveryChannel.BOTH &&
       (!recipient.hasEmail() || !recipient.hasPhoneNumber())
     ) {
-      throw new Error(
-        "Recipient must have both email and phone number for multi-channel notification",
-      );
+      throw new NotificationRecipientMissingBothContactsError();
     }
 
     const id = generateSecureRandomId();
@@ -90,7 +97,7 @@ export class Notification extends Entity<string> {
 
   public markAsSent(): void {
     if (this.props.status !== NotificationStatus.PENDING) {
-      throw new Error(`Cannot mark notification as sent from ${this.props.status} status`);
+      throw new NotificationCannotBeMarkedAsSentError(this.props.id, this.props.status);
     }
 
     this.props.status = NotificationStatus.SENT;
@@ -100,7 +107,7 @@ export class Notification extends Entity<string> {
 
   public markAsDelivered(): void {
     if (this.props.status !== NotificationStatus.SENT) {
-      throw new Error(`Cannot mark notification as delivered from ${this.props.status} status`);
+      throw new NotificationCannotBeMarkedAsDeliveredError(this.props.id, this.props.status);
     }
 
     this.props.status = NotificationStatus.DELIVERED;
@@ -110,7 +117,7 @@ export class Notification extends Entity<string> {
 
   public markAsFailed(reason: string): void {
     if (!reason || reason.trim().length === 0) {
-      throw new Error("Failure reason cannot be empty");
+      throw new NotificationFailureReasonRequiredError(this.props.id);
     }
 
     this.props.status = NotificationStatus.FAILED;
@@ -129,9 +136,17 @@ export class Notification extends Entity<string> {
     return this.props.status === NotificationStatus.FAILED && this.props.attemptCount < 3;
   }
 
-  public retry(): void {
+    public retry(): void {
     if (!this.canRetry()) {
-      throw new Error("Notification cannot be retried");
+      let reason: string;
+      if (this.props.status !== NotificationStatus.FAILED) {
+        reason = `status is ${this.props.status}, not FAILED`;
+      } else if (this.props.attemptCount >= 3) {
+        reason = `attempt count is ${this.props.attemptCount}, exceeds maximum of 3`;
+      } else {
+        reason = "unknown reason";
+      }
+      throw new NotificationCannotBeRetriedError(this.props.id, reason);
     }
 
     this.props.status = NotificationStatus.PENDING;

@@ -44,7 +44,6 @@ export class BookingCreationService {
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(BookingCreationService.name);
   }
 
   async createPendingBooking(

@@ -19,7 +19,7 @@ export class LoggingInterceptor implements NestInterceptor {
         const statusCode = response.statusCode;
         const responseTime = Date.now() - now;
 
-        this.logger.log(`${method} ${url} ${statusCode} - ${responseTime}ms`, "HTTP");
+        this.logger.log(`${method} ${url} ${statusCode} - ${responseTime}ms`);
       }),
     );
   }

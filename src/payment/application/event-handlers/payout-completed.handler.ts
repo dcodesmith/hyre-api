@@ -11,10 +11,7 @@ export class PayoutCompletedHandler implements IEventHandler<PayoutCompletedEven
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: PayoutCompletedEvent) {
-    this.logger.log(
-      `Payout completed: ${event.aggregateId} - Amount: NGN ${event.amount}`,
-      "PayoutCompletedHandler",
-    );
+    this.logger.log(`Payout completed: ${event.aggregateId} - Amount: NGN ${event.amount}`);
 
     // This handler is focused purely on payment domain concerns
     // Cross-domain coordination (notifications to fleet owner)

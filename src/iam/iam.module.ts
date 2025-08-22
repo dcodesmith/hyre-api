@@ -139,6 +139,7 @@ const externalServices = [
     // Export main services for use by other modules
     UserManagementService,
     AuthenticationService,
+    UserProfileApplicationService, // Needed by orchestrators
     RoleAuthorizationService,
     "UserRepository", // Token-based export for compatibility
 

@@ -11,7 +11,7 @@ export class BookingCancelledHandler implements IEventHandler<BookingCancelledEv
   constructor(private readonly logger: LoggerService) {}
 
   async handle(event: BookingCancelledEvent) {
-    this.logger.log(`Booking cancelled: ${event.bookingReference}`, "BookingCancelledHandler");
+    this.logger.log(`Booking cancelled: ${event.bookingReference}`);
 
     // This handler is focused purely on booking domain concerns
     // Cross-domain coordination (notifications to customer, chauffeur, fleet owner)

@@ -13,29 +13,24 @@ export class BookingCreatedHandler implements IEventHandler<BookingCreatedEvent>
   ) {}
 
   async handle(event: BookingCreatedEvent) {
-    this.logger.log("Handling booking created event for booking", event.bookingReference);
+    this.logger.log("Handling booking created event for booking");
 
     try {
       const booking = await this.bookingRepository.findById(event.aggregateId);
 
       if (!booking) {
-        this.logger.warn(
-          `Booking not found for created booking: ${event.aggregateId}`,
-          "BookingCreatedHandler",
-        );
+        this.logger.warn(`Booking not found for created booking: ${event.aggregateId}`);
         return;
       }
 
       // Booking created - no notifications sent until payment is confirmed
       this.logger.log(
-        "Booking created successfully - awaiting payment confirmation",
-        event.bookingReference,
+        `Booking created successfully - awaiting payment confirmation: ${event.bookingReference}`,
       );
     } catch (error) {
       this.logger.error(
         `Error handling booking created event for ${event.bookingReference}: ${error.message}`,
         error.stack,
-        "BookingCreatedHandler",
       );
     }
   }

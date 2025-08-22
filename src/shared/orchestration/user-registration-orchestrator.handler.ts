@@ -2,7 +2,7 @@ import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { NotificationService } from "../../communication/application/services/notification.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
 import { UserRegisteredEvent } from "../../iam/domain/events/user-registered.event";
-import { LoggerService } from "../logging/logger.service";
+import { LoggerService, type Logger } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for user registration workflows
@@ -11,19 +11,17 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(UserRegisteredEvent)
 export class UserRegistrationOrchestrator implements IEventHandler<UserRegisteredEvent> {
+  private readonly logger: Logger;
   constructor(
     private readonly userProfileService: UserProfileApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(UserRegistrationOrchestrator.name);
+    this.logger = this.loggerService.createLogger(UserRegistrationOrchestrator.name);
   }
 
   async handle(event: UserRegisteredEvent): Promise<void> {
-    this.logger.info(
-      `Orchestrating user registration workflows for user ${event.aggregateId}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Orchestrating user registration workflows for user ${event.aggregateId}`);
 
     try {
       // Orchestrate cross-domain workflows in parallel
@@ -32,15 +30,10 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
         this.orchestrateRoleSpecificWorkflows(event),
       ]);
 
-      this.logger.info(
-        `User registration orchestration completed for user ${event.aggregateId}`,
-        UserRegistrationOrchestrator.name,
-      );
+      this.logger.info(`User registration orchestration completed for user ${event.aggregateId}`);
     } catch (error) {
       this.logger.error(
         `Error orchestrating user registration for ${event.email}: ${error.message}`,
-        error.stack,
-        UserRegistrationOrchestrator.name,
       );
     }
   }
@@ -55,10 +48,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
       const userData = await this.getUserData(event.aggregateId);
 
       if (!userData) {
-        this.logger.warn(
-          `Cannot send welcome notifications: user ${event.aggregateId} not found`,
-          UserRegistrationOrchestrator.name,
-        );
+        this.logger.warn(`Cannot send welcome notifications: user ${event.aggregateId} not found`);
         return;
       }
 
@@ -70,13 +60,10 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
 
       this.logger.info(
         `Welcome notification sent for user ${event.aggregateId}: ${notificationType}`,
-        UserRegistrationOrchestrator.name,
       );
     } catch (error) {
       this.logger.error(
         `Error sending welcome notifications for user ${event.aggregateId}: ${error.message}`,
-        error.stack,
-        UserRegistrationOrchestrator.name,
       );
     }
   }
@@ -103,16 +90,11 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
           await this.handleStaffRegistration(event);
           break;
         default:
-          this.logger.warn(
-            `No specific workflow for role: ${event.role}`,
-            UserRegistrationOrchestrator.name,
-          );
+          this.logger.warn(`No specific workflow for role: ${event.role}`);
       }
     } catch (error) {
       this.logger.error(
         `Error in role-specific workflow for user ${event.aggregateId}: ${error.message}`,
-        error.stack,
-        UserRegistrationOrchestrator.name,
       );
     }
   }
@@ -124,10 +106,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
     try {
       return await this.userProfileService.getUserById(userId);
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch user data for ID ${userId}: ${error.message}`,
-        UserRegistrationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch user data for ID ${userId}: ${error.message}`);
       return null;
     }
   }
@@ -153,10 +132,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
     // This would use the notification service to send role-specific welcome messages
     // The actual implementation would depend on the notification templates available
 
-    this.logger.info(
-      `Sending ${notificationType} notification to ${event.email}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Sending ${notificationType} notification to ${event.email}`);
 
     // For now, we'll log the intention
     // In a full implementation, this would call the appropriate notification method
@@ -173,10 +149,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
    * Handles fleet owner specific registration workflows
    */
   private async handleFleetOwnerRegistration(event: UserRegisteredEvent): Promise<void> {
-    this.logger.info(
-      `Processing fleet owner registration workflow for user ${event.aggregateId}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Processing fleet owner registration workflow for user ${event.aggregateId}`);
 
     // Fleet owner specific processes would go here:
     // - Send onboarding checklist
@@ -188,10 +161,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
    * Handles chauffeur specific registration workflows
    */
   private async handleChauffeurRegistration(event: UserRegisteredEvent): Promise<void> {
-    this.logger.info(
-      `Processing chauffeur registration workflow for user ${event.aggregateId}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Processing chauffeur registration workflow for user ${event.aggregateId}`);
 
     // Chauffeur specific processes would go here:
     // - Send document upload instructions
@@ -203,10 +173,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
    * Handles customer specific registration workflows
    */
   private async handleCustomerRegistration(event: UserRegisteredEvent): Promise<void> {
-    this.logger.info(
-      `Processing customer registration workflow for user ${event.aggregateId}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Processing customer registration workflow for user ${event.aggregateId}`);
 
     // Customer specific processes would go here:
     // - Send booking tutorial
@@ -218,10 +185,7 @@ export class UserRegistrationOrchestrator implements IEventHandler<UserRegistere
    * Handles staff/admin specific registration workflows
    */
   private async handleStaffRegistration(event: UserRegisteredEvent): Promise<void> {
-    this.logger.info(
-      `Processing staff registration workflow for user ${event.aggregateId}`,
-      UserRegistrationOrchestrator.name,
-    );
+    this.logger.info(`Processing staff registration workflow for user ${event.aggregateId}`);
 
     // Staff specific processes would go here:
     // - Send admin panel access instructions

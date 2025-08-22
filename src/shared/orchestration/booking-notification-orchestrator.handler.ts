@@ -14,20 +14,21 @@ import { LoggerService } from "../logging/logger.service";
  */
 @EventsHandler(BookingActivatedEvent)
 export class BookingNotificationOrchestrator implements IEventHandler<BookingActivatedEvent> {
+  private readonly logger: any;
+
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly fleetApplicationService: FleetApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(BookingNotificationOrchestrator.name);
+    this.logger = this.loggerService.createLogger(BookingNotificationOrchestrator.name);
   }
 
   async handle(event: BookingActivatedEvent): Promise<void> {
-    this.logger.log(
+    this.logger.info(
       `Orchestrating notifications for activated booking: ${event.bookingReference}`,
-      BookingNotificationOrchestrator.name,
     );
 
     try {
@@ -37,15 +38,11 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
       // Send notification using assembled cross-domain data
       await this.notificationService.sendBookingStatusUpdate(notificationData);
 
-      this.logger.log(
-        `Notification sent for activated booking: ${event.bookingReference}`,
-        BookingNotificationOrchestrator.name,
-      );
+      this.logger.info(`Notification sent for activated booking: ${event.bookingReference}`);
     } catch (error) {
       this.logger.error(
+        { error: error.message, stack: error.stack },
         `Error orchestrating notifications for booking ${event.bookingReference}: ${error.message}`,
-        error.stack,
-        BookingNotificationOrchestrator.name,
       );
     }
   }
@@ -104,10 +101,7 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
     try {
       return await this.userProfileService.getUserById(customerId);
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch customer data for ID ${customerId}: ${error.message}`,
-        BookingNotificationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch customer data for ID ${customerId}: ${error.message}`);
       return null;
     }
   }
@@ -120,10 +114,7 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch car data for booking ${bookingId}: ${error.message}`,
-        BookingNotificationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }

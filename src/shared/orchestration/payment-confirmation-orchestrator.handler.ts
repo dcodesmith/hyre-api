@@ -5,7 +5,7 @@ import { BookingStatusUpdateData } from "../../communication/domain/services/not
 import { FleetApplicationService } from "../../fleet/application/services/fleet-application.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
 import { BookingPaymentConfirmedEvent } from "../../payment/domain/events/payment-confirmed.event";
-import { LoggerService } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for payment confirmation workflows
@@ -16,42 +16,36 @@ import { LoggerService } from "../logging/logger.service";
 export class PaymentConfirmationOrchestrator
   implements IEventHandler<BookingPaymentConfirmedEvent>
 {
+  private readonly logger: Logger;
+
   constructor(
     private readonly bookingApplicationService: BookingApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly fleetApplicationService: FleetApplicationService,
     private readonly notificationService: NotificationService,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
   ) {
-    this.logger.setContext(PaymentConfirmationOrchestrator.name);
+    this.logger = this.loggerService.createLogger(PaymentConfirmationOrchestrator.name);
   }
 
   async handle(event: BookingPaymentConfirmedEvent): Promise<void> {
     const { bookingId, paymentId } = event;
 
-    this.logger.log(
-      `Orchestrating payment confirmation for booking ${bookingId}`,
-      PaymentConfirmationOrchestrator.name,
-    );
+    this.logger.info(`Orchestrating payment confirmation for booking ${bookingId}`);
 
     try {
       // Step 1: Confirm booking with payment in Booking domain
       await this.bookingApplicationService.confirmBookingWithPayment(bookingId, paymentId);
 
-      this.logger.log(`Booking confirmed via payment: ${bookingId}`);
+      this.logger.info(`Booking confirmed via payment: ${bookingId}`);
 
       // Step 2: Orchestrate cross-domain notifications
       await this.orchestratePaymentConfirmationNotifications(bookingId);
 
-      this.logger.log(
-        `Payment confirmation orchestration completed for booking: ${bookingId}`,
-        PaymentConfirmationOrchestrator.name,
-      );
+      this.logger.info(`Payment confirmation orchestration completed for booking: ${bookingId}`);
     } catch (error) {
       this.logger.error(
         `Error orchestrating payment confirmation for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        PaymentConfirmationOrchestrator.name,
       );
     }
   }
@@ -98,7 +92,7 @@ export class PaymentConfirmationOrchestrator
         };
 
         await this.notificationService.sendBookingStatusUpdate(customerNotificationData);
-        this.logger.log(`Customer payment confirmation sent for booking: ${bookingId}`);
+        this.logger.info(`Customer payment confirmation sent for booking: ${bookingId}`);
       }
 
       // Send fleet owner notification if available
@@ -119,13 +113,11 @@ export class PaymentConfirmationOrchestrator
         };
 
         await this.notificationService.sendBookingStatusUpdate(fleetOwnerNotificationData);
-        this.logger.log(`Fleet owner payment confirmation sent for booking: ${bookingId}`);
+        this.logger.info(`Fleet owner payment confirmation sent for booking: ${bookingId}`);
       }
     } catch (error) {
       this.logger.error(
         `Error sending payment confirmation notifications for booking ${bookingId}: ${error.message}`,
-        error.stack,
-        PaymentConfirmationOrchestrator.name,
       );
     }
   }
@@ -145,10 +137,7 @@ export class PaymentConfirmationOrchestrator
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch customer data for booking ${bookingId}: ${error.message}`,
-        PaymentConfirmationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }
@@ -161,10 +150,7 @@ export class PaymentConfirmationOrchestrator
       const booking = await this.bookingApplicationService.getBookingById(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
-      this.logger.warn(
-        `Failed to fetch car data for booking ${bookingId}: ${error.message}`,
-        PaymentConfirmationOrchestrator.name,
-      );
+      this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
       return null;
     }
   }
@@ -183,7 +169,6 @@ export class PaymentConfirmationOrchestrator
     } catch (error) {
       this.logger.warn(
         `Failed to fetch fleet owner data for booking ${bookingId}: ${error.message}`,
-        PaymentConfirmationOrchestrator.name,
       );
       return null;
     }

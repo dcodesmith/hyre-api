@@ -20,7 +20,6 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
     private readonly fleetManagementService: FleetManagementService,
     private readonly logger: LoggerService,
   ) {
-    this.logger.setContext(ChauffeurValidationAdapter.name);
   }
 
   async validateChauffeurExists(chauffeurId: string): Promise<boolean> {

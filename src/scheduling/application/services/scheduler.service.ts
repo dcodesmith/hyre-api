@@ -2,7 +2,7 @@ import { InjectQueue } from "@nestjs/bull";
 import { Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Queue } from "bull";
-import { LoggerService } from "../../../shared/logging/logger.service";
+import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
 
 export interface ReminderJobData {
   type: "trip-start" | "trip-end" | "leg-start" | "leg-end";
@@ -21,12 +21,16 @@ export interface ProcessingJobData {
 
 @Injectable()
 export class SchedulerService {
+  private readonly logger: Logger;
+
   constructor(
     @InjectQueue("reminder-emails") private readonly reminderQueue: Queue,
     @InjectQueue("status-updates") private readonly statusQueue: Queue,
     @InjectQueue("processing-jobs") private readonly processingQueue: Queue,
-    private readonly logger: LoggerService,
-  ) {}
+    private readonly loggerService: LoggerService,
+  ) {
+    this.logger = this.loggerService.createLogger(SchedulerService.name);
+  }
 
   // Booking leg start reminders - every hour from 6-11 AM and at 10 PM
   @Cron("0 6-11,22 * * *")
@@ -45,7 +49,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled booking leg start reminder job", "SchedulerService");
+    this.logger.info("Scheduled booking leg start reminder job");
   }
 
   // Booking leg end reminders - at 4 AM and hourly from 6-11 PM
@@ -65,7 +69,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled booking leg end reminder job", "SchedulerService");
+    this.logger.info("Scheduled booking leg end reminder job");
   }
 
   // Booking start reminders - every hour from 6-11 AM and at 10 PM
@@ -85,7 +89,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled booking start reminder job", "SchedulerService");
+    this.logger.info("Scheduled booking start reminder job");
   }
 
   // Booking end reminders - at 4 AM and hourly from 6-11 PM
@@ -105,7 +109,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled booking end reminder job", "SchedulerService");
+    this.logger.info("Scheduled booking end reminder job");
   }
 
   // Status updates: confirmed to active - hourly from 7 AM to 12 PM and at 11 PM
@@ -125,7 +129,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled confirmed to active status update job", "SchedulerService");
+    this.logger.info("Scheduled confirmed to active status update job");
   }
 
   // Status updates: active to completed - at midnight, 5 AM, and hourly from 7-11 PM
@@ -145,7 +149,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled active to completed status update job", "SchedulerService");
+    this.logger.info("Scheduled active to completed status update job");
   }
 
   // Process pending payouts - every 30 minutes during business hours
@@ -165,7 +169,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled pending payout processing job", "SchedulerService");
+    this.logger.info("Scheduled pending payout processing job");
   }
 
   // Process pending notifications - every 5 minutes
@@ -185,7 +189,7 @@ export class SchedulerService {
       },
     });
 
-    this.logger.log("Scheduled pending notification processing job", "SchedulerService");
+    this.logger.info("Scheduled pending notification processing job");
   }
 
   // Manual job triggering methods for testing and administration
@@ -202,7 +206,7 @@ export class SchedulerService {
       priority: 30, // Higher priority for manual jobs
     });
 
-    this.logger.log(`Manually triggered ${type} reminder job`, "SchedulerService");
+    this.logger.info(`Manually triggered ${type} reminder job`);
   }
 
   async triggerManualStatusUpdate(
@@ -218,7 +222,7 @@ export class SchedulerService {
       priority: 30,
     });
 
-    this.logger.log(`Manually triggered ${type} status update job`, "SchedulerService");
+    this.logger.info(`Manually triggered ${type} status update job`);
   }
 
   async triggerManualProcessing(type: "pending-payouts" | "pending-notifications"): Promise<void> {
@@ -232,7 +236,7 @@ export class SchedulerService {
       priority: 30,
     });
 
-    this.logger.log(`Manually triggered ${type} processing job`, "SchedulerService");
+    this.logger.info(`Manually triggered ${type} processing job`);
   }
 
   // Queue statistics

@@ -46,7 +46,7 @@ export class S3Client {
     try {
       const bucket = options.bucket || this.config.bucketName;
 
-      this.logger.log(`Uploading file to S3: ${options.key}`, "S3Client");
+      this.logger.log(`Uploading file to S3: ${options.key}`);
 
       const command = new PutObjectCommand({
         Bucket: bucket,
@@ -58,7 +58,7 @@ export class S3Client {
       const result = await this.s3Client.send(command);
       const url = `https://${bucket}.s3.${this.config.region}.amazonaws.com/${options.key}`;
 
-      this.logger.log(`File uploaded to S3 successfully: ${options.key}`, "S3Client");
+      this.logger.log(`File uploaded to S3 successfully: ${options.key}`);
 
       return {
         key: options.key,
@@ -77,7 +77,7 @@ export class S3Client {
     try {
       const bucket = options.bucket || this.config.bucketName;
 
-      this.logger.log(`Deleting file from S3: ${options.key}`, "S3Client");
+      this.logger.log(`Deleting file from S3: ${options.key}`);
 
       const command = new DeleteObjectCommand({
         Bucket: bucket,
@@ -86,7 +86,7 @@ export class S3Client {
 
       await this.s3Client.send(command);
 
-      this.logger.log(`File deleted from S3 successfully: ${options.key}`, "S3Client");
+      this.logger.log(`File deleted from S3 successfully: ${options.key}`);
 
       return {
         deleted: true,
@@ -104,7 +104,7 @@ export class S3Client {
       const bucket = options.bucket || this.config.bucketName;
       const expiresIn = options.expiresIn || 3600; // 1 hour default
 
-      this.logger.log(`Generating presigned URL for: ${options.key}`, "S3Client");
+      this.logger.log(`Generating presigned URL for: ${options.key}`);
 
       const command = new GetObjectCommand({
         Bucket: bucket,
@@ -115,7 +115,7 @@ export class S3Client {
         expiresIn,
       });
 
-      this.logger.log(`Presigned URL generated for: ${options.key}`, "S3Client");
+      this.logger.log(`Presigned URL generated for: ${options.key}`);
 
       return url;
     } catch (error) {
@@ -143,7 +143,6 @@ export class S3Client {
     this.logger.error(
       `S3 ${operation} failed: ${errorMessage}`,
       error instanceof Error ? error.stack : undefined,
-      "S3Client",
     );
 
     if (error instanceof S3ServiceException) {
