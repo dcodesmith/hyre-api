@@ -1,6 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
+import { Inject, Injectable } from "@nestjs/common";
 import { Notification } from "../../domain/entities/notification.entity";
+import {
+  NotificationBatchProcessingError,
+  NotificationEmailDeliveryError,
+  NotificationReminderCreationError,
+  NotificationSmsDeliveryError,
+  NotificationStatusUpdateError,
+  NotificationTemplateRenderingError,
+} from "../../domain/errors/notification.errors";
 import { NotificationRepository } from "../../domain/repositories/notification.repository";
 import { EmailService } from "../../domain/services/email.service.interface";
 import {
@@ -13,16 +20,13 @@ import { SmsService } from "../../domain/services/sms.service.interface";
 
 @Injectable()
 export class NotificationService {
-  private readonly logger: Logger;
   constructor(
+    @Inject("NotificationRepository")
     private readonly notificationRepository: NotificationRepository,
     private readonly notificationFactory: NotificationFactoryService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
-    private readonly loggerService: LoggerService,
-  ) {
-    this.logger = this.loggerService.createLogger(NotificationService.name);
-  }
+  ) {}
 
   async sendBookingStartReminders(data: BookingReminderData): Promise<string> {
     try {
@@ -33,14 +37,9 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.info(
-        `Sent ${notifications.length} booking start reminder notifications for booking ${data.bookingId}`,
-      );
-
       return `Sent ${notifications.length} booking start reminders`;
     } catch (error) {
-      this.logger.error(`Failed to send booking start reminders: ${error.message}`);
-      throw error;
+      throw new NotificationReminderCreationError("start", data.bookingId, error.message);
     }
   }
 
@@ -53,14 +52,9 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.info(
-        `Sent ${notifications.length} booking end reminder notifications for booking ${data.bookingId}`,
-      );
-
       return `Sent ${notifications.length} booking end reminders`;
     } catch (error) {
-      this.logger.error(`Failed to send booking end reminders: ${error.message}`);
-      throw error;
+      throw new NotificationReminderCreationError("end", data.bookingId, error.message);
     }
   }
 
@@ -73,14 +67,9 @@ export class NotificationService {
         await this.deliverNotification(notification);
       }
 
-      this.logger.info(
-        `Sent ${notifications.length} booking leg start reminder notifications for leg ${data.bookingLegId}`,
-      );
-
       return `Sent ${notifications.length} booking leg start reminders`;
     } catch (error) {
-      this.logger.error(`Failed to send booking leg start reminders: ${error.message}`);
-      throw error;
+      throw new NotificationReminderCreationError("leg-start", data.bookingId, error.message);
     }
   }
 
@@ -95,12 +84,14 @@ export class NotificationService {
       await this.notificationRepository.save(notification);
       await this.deliverNotification(notification);
 
-      this.logger.info(`Sent booking status update notification for booking ${data.bookingId}`);
-
       return "Sent booking status update notification";
     } catch (error) {
-      this.logger.error(`Failed to send booking status update: ${error.message}`);
-      throw error;
+      throw new NotificationStatusUpdateError(
+        data.bookingId,
+        data.status,
+        error.message,
+        data.customerId,
+      );
     }
   }
 
@@ -108,6 +99,7 @@ export class NotificationService {
     const pendingNotifications = await this.notificationRepository.findPendingNotifications();
     let successCount = 0;
     let failureCount = 0;
+    const errors: string[] = [];
 
     for (const notification of pendingNotifications) {
       try {
@@ -115,18 +107,27 @@ export class NotificationService {
         successCount++;
       } catch (error) {
         failureCount++;
-        this.logger.error(`Failed to deliver notification ${notification.id}: ${error.message}`);
+        errors.push(`Notification ${notification.id}: ${error.message}`);
       }
     }
 
-    const result = `Processed ${pendingNotifications.length} pending notifications: ${successCount} successful, ${failureCount} failed`;
-    this.logger.info(result);
-    return result;
+    if (failureCount > 0) {
+      throw new NotificationBatchProcessingError(
+        "pending",
+        pendingNotifications.length,
+        successCount,
+        failureCount,
+        errors,
+      );
+    }
+
+    return `Processed ${pendingNotifications.length} pending notifications: ${successCount} successful, ${failureCount} failed`;
   }
 
   async retryFailedNotifications(): Promise<string> {
     const failedNotifications = await this.notificationRepository.findNotificationsToRetry();
     let retryCount = 0;
+    const errors: string[] = [];
 
     for (const notification of failedNotifications) {
       try {
@@ -135,13 +136,21 @@ export class NotificationService {
         await this.deliverNotification(notification);
         retryCount++;
       } catch (error) {
-        this.logger.error(`Failed to retry notification ${notification.id}: ${error.message}`);
+        errors.push(`Notification ${notification.id}: ${error.message}`);
       }
     }
 
-    const result = `Retried ${retryCount} failed notifications`;
-    this.logger.info(result);
-    return result;
+    if (errors.length > 0) {
+      throw new NotificationBatchProcessingError(
+        "retry",
+        failedNotifications.length,
+        retryCount,
+        failedNotifications.length - retryCount,
+        errors,
+      );
+    }
+
+    return `Retried ${retryCount} failed notifications`;
   }
 
   async sendNotification(notification: Notification): Promise<void> {
@@ -163,8 +172,6 @@ export class NotificationService {
 
       notification.markAsSent();
       await this.notificationRepository.save(notification);
-
-      this.logger.info(`Successfully delivered notification ${notification.id}`);
     } catch (error) {
       notification.markAsFailed(error.message);
       await this.notificationRepository.save(notification);
@@ -174,11 +181,25 @@ export class NotificationService {
 
   private async deliverEmail(notification: Notification): Promise<void> {
     if (!notification.getRecipient().hasEmail()) {
-      throw new Error("Recipient has no email address");
+      throw new NotificationEmailDeliveryError(
+        notification.id,
+        "Recipient has no email address",
+        notification.getRecipient().id,
+      );
     }
 
     const content = notification.getContent().interpolate();
-    const htmlContent = await this.emailService.renderTemplate(content);
+    let htmlContent: string;
+
+    try {
+      htmlContent = await this.emailService.renderTemplate(content);
+    } catch (error) {
+      throw new NotificationTemplateRenderingError(
+        notification.id,
+        error.message,
+        notification.getRecipient().id,
+      );
+    }
 
     const response = await this.emailService.sendEmail({
       to: notification.getRecipient().email,
@@ -188,13 +209,21 @@ export class NotificationService {
     });
 
     if (!response.success) {
-      throw new Error(`Email delivery failed: ${response.error}`);
+      throw new NotificationEmailDeliveryError(
+        notification.id,
+        response.error || "Unknown email service error",
+        notification.getRecipient().id,
+      );
     }
   }
 
   private async deliverSms(notification: Notification): Promise<void> {
     if (!notification.getRecipient().hasPhoneNumber()) {
-      throw new Error("Recipient has no phone number");
+      throw new NotificationSmsDeliveryError(
+        notification.id,
+        "Recipient has no phone number",
+        notification.getRecipient().id,
+      );
     }
 
     const content = notification.getContent().interpolate();
@@ -205,7 +234,11 @@ export class NotificationService {
     });
 
     if (!response.success) {
-      throw new Error(`SMS delivery failed: ${response.error}`);
+      throw new NotificationSmsDeliveryError(
+        notification.id,
+        response.error || "Unknown SMS service error",
+        notification.getRecipient().id,
+      );
     }
   }
 }

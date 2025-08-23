@@ -108,8 +108,19 @@ export class ChauffeurAssignmentService {
         };
       }
 
+      // Get car ownership information
+      const carOwnership = await this.fleetValidationService.getCarOwnership(booking.getCarId());
+
+      if (!carOwnership) {
+        return {
+          success: false,
+          bookingReference: booking.getBookingReference(),
+          message: "Car ownership information not found",
+        };
+      }
+
       // Perform the domain operation
-      booking.unassignChauffeur(request.unassignedBy, request.reason);
+      booking.unassignChauffeur(carOwnership.ownerId, request.unassignedBy, request.reason);
 
       // Publish domain events
       await this.publishDomainEvents(booking);

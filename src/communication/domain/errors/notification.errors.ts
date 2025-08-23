@@ -66,3 +66,104 @@ export class NotificationCannotBeRetriedError extends NotificationDomainError {
     });
   }
 }
+
+export class NotificationEmailDeliveryError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_EMAIL_DELIVERY_ERROR";
+  constructor(notificationId: string, emailServiceError: string, recipientId?: string) {
+    super(`Email delivery failed for notification ${notificationId}: ${emailServiceError}`, {
+      notificationId,
+      emailServiceError,
+      recipientId,
+    });
+  }
+}
+
+export class NotificationSmsDeliveryError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_SMS_DELIVERY_ERROR";
+  constructor(notificationId: string, smsServiceError: string, recipientId?: string) {
+    super(`SMS delivery failed for notification ${notificationId}: ${smsServiceError}`, {
+      notificationId,
+      smsServiceError,
+      recipientId,
+    });
+  }
+}
+
+export class NotificationTemplateRenderingError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_TEMPLATE_RENDERING_ERROR";
+  constructor(notificationId: string, templateError: string, recipientId?: string) {
+    super(`Failed to render email template for notification ${notificationId}: ${templateError}`, {
+      notificationId,
+      templateError,
+      recipientId,
+    });
+  }
+}
+
+export class NotificationServiceConfigurationError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_SERVICE_CONFIGURATION_ERROR";
+  constructor(missingService: "email" | "sms" | "factory" | "repository", originalError: string) {
+    super(
+      `Notification service configuration error: ${missingService} service not available - ${originalError}`,
+      {
+        missingService,
+        originalError,
+      },
+    );
+  }
+}
+
+export class NotificationBatchProcessingError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_BATCH_PROCESSING_ERROR";
+  constructor(
+    batchType: "pending" | "retry",
+    totalCount: number,
+    successCount: number,
+    failureCount: number,
+    errors: string[],
+  ) {
+    super(
+      `Batch processing failed for ${batchType} notifications: ${successCount}/${totalCount} successful, ${failureCount} failed`,
+      {
+        batchType,
+        totalCount,
+        successCount,
+        failureCount,
+        errors,
+      },
+    );
+  }
+}
+
+export class NotificationReminderCreationError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_REMINDER_CREATION_ERROR";
+  constructor(
+    reminderType: "start" | "end" | "leg-start",
+    bookingId: string,
+    originalError: string,
+  ) {
+    super(
+      `Failed to create ${reminderType} reminder notifications for booking ${bookingId}: ${originalError}`,
+      {
+        reminderType,
+        bookingId,
+        originalError,
+      },
+    );
+  }
+}
+
+export class NotificationStatusUpdateError extends NotificationDomainError {
+  readonly code = "NOTIFICATION_STATUS_UPDATE_ERROR";
+  constructor(bookingId: string, status: string, originalError: string, recipientId?: string) {
+    super(
+      `Failed to send status update notification for booking ${bookingId} (${status}): ${originalError}`,
+      {
+        bookingId,
+        status,
+        originalError,
+        recipientId,
+      },
+    );
+  }
+}

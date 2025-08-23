@@ -251,41 +251,37 @@ describe("BookingCreationService", () => {
     });
 
     it("should throw error when car not found", async () => {
-      // Arrange
       vi.mocked(mockCarRepository.findById).mockResolvedValue(null);
 
-      // Act & Assert
       await expect(service.createPendingBooking(mockDto, mockUser)).rejects.toThrow(
-        new CarNotFoundError("car-123"),
+        CarNotFoundError,
       );
     });
 
     it("should throw error when authenticated user cannot make bookings", async () => {
-      // Arrange
       const restrictedUser = {
         ...mockUser,
         canMakeBookings: vi.fn(() => false),
         getEmail: vi.fn(() => "restricted@example.com"),
       } as unknown as User;
 
-      // Act & Assert
       await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
-        new BadRequestException("User restricted@example.com is not authorized to make bookings"),
+        BadRequestException,
+      );
+      await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
+        "User restricted@example.com is not authorized to make bookings",
       );
     });
   });
 
   describe("createPendingBooking - guest users", () => {
     it("should create new guest user when no existing user", async () => {
-      // Arrange
       vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(null);
       const mockGuestUser = { getId: vi.fn(() => "guest-123") } as unknown as User;
       vi.spyOn(User, "createGuest").mockReturnValue(mockGuestUser);
 
-      // Act
       await service.createPendingBooking(mockDto);
 
-      // Assert
       expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("test@example.com");
       expect(User.createGuest).toHaveBeenCalledWith("test@example.com", "John Doe", "+1234567890");
       expect(mockUserRepository.save).toHaveBeenCalledWith(mockGuestUser);
@@ -293,7 +289,6 @@ describe("BookingCreationService", () => {
     });
 
     it("should use existing guest user when not expired", async () => {
-      // Arrange
       const existingGuestUser = {
         getId: vi.fn(() => "existing-guest-123"),
         isRegistered: vi.fn(() => false),
@@ -303,16 +298,13 @@ describe("BookingCreationService", () => {
 
       vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(existingGuestUser);
 
-      // Act
       await service.createPendingBooking(mockDto);
 
-      // Assert
       expect(mockUserRepository.save).not.toHaveBeenCalled();
       expect(mockLogger.log).toHaveBeenCalledWith("Using existing guest user: existing-guest-123");
     });
 
     it("should throw error when guest user is expired", async () => {
-      // Arrange
       const expiredGuestUser = {
         isRegistered: vi.fn(() => false),
         isGuest: vi.fn(() => true),
@@ -321,48 +313,43 @@ describe("BookingCreationService", () => {
 
       vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(expiredGuestUser);
 
-      // Act & Assert
+      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        new BadRequestException("Guest user account has expired. Please create a new booking."),
+        "Guest user account has expired. Please create a new booking.",
       );
     });
 
     it("should throw error when email belongs to registered user", async () => {
-      // Arrange
       const registeredUser = {
         isRegistered: vi.fn(() => true),
       } as unknown as User;
 
       vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(registeredUser);
 
-      // Act & Assert
+      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        new BadRequestException(
-          "Email test@example.com is already registered. Please sign in to make bookings.",
-        ),
+        "Email test@example.com is already registered. Please sign in to make bookings.",
       );
     });
 
     it("should throw error when guest fields are missing", async () => {
-      // Arrange
       const incompleteDto = { ...mockDto, email: undefined };
 
-      // Act & Assert
       await expect(service.createPendingBooking(incompleteDto)).rejects.toThrow(
-        new BadRequestException("Guest users must provide email, name, and phone number"),
+        BadRequestException,
+      );
+      await expect(service.createPendingBooking(incompleteDto)).rejects.toThrow(
+        "Guest users must provide email, name, and phone number",
       );
     });
   });
 
   describe("createPendingBooking - special scenarios", () => {
     it("should handle same location booking", async () => {
-      // Arrange
       const sameLocationDto = { ...mockDto, sameLocation: true };
 
-      // Act
       await service.createPendingBooking(sameLocationDto, mockUser);
 
-      // Assert
       expect(mockBookingDomainService.createBooking).toHaveBeenCalledWith(
         expect.objectContaining({
           dropOffAddress: mockDto.pickupAddress, // Should use pickup address
@@ -371,7 +358,6 @@ describe("BookingCreationService", () => {
     });
 
     it("should publish events for new booking", async () => {
-      // Arrange
       const newBooking = {
         ...mockBooking,
         getId: vi.fn().mockReturnValueOnce(null).mockReturnValue("booking-123"),
@@ -380,10 +366,8 @@ describe("BookingCreationService", () => {
       vi.mocked(mockBookingDomainService.createBooking).mockReturnValue(newBooking);
       vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(newBooking);
 
-      // Act
       await service.createPendingBooking(mockDto, mockUser);
 
-      // Assert
       expect(newBooking.markAsCreated).toHaveBeenCalled();
       expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(newBooking);
     });

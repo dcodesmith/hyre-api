@@ -222,11 +222,17 @@ describe("ChauffeurAssignmentService", () => {
 
     it("should unassign chauffeur successfully", async () => {
       vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
+      vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
 
       const result = await service.unassignChauffeurFromBooking(mockBooking, unassignRequest);
 
       expect(mockBooking.hasChauffeurAssigned).toHaveBeenCalled();
-      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith("admin-789", "Schedule conflict");
+      expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
+      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith(
+        "fleet-owner-789",
+        "admin-789",
+        "Schedule conflict",
+      );
       expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(mockBooking);
 
       expect(result).toEqual({
@@ -238,11 +244,18 @@ describe("ChauffeurAssignmentService", () => {
 
     it("should unassign chauffeur without reason", async () => {
       const requestWithoutReason = { ...unassignRequest, reason: undefined };
+
       vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
+      vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
 
       const result = await service.unassignChauffeurFromBooking(mockBooking, requestWithoutReason);
 
-      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith("admin-789", undefined);
+      expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
+      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith(
+        "fleet-owner-789",
+        "admin-789",
+        undefined,
+      );
       expect(result).toEqual({
         success: true,
         bookingReference: "BK-123",
