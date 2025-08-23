@@ -19,8 +19,7 @@ export class BookingLifecycleService {
     private readonly prisma: PrismaService,
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async cancelBooking(bookingId: string, reason?: string): Promise<void> {
     const booking = await this.findBookingOrThrow(bookingId);

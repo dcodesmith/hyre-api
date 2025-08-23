@@ -42,8 +42,10 @@ export interface PaymentIntentCreationResult {
 @Injectable()
 export class BookingPaymentService {
   constructor(
-    @Inject("BookingRepository") private readonly bookingRepository: BookingRepository,
-    @Inject("PaymentIntentService") private readonly paymentIntentService: PaymentIntentService,
+    @Inject("BookingRepository")
+    private readonly bookingRepository: BookingRepository,
+    @Inject("PaymentIntentService")
+    private readonly paymentIntentService: PaymentIntentService,
     @Inject("PaymentVerificationService")
     private readonly paymentVerificationService: PaymentVerificationService,
     private readonly bookingCustomerResolver: BookingCustomerResolverService,

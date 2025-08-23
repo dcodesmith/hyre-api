@@ -43,8 +43,7 @@ export class BookingCreationService {
     private readonly bookingDateService: BookingDateService,
     private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async createPendingBooking(
     dto: CreateBookingDto,
@@ -86,7 +85,7 @@ export class BookingCreationService {
     // Save booking and publish events
     const savedBooking = await this.saveBookingAndPublishEvents(booking);
 
-    this.logger.log(
+    this.logger.info(
       `Created pending booking ${savedBooking.getBookingReference()} with total amount: ${savedBooking.getTotalAmount()?.toString()}`,
     );
 

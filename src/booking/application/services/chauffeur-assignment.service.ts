@@ -172,6 +172,8 @@ export class ChauffeurAssignmentService {
     //     reason: error instanceof Error ? error.message : "Business rule validation failed",
     //   };
     // }
+
+    return { isValid: true };
   }
 
   private async publishDomainEvents(booking: Booking): Promise<void> {

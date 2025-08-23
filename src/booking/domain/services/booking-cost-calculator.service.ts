@@ -40,8 +40,7 @@ export class BookingCostCalculatorService {
 
   constructor(
     private readonly bookingDateService: BookingDateService,
-    @Inject("PlatformFeeRepository")
-    private readonly platformFeeRepository: PlatformFeeRepository,
+    @Inject("PlatformFeeRepository") private readonly platformFeeRepository: PlatformFeeRepository,
   ) {}
 
   /**
