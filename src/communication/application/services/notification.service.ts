@@ -23,8 +23,11 @@ export class NotificationService {
   constructor(
     @Inject("NotificationRepository")
     private readonly notificationRepository: NotificationRepository,
+    @Inject(NotificationFactoryService)
     private readonly notificationFactory: NotificationFactoryService,
+    @Inject(EmailService)
     private readonly emailService: EmailService,
+    @Inject(SmsService)
     private readonly smsService: SmsService,
   ) {}
 
