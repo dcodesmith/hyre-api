@@ -1,0 +1,101 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!dist/**",
+      "!node_modules/**",
+      "!coverage/**",
+      "!*.log",
+      "!*.tsbuildinfo"
+    ]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "useHookAtTopLevel": "off"
+      },
+      "a11y": {
+        "noLabelWithoutControl": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "complexity": {
+        "noForEach": "warn",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 30
+          }
+        }
+      },
+      "style": {
+        "noNonNullAssertion": "warn",
+        "useImportType": "off",
+        "noParameterProperties": "off",
+        "useLiteralEnumMembers": "warn",
+        "useNamingConvention": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
+    "formatter": {
+      "quoteStyle": "double"
+    },
+    "globals": [
+      "beforeEach",
+      "afterEach",
+      "describe",
+      "test",
+      "expect",
+      "it",
+      "vi",
+      "vi.useRealTimers",
+      "vi.useFakeTimers",
+      "vi.setSystemTime",
+      "Vitest",
+      "Vitest",
+      "Vitest",
+      "beforeAll",
+      "afterAll"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/main.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useExhaustiveDependencies": "off"
+          },
+          "suspicious": {
+            "noReactSpecificProps": "off"
+          }
+        }
+      }
+    }
+  ]
+}
