@@ -3,7 +3,9 @@ import { ApprovalStatus } from "../value-objects/approval-status.vo";
 import { UserRole } from "../value-objects/user-role.vo";
 
 // Transaction context type - using Prisma's transaction client type
-export type TransactionContext = Parameters<Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]>[0];
+export type TransactionContext = Parameters<
+  Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]
+>[0];
 
 export interface UserSearchFilters {
   role?: UserRole;

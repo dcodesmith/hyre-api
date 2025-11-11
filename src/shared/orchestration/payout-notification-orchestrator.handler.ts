@@ -3,7 +3,7 @@ import { NotificationService } from "../../communication/application/services/no
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
 import { PayoutCompletedEvent } from "../../payment/domain/events/payout-completed.event";
 import { PayoutFailedEvent } from "../../payment/domain/events/payout-failed.event";
-import { LoggerService, type Logger } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for payout completion workflows

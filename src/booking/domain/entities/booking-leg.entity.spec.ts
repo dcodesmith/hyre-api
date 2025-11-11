@@ -21,10 +21,6 @@ describe("BookingLeg Entity", () => {
     notes: "Standard service",
   };
 
-  /**
-   * Helper function to create a fresh booking leg instance for each test.
-   * This prevents state mutation between tests.
-   */
   const createBookingLeg = (params?: Partial<CreateBookingLegParams>) =>
     BookingLeg.create({ ...validCreateParams, ...params });
 
@@ -47,12 +43,10 @@ describe("BookingLeg Entity", () => {
     return BookingLeg.reconstitute(defaultProps);
   };
 
-  // Restores timers after each test to prevent interference
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  // --- Creation ---
   describe("Creation", () => {
     it("should create a new booking leg with valid parameters", () => {
       const leg = createBookingLeg();
@@ -202,13 +196,10 @@ describe("BookingLeg Entity", () => {
     });
 
     it("should calculate duration spanning multiple days", () => {
-      const startTime = new Date(tomorrow.getTime() + 22 * 60 * 60 * 1000); // 10 PM today
-      const endTime = new Date(tomorrow.getTime() + 30 * 60 * 60 * 1000); // 6 AM tomorrow
+      const legStartTime = new Date(tomorrow.getTime() + 22 * 60 * 60 * 1000); // 10 PM today
+      const legEndTime = new Date(tomorrow.getTime() + 30 * 60 * 60 * 1000); // 6 AM tomorrow
 
-      const leg = createBookingLeg({
-        legStartTime: startTime,
-        legEndTime: endTime,
-      });
+      const leg = createBookingLeg({ legStartTime, legEndTime });
 
       expect(leg.getDurationInHours()).toBe(8);
     });

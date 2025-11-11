@@ -27,8 +27,7 @@ export class ChauffeurManagementApplicationService {
   constructor(
     @Inject("UserRepository") private readonly userRepository: UserRepository,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async getFleetChauffeurs(
     fleetOwnerId: string,

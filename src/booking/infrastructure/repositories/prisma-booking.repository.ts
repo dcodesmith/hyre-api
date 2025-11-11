@@ -204,6 +204,21 @@ export class PrismaBookingRepository implements BookingRepository {
     return booking ? this.toDomain(booking) : null;
   }
 
+  async findAll(): Promise<Booking[]> {
+    const bookings = await this.prisma.booking.findMany({
+      include: {
+        legs: {
+          include: { extensions: true },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return bookings.map((booking) => this.toDomain(booking));
+  }
+
   async findByCustomerId(customerId: string): Promise<Booking[]> {
     const bookings = await this.prisma.booking.findMany({
       where: { customerId: customerId },
@@ -211,6 +226,29 @@ export class PrismaBookingRepository implements BookingRepository {
         legs: {
           include: { extensions: true },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return bookings.map((booking) => this.toDomain(booking));
+  }
+
+  async findByFleetOwnerId(fleetOwnerId: string): Promise<Booking[]> {
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        car: {
+          ownerId: fleetOwnerId,
+        },
+      },
+      include: {
+        legs: {
+          include: { extensions: true },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 

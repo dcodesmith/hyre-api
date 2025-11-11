@@ -1,5 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { Decimal } from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
 import { PrismaService } from "../../../shared/database/prisma.service";
@@ -15,7 +18,9 @@ import { BookingRepository } from "../../domain/repositories/booking.repository"
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";
 import { PaymentIntentService } from "../../domain/services/payment-intent.service";
-import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
+import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
+import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
+import { PaymentCustomer } from "../../domain/value-objects/payment-customer.vo";
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { PaymentStatusQueryDto } from "../../presentation/dto/payment-status.dto";
 import { BookingPaymentService } from "./booking-payment.service";
@@ -29,20 +34,8 @@ describe("BookingPaymentService", () => {
   let mockPrismaService: PrismaService;
   let mockLogger: LoggerService;
 
-  const mockBooking = {
-    getId: vi.fn(() => "booking-123"),
-    getBookingReference: vi.fn(() => "BK-123"),
-    getTotalAmount: vi.fn(() => 10000),
-    getStatus: vi.fn(() => ({ toString: () => "PENDING" })),
-    isPending: vi.fn(() => true),
-    isConfirmed: vi.fn(() => false),
-    isActive: vi.fn(() => false),
-    isCompleted: vi.fn(() => false),
-    getPaymentIntent: vi.fn(() => "pi-123"),
-    setPaymentIntent: vi.fn(),
-    confirmWithPayment: vi.fn(),
-    markAsCreated: vi.fn(),
-  } as unknown as Booking;
+  let mockBooking: Booking;
+  let mockUser: User;
 
   const mockTimeResult = {
     startDateTime: new Date("2025-01-15T10:00:00Z"),
@@ -139,36 +132,48 @@ describe("BookingPaymentService", () => {
     mockPrismaService = module.get<PrismaService>(PrismaService);
     mockLogger = module.get<LoggerService>(LoggerService);
 
-    // Manually inject dependencies since DI is not working
-    (service as any).logger = mockLogger;
-    (service as any).bookingCustomerResolver = mockBookingCustomerResolver;
-    (service as any).prisma = mockPrismaService;
-    (service as any).configService = module.get(TypedConfigService);
+    mockBooking = createBookingEntity({
+      id: "booking-123",
+      bookingReference: "BK-123",
+      status: BookingStatus.pending(),
+      paymentIntent: "pi-123",
+      customerId: "user-123",
+      carId: "car-123",
+      financials: BookingFinancials.create({
+        totalAmount: new Decimal(10000),
+        netTotal: new Decimal(8500),
+        platformServiceFeeAmount: new Decimal(1000),
+        vatAmount: new Decimal(500),
+        fleetOwnerPayoutAmountNet: new Decimal(7500),
+      }),
+    });
 
-    // Default setup
+    mockUser = createUserEntity({
+      id: "user-123",
+      email: "test@example.com",
+      name: "John Doe",
+      phoneNumber: "+1234567890",
+    });
+
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
-      return await fn({} as any);
+      return await fn({} as unknown as PrismaService);
     });
     vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
   });
 
-  // Test data setup
-  const mockUser = { getId: vi.fn(() => "user-123") } as unknown as User;
   const mockPaymentCustomer = {
-    validate: vi.fn(() => true),
     toPaymentService: vi.fn(() => ({
       email: "test@example.com",
       name: "John Doe",
-      phoneNumber: "+1234567890",
+      phone_number: "+1234567890",
     })),
     getEmail: vi.fn(() => "test@example.com"),
     getName: vi.fn(() => "John Doe"),
     getPhoneNumber: vi.fn(() => "+1234567890"),
-  } as any;
+  } as unknown as PaymentCustomer;
 
   describe("createAndAttachPaymentIntent", () => {
     it("should create and attach payment intent successfully", async () => {
-      // Arrange
       const mockPaymentIntentResult = {
         success: true as const,
         paymentIntentId: "pi-123",
@@ -197,6 +202,7 @@ describe("BookingPaymentService", () => {
         paymentIntentId: "pi-123",
       };
 
+      const setPaymentIntentSpy = vi.spyOn(mockBooking, "setPaymentIntent");
       vi.mocked(mockBookingCustomerResolver.resolvePaymentCustomer).mockReturnValue(
         mockPaymentCustomer,
       );
@@ -204,7 +210,6 @@ describe("BookingPaymentService", () => {
         mockPaymentIntentResult,
       );
 
-      // Act
       const result = await service.createAndAttachPaymentIntent(
         mockBooking,
         mockUser,
@@ -212,7 +217,6 @@ describe("BookingPaymentService", () => {
         mockTimeResult,
       );
 
-      // Assert
       expect(mockBookingCustomerResolver.resolvePaymentCustomer).toHaveBeenCalledWith(
         mockUser,
         expectedCustomerData,
@@ -220,13 +224,16 @@ describe("BookingPaymentService", () => {
       expect(mockPaymentIntentService.createPaymentIntent).toHaveBeenCalledWith(
         expectedPaymentIntentData,
       );
-      expect(mockBooking.setPaymentIntent).toHaveBeenCalledWith("pi-123");
+      expect(setPaymentIntentSpy).toHaveBeenCalledWith("pi-123");
       expect(result).toEqual(expectedResult);
     });
 
     it("should throw error when booking has no ID", async () => {
-      // Arrange
-      const bookingWithoutId = { ...mockBooking, getId: vi.fn(() => null) } as unknown as Booking;
+      const bookingWithoutId = createBookingEntity({
+        id: undefined,
+        bookingReference: "BK-123",
+        status: BookingStatus.pending(),
+      });
       const expectedError = new PaymentIntentCreationError(
         "Booking must be persisted (have an ID) before creating a payment intent",
       );
@@ -236,7 +243,6 @@ describe("BookingPaymentService", () => {
         mockPaymentCustomer,
       );
 
-      // Act & Assert
       await expect(
         service.createAndAttachPaymentIntent(bookingWithoutId, mockUser, mockDto, mockTimeResult),
       ).rejects.toThrow(expectedError);
@@ -245,7 +251,6 @@ describe("BookingPaymentService", () => {
     });
 
     it("should throw error when payment intent creation fails", async () => {
-      // Arrange
       const mockFailedResult = {
         success: false as const,
         error: "Payment service unavailable",
@@ -259,7 +264,6 @@ describe("BookingPaymentService", () => {
       );
       vi.mocked(mockPaymentIntentService.createPaymentIntent).mockResolvedValue(mockFailedResult);
 
-      // Act & Assert
       await expect(
         service.createAndAttachPaymentIntent(mockBooking, mockUser, mockDto, mockTimeResult),
       ).rejects.toThrow(expectedError);
@@ -268,92 +272,59 @@ describe("BookingPaymentService", () => {
     });
   });
 
-  describe("confirmBookingWithPayment", () => {
+  describe("#confirmBookingWithPayment", () => {
     it("should confirm booking successfully", async () => {
-      // Arrange
       const bookingId = "booking-123";
       const paymentId = "payment-456";
+      const confirmSpy = vi.spyOn(mockBooking, "confirmWithPayment");
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
 
-      // Act
       await service.confirmBookingWithPayment(bookingId, paymentId);
 
-      // Assert
       expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
-      expect(mockBooking.confirmWithPayment).toHaveBeenCalledWith(paymentId);
+      expect(confirmSpy).toHaveBeenCalledWith(paymentId);
       expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(mockBooking, {});
       expect(mockLogger.log).toHaveBeenCalledWith("Booking confirmed with payment");
     });
 
     it("should throw error when booking not found", async () => {
-      // Arrange
       const bookingId = "nonexistent-booking";
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(null);
 
-      // Act & Assert
       await expect(service.confirmBookingWithPayment(bookingId, "payment-123")).rejects.toThrow(
         new BookingNotFoundError(bookingId),
       );
     });
 
     it("should throw error when booking is not pending", async () => {
-      // Arrange
       const bookingId = "booking-123";
-      const nonPendingBooking = { ...mockBooking } as unknown as Booking;
-      const mockConfirmedStatus = {
-        value: BookingStatusEnum.CONFIRMED,
-        toString: () => "CONFIRMED",
-        isPending: () => false,
-        isConfirmed: () => true,
-        isActive: () => false,
-        isCompleted: () => false,
-        isCancelled: () => false,
-        canTransitionTo: vi.fn(),
-        equals: vi.fn(),
-        canBeCancelled: () => false,
-        props: {},
-      };
-      const isPendingFalse = () => false;
-      const getConfirmedStatus = () => mockConfirmedStatus as unknown as BookingStatus;
-      nonPendingBooking.isPending = vi.fn(isPendingFalse);
-      nonPendingBooking.getStatus = vi.fn(getConfirmedStatus);
+      const nonPendingBooking = createBookingEntity({
+        id: bookingId,
+        bookingReference: "BK-123",
+        status: BookingStatus.confirmed(),
+      });
 
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(nonPendingBooking);
 
-      // Act & Assert
       await expect(service.confirmBookingWithPayment(bookingId, "payment-123")).rejects.toThrow(
         new BookingCannotBeConfirmedError(bookingId, "CONFIRMED"),
       );
     });
   });
 
-  // Test data for payment status callback
-  const query: PaymentStatusQueryDto = {
-    transaction_id: "txn-456",
-    status: "successful",
-  };
+  describe("#handlePaymentStatusCallback", () => {
+    const query = {
+      transaction_id: "txn-456",
+      status: "successful",
+    };
 
-  describe("handlePaymentStatusCallback", () => {
     it("should return success for already confirmed booking", async () => {
-      // Arrange
-      const confirmedBooking = { ...mockBooking } as unknown as Booking;
-      const mockConfirmedStatus = {
-        value: BookingStatusEnum.CONFIRMED,
-        toString: () => "CONFIRMED",
-        isPending: () => false,
-        isConfirmed: () => true,
-        isActive: () => false,
-        isCompleted: () => false,
-        isCancelled: () => false,
-        canTransitionTo: vi.fn(),
-        equals: vi.fn(),
-        canBeCancelled: () => false,
-        props: {},
-      };
-      const isConfirmedTrue = () => true;
-      const getConfirmedStatus = () => mockConfirmedStatus as any as BookingStatus;
-      confirmedBooking.isConfirmed = vi.fn(isConfirmedTrue);
-      confirmedBooking.getStatus = vi.fn(getConfirmedStatus);
+      const confirmedBooking = createBookingEntity({
+        id: "booking-123",
+        bookingReference: "BK-123",
+        status: BookingStatus.confirmed(),
+      });
+
       const expectedResult = {
         success: true,
         bookingId: "booking-123",
@@ -366,16 +337,13 @@ describe("BookingPaymentService", () => {
 
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(confirmedBooking);
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       expect(result).toEqual(expectedResult);
       expect(mockLogger.info).toHaveBeenCalledWith(expectedLogMessage);
     });
 
     it("should verify payment when transaction ID provided and booking pending", async () => {
-      // Arrange
       const mockVerificationResult = { isSuccess: true };
       const expectedVerificationCall = { transactionId: "txn-456", paymentIntentId: "pi-123" };
       const expectedResult = {
@@ -394,10 +362,8 @@ describe("BookingPaymentService", () => {
       );
       const confirmBookingSpy = vi.spyOn(service, "confirmBookingWithPayment").mockResolvedValue();
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       expect(mockPaymentVerificationService.verifyPayment).toHaveBeenCalledWith(
         expectedVerificationCall,
       );
@@ -406,7 +372,6 @@ describe("BookingPaymentService", () => {
     });
 
     it("should return failure when payment verification fails", async () => {
-      // Arrange
       const mockFailedVerification = { isSuccess: false, errorMessage: "Invalid transaction" };
       const expectedResult = {
         success: false,
@@ -423,26 +388,23 @@ describe("BookingPaymentService", () => {
         mockFailedVerification,
       );
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       expect(result).toEqual(expectedResult);
     });
 
     it("should return failure when no payment intent stored", async () => {
-      // Arrange
-      const bookingWithoutPaymentIntent = {
-        ...mockBooking,
-        getPaymentIntent: vi.fn(() => null),
-      } as unknown as Booking;
+      const bookingWithoutPaymentIntent = createBookingEntity({
+        id: "booking-123",
+        bookingReference: "BK-123",
+        status: BookingStatus.pending(),
+        paymentIntent: undefined,
+      });
 
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(bookingWithoutPaymentIntent);
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       const expectedResult = {
         success: false,
         bookingId: "booking-123",
@@ -460,14 +422,11 @@ describe("BookingPaymentService", () => {
     });
 
     it("should handle pending status when no transaction ID", async () => {
-      // Arrange
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
       const queryWithoutTxn = { ...query, transaction_id: undefined };
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", queryWithoutTxn);
 
-      // Assert
       const expectedResult = {
         success: true,
         bookingId: "booking-123",
@@ -481,13 +440,10 @@ describe("BookingPaymentService", () => {
     });
 
     it("should handle callback errors gracefully", async () => {
-      // Arrange
       vi.mocked(mockBookingRepository.findById).mockRejectedValue(new Error("Database error"));
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       const expectedResult = {
         success: false,
         bookingId: "booking-123",
@@ -504,15 +460,12 @@ describe("BookingPaymentService", () => {
     });
 
     it("should handle payment verification errors", async () => {
-      // Arrange
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
       const verificationError = { error: "Network timeout" };
       vi.mocked(mockPaymentVerificationService.verifyPayment).mockRejectedValue(verificationError);
 
-      // Act
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 
-      // Assert
       const expectedResult = {
         success: false,
         bookingId: "booking-123",

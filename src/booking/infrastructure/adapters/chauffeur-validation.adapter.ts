@@ -19,8 +19,7 @@ export class ChauffeurValidationAdapter implements ChauffeurValidationService {
     private readonly userRepository: UserRepository,
     private readonly fleetManagementService: FleetManagementService,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async validateChauffeurExists(chauffeurId: string): Promise<boolean> {
     try {

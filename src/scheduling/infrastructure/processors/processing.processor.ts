@@ -3,7 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { Job } from "bull";
 import { NotificationService } from "../../../communication/application/services/notification.service";
 import { PayoutService } from "../../../payment/application/services/payout.service";
-import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
+import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
 import { ProcessingJobData } from "../../application/services/scheduler.service";
 
 @Processor("processing-jobs")

@@ -38,9 +38,6 @@ describe("PlatformFeeCacheService", () => {
     service = module.get<PlatformFeeCacheService>(PlatformFeeCacheService);
     mockRepository = module.get<CachedPlatformFeeRepository>("PlatformFeeRepository");
     mockLogger = module.get<LoggerService>(LoggerService);
-
-    // Manually inject the logger since DI is not working
-    (service as any).logger = mockLogger;
   });
 
   describe("invalidateRatesCache", () => {

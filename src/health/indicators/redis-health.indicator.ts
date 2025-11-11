@@ -9,7 +9,7 @@ export class RedisHealthIndicator {
   async checkHealth(key: string): Promise<HealthIndicatorResult> {
     try {
       const result = await this.redisService.ping();
-      
+
       if (result === "PONG") {
         return { [key]: { status: "up" } };
       } else {

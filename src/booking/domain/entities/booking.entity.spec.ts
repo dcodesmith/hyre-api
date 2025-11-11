@@ -12,8 +12,8 @@ import { BookingStatus } from "../value-objects/booking-status.vo";
 import { BookingType } from "../value-objects/booking-type.vo";
 import { DateRange } from "../value-objects/date-range.vo";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
-import { BookingLeg } from "./booking-leg.entity";
 import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
+import { BookingLeg } from "./booking-leg.entity";
 
 describe("Booking Entity", () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -41,10 +41,6 @@ describe("Booking Entity", () => {
     paymentIntent: "pi_test_123",
   };
 
-  /**
-   * Helper function to create a fresh booking instance for each test.
-   * This prevents state mutation between tests.
-   */
   const createBooking = (params?: Partial<BookingCreateParams>) =>
     Booking.create({ ...validCreateParams, ...params });
 
@@ -113,12 +109,10 @@ describe("Booking Entity", () => {
     return booking;
   };
 
-  // Restores timers after each test to prevent interference
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  // --- Creation ---
   describe("Creation", () => {
     it("should create a new booking with valid parameters", () => {
       const booking = createBooking(validCreateParams);

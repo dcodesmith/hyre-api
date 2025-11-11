@@ -1,5 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
+import { Inject, Injectable } from "@nestjs/common";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";

@@ -1,7 +1,9 @@
 import { Fleet } from "../entities/fleet.entity";
 
 // Transaction context type - using Prisma's transaction client type
-export type TransactionContext = Parameters<Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]>[0];
+export type TransactionContext = Parameters<
+  Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]
+>[0];
 
 export interface FleetRepository {
   findById(id: string): Promise<Fleet | null>;

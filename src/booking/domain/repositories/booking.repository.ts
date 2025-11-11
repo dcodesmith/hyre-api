@@ -2,7 +2,9 @@ import { Booking } from "../entities/booking.entity";
 import { BookingStatus } from "../value-objects/booking-status.vo";
 
 // Transaction context type - using Prisma's transaction client type
-export type TransactionContext = Parameters<Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]>[0];
+export type TransactionContext = Parameters<
+  Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]
+>[0];
 
 /**
  * Simplified domain repository interface
@@ -13,7 +15,9 @@ export interface BookingRepository {
   saveWithTransaction(booking: Booking, tx: TransactionContext): Promise<Booking>;
   findById(id: string): Promise<Booking | null>;
   findByReference(reference: string): Promise<Booking | null>;
+  findAll(): Promise<Booking[]>;
   findByCustomerId(customerId: string): Promise<Booking[]>;
+  findByFleetOwnerId(fleetOwnerId: string): Promise<Booking[]>;
   findByCarId(carId: string): Promise<Booking[]>;
   findByChauffeurId(chauffeurId: string): Promise<Booking[]>;
   findByStatus(status: BookingStatus): Promise<Booking[]>;

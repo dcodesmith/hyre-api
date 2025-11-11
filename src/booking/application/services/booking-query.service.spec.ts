@@ -1,82 +1,212 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createUserEntity } from "../../../../test/fixtures/user.fixture";
+import { UserRole } from "../../../iam/domain/value-objects/user-role.vo";
 import { LoggerService } from "../../../shared/logging/logger.service";
-import { Booking } from "../../domain/entities/booking.entity";
+import { CarDto } from "../../domain/dtos/car.dto";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
+import { CarRepository } from "../../domain/repositories/car.repository";
+import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingQueryService } from "./booking-query.service";
 
-describe("BookingQueryService (NestJS Style)", () => {
+describe("BookingQueryService", () => {
   let service: BookingQueryService;
   let mockBookingRepository: BookingRepository;
+  let mockCarRepository: CarRepository;
+  let mockBookingAuthorizationService: BookingAuthorizationService;
+  let mockLogger: LoggerService;
 
-  const mockBooking = {
-    getId: vi.fn(() => "booking-123"),
-    getBookingReference: vi.fn(() => "BK-123"),
-  } as unknown as Booking;
+  const mockCar: CarDto = {
+    id: "car-123",
+    make: "Tesla",
+    model: "Model S",
+    year: 2024,
+    color: "Red",
+    registrationNumber: "ABC-123",
+    ownerId: "fleet-owner-1",
+    rates: {
+      dayRate: 100,
+      nightRate: 120,
+      hourlyRate: 20,
+    },
+    status: "available",
+    approvalStatus: "approved",
+    imageUrls: [],
+    motCertificateUrl: "mot-url",
+    insuranceCertificateUrl: "insurance-url",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(async () => {
-    const mockBookingRepositoryProvider = {
-      provide: "BookingRepository",
-      useValue: {
-        findById: vi.fn(),
-        findEligibleForStartReminders: vi.fn(),
-        findEligibleForEndReminders: vi.fn(),
-      },
-    };
-
-    const mockLoggerProvider = {
-      provide: LoggerService,
-      useValue: {
-        log: vi.fn(),
-        error: vi.fn(),
-        warn: vi.fn(),
-        info: vi.fn(),
-        debug: vi.fn(),
-        verbose: vi.fn(),
-      },
-    };
-
     const module: TestingModule = await Test.createTestingModule({
-      providers: [BookingQueryService, mockBookingRepositoryProvider, mockLoggerProvider],
+      providers: [
+        BookingQueryService,
+        {
+          provide: "BookingRepository",
+          useValue: {
+            findById: vi.fn(),
+            findEligibleForStartReminders: vi.fn(),
+            findEligibleForEndReminders: vi.fn(),
+            findAll: vi.fn(),
+            findByFleetOwnerId: vi.fn(),
+            findByCustomerId: vi.fn(),
+          },
+        },
+        {
+          provide: "CarRepository",
+          useValue: {
+            findById: vi.fn(),
+          },
+        },
+        {
+          provide: BookingAuthorizationService,
+          useValue: {
+            canViewBooking: vi.fn(),
+            canViewAllBookings: vi.fn(),
+          },
+        },
+        {
+          provide: LoggerService,
+          useValue: {
+            log: vi.fn(),
+            error: vi.fn(),
+            warn: vi.fn(),
+            info: vi.fn(),
+            debug: vi.fn(),
+            verbose: vi.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<BookingQueryService>(BookingQueryService);
     mockBookingRepository = module.get<BookingRepository>("BookingRepository");
+    mockCarRepository = module.get<CarRepository>("CarRepository");
+    mockBookingAuthorizationService = module.get<BookingAuthorizationService>(
+      BookingAuthorizationService,
+    );
+    mockLogger = module.get<LoggerService>(LoggerService);
+    vi.clearAllMocks();
   });
 
   describe("getBookingById", () => {
-    it("should return booking when found", async () => {
-      // Arrange
+    it("should return booking when found and authorized", async () => {
       const bookingId = "booking-123";
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
+      const booking = createBookingEntity({
+        id: bookingId,
+        bookingReference: "BK-123",
+        carId: "car-123",
+      });
+      const currentUser = createUserEntity({
+        id: "user-123",
+        email: "user123@example.com",
+      });
 
-      // Act
-      const result = await service.getBookingById(bookingId);
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(booking);
+      vi.mocked(mockCarRepository.findById).mockResolvedValue(mockCar);
+      vi.mocked(mockBookingAuthorizationService.canViewBooking).mockReturnValue({
+        isAuthorized: true,
+      });
 
-      // Assert
+      const result = await service.getBookingById(bookingId, currentUser);
+
       expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
-      expect(result).toBe(mockBooking);
+      expect(mockCarRepository.findById).toHaveBeenCalledWith("car-123");
+      expect(mockBookingAuthorizationService.canViewBooking).toHaveBeenCalledWith(
+        currentUser,
+        booking,
+        mockCar.ownerId,
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith("User fetching booking details", {
+        userId: "user-123",
+        bookingId,
+      });
+      expect(result).toBe(booking);
     });
 
     it("should throw error when booking not found", async () => {
-      // Arrange
       const bookingId = "nonexistent-booking";
+      const currentUser = createUserEntity({
+        id: "user-456",
+        email: "user456@example.com",
+      });
+
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(service.getBookingById(bookingId)).rejects.toThrow(
+      await expect(service.getBookingById(bookingId, currentUser)).rejects.toThrow(
         new BookingNotFoundError(bookingId),
       );
+      expect(mockCarRepository.findById).not.toHaveBeenCalled();
+      expect(mockBookingAuthorizationService.canViewBooking).not.toHaveBeenCalled();
+    });
+
+    it("should throw error when user is not authorized to view booking", async () => {
+      const bookingId = "booking-123";
+      const booking = createBookingEntity({
+        id: bookingId,
+        bookingReference: "BK-123",
+        carId: "car-123",
+      });
+      const currentUser = createUserEntity({
+        id: "user-789",
+        email: "user789@example.com",
+      });
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(booking);
+      vi.mocked(mockCarRepository.findById).mockResolvedValue(mockCar);
+      vi.mocked(mockBookingAuthorizationService.canViewBooking).mockReturnValue({
+        isAuthorized: false,
+      });
+
+      await expect(service.getBookingById(bookingId, currentUser)).rejects.toThrow(
+        new BookingNotFoundError(bookingId),
+      );
+      expect(mockLogger.info).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getBookingByIdInternal", () => {
+    it("should return booking when found", async () => {
+      const bookingId = "booking-internal-123";
+      const booking = createBookingEntity({
+        id: bookingId,
+        bookingReference: "BK-INT-123",
+      });
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(booking);
+
+      const result = await service.getBookingByIdInternal(bookingId);
+
+      expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
+      expect(mockLogger.info).toHaveBeenCalledWith("System fetching booking details", {
+        bookingId,
+      });
+      expect(result).toBe(booking);
+      expect(mockBookingAuthorizationService.canViewBooking).not.toHaveBeenCalled();
+      expect(mockCarRepository.findById).not.toHaveBeenCalled();
+    });
+
+    it("should throw BookingNotFoundError when booking is missing", async () => {
+      const bookingId = "booking-missing";
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(null);
+
+      await expect(service.getBookingByIdInternal(bookingId)).rejects.toThrow(
+        new BookingNotFoundError(bookingId),
+      );
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(mockBookingAuthorizationService.canViewBooking).not.toHaveBeenCalled();
     });
   });
 
   describe("findBookingsEligibleForStartReminders", () => {
     it("should return booking IDs eligible for start reminders", async () => {
-      // Arrange
-      const booking1 = { getId: vi.fn(() => "booking-1") } as unknown as Booking;
-      const booking2 = { getId: vi.fn(() => "booking-2") } as unknown as Booking;
-      const booking3 = { getId: vi.fn(() => "booking-3") } as unknown as Booking;
+      const booking1 = createBookingEntity({ id: "booking-1" });
+      const booking2 = createBookingEntity({ id: "booking-2" });
+      const booking3 = createBookingEntity({ id: "booking-3" });
 
       vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([
         booking1,
@@ -84,22 +214,17 @@ describe("BookingQueryService (NestJS Style)", () => {
         booking3,
       ]);
 
-      // Act
       const result = await service.findBookingsEligibleForStartReminders();
 
-      // Assert
       expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
       expect(result).toEqual(["booking-1", "booking-2", "booking-3"]);
     });
 
     it("should return empty array when no bookings eligible", async () => {
-      // Arrange
       vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([]);
 
-      // Act
       const result = await service.findBookingsEligibleForStartReminders();
 
-      // Assert
       expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
       expect(result).toEqual([]);
     });
@@ -107,33 +232,98 @@ describe("BookingQueryService (NestJS Style)", () => {
 
   describe("findBookingsEligibleForEndReminders", () => {
     it("should return booking IDs eligible for end reminders", async () => {
-      // Arrange
-      const booking1 = { getId: vi.fn(() => "booking-4") } as unknown as Booking;
-      const booking2 = { getId: vi.fn(() => "booking-5") } as unknown as Booking;
+      const booking1 = createBookingEntity({ id: "booking-4" });
+      const booking2 = createBookingEntity({ id: "booking-5" });
 
       vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([
         booking1,
         booking2,
       ]);
 
-      // Act
       const result = await service.findBookingsEligibleForEndReminders();
 
-      // Assert
       expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
       expect(result).toEqual(["booking-4", "booking-5"]);
     });
 
     it("should return empty array when no bookings eligible", async () => {
-      // Arrange
       vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([]);
 
-      // Act
       const result = await service.findBookingsEligibleForEndReminders();
 
-      // Assert
       expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("getBookings", () => {
+    it("should return all bookings when user can view all", async () => {
+      const adminUser = createUserEntity({
+        id: "admin-123",
+        email: "admin@example.com",
+        roles: [UserRole.admin()],
+      });
+      const allBookings = [createBookingEntity({ id: "booking-admin-1" })];
+
+      vi.mocked(mockBookingAuthorizationService.canViewAllBookings).mockReturnValue({
+        isAuthorized: true,
+      });
+      vi.mocked(mockBookingRepository.findAll).mockResolvedValue(allBookings);
+
+      const result = await service.getBookings(adminUser);
+
+      expect(mockBookingAuthorizationService.canViewAllBookings).toHaveBeenCalledWith(adminUser);
+      expect(mockBookingRepository.findAll).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith("Admin/Staff fetching all bookings", {
+        userId: "admin-123",
+      });
+      expect(result).toBe(allBookings);
+    });
+
+    it("should return fleet owner bookings when user is fleet owner", async () => {
+      const fleetOwner = createUserEntity({
+        id: "fleet-123",
+        email: "fleet@example.com",
+        roles: [UserRole.fleetOwner()],
+      });
+      const fleetBookings = [createBookingEntity({ id: "fleet-booking-1", carId: "car-123" })];
+
+      vi.mocked(mockBookingAuthorizationService.canViewAllBookings).mockReturnValue({
+        isAuthorized: false,
+      });
+      vi.mocked(mockBookingRepository.findByFleetOwnerId).mockResolvedValue(fleetBookings);
+
+      const result = await service.getBookings(fleetOwner);
+
+      expect(mockBookingRepository.findByFleetOwnerId).toHaveBeenCalledWith("fleet-123");
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Fleet owner fetching bookings for their fleet",
+        {
+          userId: "fleet-123",
+        },
+      );
+      expect(result).toBe(fleetBookings);
+    });
+
+    it("should return customer bookings when user is regular customer", async () => {
+      const customer = createUserEntity({
+        id: "customer-123",
+        email: "customer@example.com",
+      });
+      const customerBookings = [createBookingEntity({ id: "customer-booking-1" })];
+
+      vi.mocked(mockBookingAuthorizationService.canViewAllBookings).mockReturnValue({
+        isAuthorized: false,
+      });
+      vi.mocked(mockBookingRepository.findByCustomerId).mockResolvedValue(customerBookings);
+
+      const result = await service.getBookings(customer);
+
+      expect(mockBookingRepository.findByCustomerId).toHaveBeenCalledWith("customer-123");
+      expect(mockLogger.info).toHaveBeenCalledWith("User fetching their bookings", {
+        userId: "customer-123",
+      });
+      expect(result).toBe(customerBookings);
     });
   });
 });

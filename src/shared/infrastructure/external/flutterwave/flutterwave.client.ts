@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { TypedConfigService } from "../../../config/typed-config.service";
-import { LoggerService, type Logger } from "../../../logging/logger.service";
+import { type Logger, LoggerService } from "../../../logging/logger.service";
 import { FlutterwaveConfig, FlutterwaveError, FlutterwaveResponse } from "./flutterwave.types";
 
 @Injectable()

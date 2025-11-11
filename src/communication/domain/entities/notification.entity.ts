@@ -1,8 +1,5 @@
 import { Entity } from "../../../shared/domain/entity";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
-import { NotificationContent } from "../value-objects/notification-content.vo";
-import { NotificationType } from "../value-objects/notification-type.vo";
-import { Recipient } from "../value-objects/recipient.vo";
 import {
   NotificationCannotBeMarkedAsDeliveredError,
   NotificationCannotBeMarkedAsSentError,
@@ -12,6 +9,9 @@ import {
   NotificationRecipientMissingEmailError,
   NotificationRecipientMissingPhoneError,
 } from "../errors/notification.errors";
+import { NotificationContent } from "../value-objects/notification-content.vo";
+import { NotificationType } from "../value-objects/notification-type.vo";
+import { Recipient } from "../value-objects/recipient.vo";
 
 export enum NotificationStatus {
   PENDING = "PENDING",
@@ -136,7 +136,7 @@ export class Notification extends Entity<string> {
     return this.props.status === NotificationStatus.FAILED && this.props.attemptCount < 3;
   }
 
-    public retry(): void {
+  public retry(): void {
     if (!this.canRetry()) {
       let reason: string;
       if (this.props.status !== NotificationStatus.FAILED) {

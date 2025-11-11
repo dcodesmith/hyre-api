@@ -4,7 +4,7 @@ import {
   validatePositiveAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
-import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
+import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
 import { Payout } from "../../domain/entities/payout.entity";
 import { PayoutRepository } from "../../domain/repositories/payout.repository";
 import { PaymentGateway } from "../../domain/services/payment-gateway.interface";

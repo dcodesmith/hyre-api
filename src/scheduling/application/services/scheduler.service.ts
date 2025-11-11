@@ -2,7 +2,7 @@ import { InjectQueue } from "@nestjs/bull";
 import { Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Queue } from "bull";
-import { LoggerService, type Logger } from "../../../shared/logging/logger.service";
+import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
 
 export interface ReminderJobData {
   type: "trip-start" | "trip-end" | "leg-start" | "leg-end";
