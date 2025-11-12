@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { Booking } from "../entities/booking.entity";
+import { CarOwnerIdRequiredForFleetOwnerVerificationError } from "../errors/booking.errors";
 
 export interface AuthorizationResult {
   isAuthorized: boolean;
@@ -83,6 +84,11 @@ export class BookingAuthorizationService {
     booking?: Booking,
     carOwnerId?: string,
   ): AuthorizationResult {
+    // If booking context provided, carOwnerId must be provided for fleet owner verification
+    if (booking && user.isFleetOwner() && !carOwnerId) {
+      throw new CarOwnerIdRequiredForFleetOwnerVerificationError();
+    }
+
     if (user.isAdminOrStaff() || user.isFleetOwner()) {
       // If booking context provided, verify fleet owner owns the car
       if (booking && user.isFleetOwner() && carOwnerId && user.getId() !== carOwnerId) {
