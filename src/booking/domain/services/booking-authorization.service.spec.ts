@@ -177,6 +177,43 @@ describe("BookingAuthorizationService", () => {
     });
   });
 
+  describe("#canCancelBooking", () => {
+    it("should allow customer to cancel their own booking", () => {
+      const result = service.canCancelBooking(customerUser, booking);
+
+      expect(result.isAuthorized).toBe(true);
+      expect(result.reason).toBeUndefined();
+    });
+
+    it("should allow admin to cancel any booking", () => {
+      const result = service.canCancelBooking(adminUser, booking);
+
+      expect(result.isAuthorized).toBe(true);
+      expect(result.reason).toBeUndefined();
+    });
+
+    it("should allow staff to cancel any booking", () => {
+      const result = service.canCancelBooking(staffUser, booking);
+
+      expect(result.isAuthorized).toBe(true);
+      expect(result.reason).toBeUndefined();
+    });
+
+    it("should not allow other customers to cancel someone else's booking", () => {
+      const result = service.canCancelBooking(otherCustomerUser, booking);
+
+      expect(result.isAuthorized).toBe(false);
+      expect(result.reason).toBe("You can only cancel your own bookings");
+    });
+
+    it("should not allow fleet owners to cancel customer bookings", () => {
+      const result = service.canCancelBooking(fleetOwnerUser, booking);
+
+      expect(result.isAuthorized).toBe(false);
+      expect(result.reason).toBe("You can only cancel your own bookings");
+    });
+  });
+
   describe("#canAssignChauffeur", () => {
     it("should allow admin to assign chauffeurs", () => {
       const result = service.canAssignChauffeur(adminUser);

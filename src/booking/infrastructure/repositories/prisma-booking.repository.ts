@@ -5,13 +5,11 @@ import {
   BookingType as PrismaBookingType,
   PaymentStatus as PrismaPaymentStatus,
 } from "@prisma/client";
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingLeg } from "../../domain/entities/booking-leg.entity";
-import {
-  BookingRepository,
-  TransactionContext,
-} from "../../domain/repositories/booking.repository";
+import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import { BookingType } from "../../domain/value-objects/booking-type.vo";

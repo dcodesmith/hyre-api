@@ -65,8 +65,8 @@ export class BookingAuthorizationService {
   }
 
   /**
-   * Checks if a user can modify a booking (cancel, update, etc.)
-   * Users can modify their own bookings
+   * Checks if a user can modify a booking (update details, etc.)
+   * Only the customer who created the booking can modify it
    */
   public canModifyBooking(user: User, booking: Booking): AuthorizationResult {
     if (booking.getCustomerId() === user.getId()) {
@@ -76,6 +76,21 @@ export class BookingAuthorizationService {
     return {
       isAuthorized: false,
       reason: "You can only modify your own bookings",
+    };
+  }
+
+  /**
+   * Checks if a user can cancel a booking
+   * Customers can cancel their own bookings, admins and staff can cancel any booking
+   */
+  public canCancelBooking(user: User, booking: Booking): AuthorizationResult {
+    if (user.isAdminOrStaff() || booking.getCustomerId() === user.getId()) {
+      return { isAuthorized: true };
+    }
+
+    return {
+      isAuthorized: false,
+      reason: "You can only cancel your own bookings",
     };
   }
 

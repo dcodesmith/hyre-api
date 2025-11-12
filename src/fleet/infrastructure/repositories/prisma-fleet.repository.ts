@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Fleet } from "../../domain/entities/fleet.entity";
-import { FleetRepository, TransactionContext } from "../../domain/repositories/fleet.repository";
+import { FleetRepository } from "../../domain/repositories/fleet.repository";
 
 @Injectable()
 export class PrismaFleetRepository implements FleetRepository {

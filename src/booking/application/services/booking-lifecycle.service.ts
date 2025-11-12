@@ -30,7 +30,7 @@ export class BookingLifecycleService {
 
     // Check if user has permission to cancel this booking
     // Only the customer who created the booking or admins/staff can cancel
-    const { isAuthorized } = this.bookingAuthorizationService.canModifyBooking(
+    const { isAuthorized } = this.bookingAuthorizationService.canCancelBooking(
       currentUser,
       booking,
     );
@@ -133,10 +133,16 @@ export class BookingLifecycleService {
       return saved;
     });
 
-    // After transaction commits successfully, publish events if any exist
-    // This handles all domain events: creation, cancellation, activation, completion, etc.
-    if (savedBooking.getUncommittedEvents().length > 0) {
-      await this.domainEventPublisher.publish(savedBooking);
+    // After transaction commits successfully, publish events from the original aggregate
+    // We use the ORIGINAL 'booking' aggregate (not 'savedBooking') because:
+    // - saveWithTransaction returns a reconstituted instance with an empty event list
+    // - The original aggregate has the uncommitted events (cancellation, activation, completion, etc.)
+    // - For existing bookings, events already have the correct booking ID
+    // - For new bookings, savedBooking.markAsCreated() adds events to the saved instance
+    const aggregateToPublish = !booking.getId() && savedBooking.getId() ? savedBooking : booking;
+
+    if (aggregateToPublish.getUncommittedEvents().length > 0) {
+      await this.domainEventPublisher.publish(aggregateToPublish);
     }
 
     return savedBooking;

@@ -16,6 +16,7 @@ import { BookingAuthorizationService } from "../../domain/services/booking-autho
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
+import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
 
 describe("BookingLifecycleService", () => {
   let service: BookingLifecycleService;
@@ -47,6 +48,7 @@ describe("BookingLifecycleService", () => {
           provide: BookingAuthorizationService,
           useValue: {
             canModifyBooking: vi.fn(),
+            canCancelBooking: vi.fn(),
           },
         },
         {
@@ -128,7 +130,7 @@ describe("BookingLifecycleService", () => {
 
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(booking);
       vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(booking);
-      vi.mocked(mockBookingAuthorizationService.canModifyBooking).mockReturnValue({
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
         isAuthorized: true,
       });
 
@@ -139,7 +141,7 @@ describe("BookingLifecycleService", () => {
       await service.cancelBooking(bookingId, mockCustomer, reason);
 
       expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
-      expect(mockBookingAuthorizationService.canModifyBooking).toHaveBeenCalledWith(
+      expect(mockBookingAuthorizationService.canCancelBooking).toHaveBeenCalledWith(
         mockCustomer,
         booking,
       );
@@ -154,7 +156,7 @@ describe("BookingLifecycleService", () => {
     it("should cancel booking without reason when admin", async () => {
       const bookingId = "booking-123";
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
-      vi.mocked(mockBookingAuthorizationService.canModifyBooking).mockReturnValue({
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
         isAuthorized: true,
       });
 
@@ -174,9 +176,9 @@ describe("BookingLifecycleService", () => {
       });
 
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
-      vi.mocked(mockBookingAuthorizationService.canModifyBooking).mockReturnValue({
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
         isAuthorized: false,
-        reason: "You can only modify your own bookings",
+        reason: "You can only cancel your own bookings",
       });
 
       await expect(service.cancelBooking(bookingId, unauthorizedUser)).rejects.toThrow(
@@ -193,21 +195,28 @@ describe("BookingLifecycleService", () => {
       await expect(service.cancelBooking(bookingId, mockCustomer)).rejects.toThrow(
         new BookingNotFoundError(bookingId),
       );
-      expect(mockBookingAuthorizationService.canModifyBooking).not.toHaveBeenCalled();
+      expect(mockBookingAuthorizationService.canCancelBooking).not.toHaveBeenCalled();
       expect(mockBookingDomainService.cancelBooking).not.toHaveBeenCalled();
     });
   });
 
   describe("#processBookingActivations", () => {
     it("should process activations successfully", async () => {
+      const activationStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in the future
+      const activationEnd = new Date(Date.now() + 65 * 60 * 1000); // 65 minutes in the future
+
       const confirmedBooking1 = createBookingEntity({
         id: "booking-1",
         bookingReference: "BK-001",
+        chauffeurId: "chauffeur-1",
+        dateRange: DateRange.create(activationStart, activationEnd),
       });
 
       const confirmedBooking2 = createBookingEntity({
         id: "booking-2",
         bookingReference: "BK-002",
+        chauffeurId: "chauffeur-2",
+        dateRange: DateRange.create(activationStart, activationEnd),
       });
 
       vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
@@ -273,16 +282,23 @@ describe("BookingLifecycleService", () => {
 
   describe("#processBookingCompletions", () => {
     it("should process completions successfully", async () => {
+      // For completion tests, we need dates slightly in the future but close to now
+      // These bookings are ACTIVE and will be eligible for auto-completion
+      const completionStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in future
+      const completionEnd = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in future
+
       const activeBooking1 = createBookingEntity({
         id: "booking-3",
         bookingReference: "BK-003",
         status: BookingStatus.active(),
+        dateRange: DateRange.create(completionStart, completionEnd),
       });
 
       const activeBooking2 = createBookingEntity({
         id: "booking-4",
         bookingReference: "BK-004",
         status: BookingStatus.active(),
+        dateRange: DateRange.create(completionStart, completionEnd),
       });
 
       vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([

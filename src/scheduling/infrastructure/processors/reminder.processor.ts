@@ -56,10 +56,7 @@ export class ReminderProcessor {
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking leg start reminders: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to process booking leg start reminders: ${error.message}`);
       throw error;
     }
   }
@@ -75,10 +72,7 @@ export class ReminderProcessor {
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process booking leg end reminders: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to process booking leg end reminders: ${error.message}`);
       throw error;
     }
   }

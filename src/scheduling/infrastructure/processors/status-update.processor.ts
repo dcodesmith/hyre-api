@@ -25,10 +25,7 @@ export class StatusUpdateProcessor {
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process confirmed to active updates: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to process confirmed to active updates: ${error.message}`);
       throw error;
     }
   }
@@ -45,10 +42,7 @@ export class StatusUpdateProcessor {
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(
-        `Failed to process active to completed updates: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to process active to completed updates: ${error.message}`);
       throw error;
     }
   }

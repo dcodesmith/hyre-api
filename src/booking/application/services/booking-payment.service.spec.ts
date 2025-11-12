@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
@@ -9,11 +9,11 @@ import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
+import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import {
   BookingCannotBeConfirmedError,
   BookingNotFoundError,
 } from "../../domain/errors/booking.errors";
-import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";
@@ -22,7 +22,6 @@ import { BookingFinancials } from "../../domain/value-objects/booking-financials
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { PaymentCustomer } from "../../domain/value-objects/payment-customer.vo";
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
-import { PaymentStatusQueryDto } from "../../presentation/dto/payment-status.dto";
 import { BookingPaymentService } from "./booking-payment.service";
 
 describe("BookingPaymentService", () => {

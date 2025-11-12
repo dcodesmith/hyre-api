@@ -1,10 +1,6 @@
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { Booking } from "../entities/booking.entity";
 import { BookingStatus } from "../value-objects/booking-status.vo";
-
-// Transaction context type - using Prisma's transaction client type
-export type TransactionContext = Parameters<
-  Parameters<import("@prisma/client").PrismaClient["$transaction"]>[0]
->[0];
 
 /**
  * Simplified domain repository interface

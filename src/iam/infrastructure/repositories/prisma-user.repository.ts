@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, Role as PrismaRole, User as PrismaUser } from "@prisma/client";
 import { logger } from "test/support/logger";
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { User } from "../../domain/entities/user.entity";
 import { UserNotFoundError } from "../../domain/errors/iam.errors";
 import {
-  TransactionContext,
   UserListOptions,
   UserListResult,
   UserRepository,
