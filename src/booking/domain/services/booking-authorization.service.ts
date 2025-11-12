@@ -90,7 +90,7 @@ export class BookingAuthorizationService {
   ): AuthorizationResult {
     // If booking context provided, carOwnerId must be provided for fleet owner verification
     if (booking && user.isFleetOwner() && !carOwnerId) {
-      throw new CarOwnerIdRequiredForFleetOwnerVerificationError();
+      throw new CarOwnerIdRequiredForFleetOwnerVerificationError(booking.getId());
     }
 
     if (user.isAdminOrStaff() || user.isFleetOwner()) {

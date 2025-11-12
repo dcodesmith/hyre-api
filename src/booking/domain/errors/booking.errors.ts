@@ -97,7 +97,10 @@ export class BookingCannotBeCompletedError extends BookingDomainError {
 
 export class CarOwnerIdRequiredForFleetOwnerVerificationError extends BookingDomainError {
   readonly code = "CAR_OWNER_ID_REQUIRED_FOR_FLEET_OWNER_VERIFICATION";
-  constructor() {
-    super("Car owner ID is required when booking context is provided for fleet owner verification");
+  constructor(bookingId: string) {
+    super(
+      `Car owner ID is required when booking context is provided for fleet owner verification for booking ${bookingId}`,
+      { bookingId },
+    );
   }
 }
