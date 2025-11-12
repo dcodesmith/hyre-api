@@ -47,7 +47,8 @@ export class BookingAuthorizationService {
     if (
       user.isAdminOrStaff() ||
       booking.getCustomerId() === user.getId() ||
-      (fleetOwnerId && user.getId() === fleetOwnerId)
+      // Note: fleetOwnerId must be verified by caller to be the actual car owner
+      (fleetOwnerId && user.getId() === fleetOwnerId && user.isFleetOwner())
     ) {
       return { isAuthorized: true };
     }
@@ -77,8 +78,19 @@ export class BookingAuthorizationService {
    * Checks if a user can assign chauffeurs to bookings
    * Only fleet owners (for their own fleet) and admins/staff can assign chauffeurs
    */
-  public canAssignChauffeur(user: User): AuthorizationResult {
+  public canAssignChauffeur(
+    user: User,
+    booking?: Booking,
+    carOwnerId?: string,
+  ): AuthorizationResult {
     if (user.isAdminOrStaff() || user.isFleetOwner()) {
+      // If booking context provided, verify fleet owner owns the car
+      if (booking && user.isFleetOwner() && carOwnerId && user.getId() !== carOwnerId) {
+        return {
+          isAuthorized: false,
+          reason: "Fleet owners can only assign chauffeurs to their own vehicles",
+        };
+      }
       return { isAuthorized: true };
     }
 
