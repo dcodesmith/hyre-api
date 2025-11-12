@@ -33,8 +33,7 @@ export class UserManagementService {
     private readonly chauffeurManagementService: ChauffeurManagementApplicationService,
     private readonly userProfileService: UserProfileApplicationService,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async registerCustomer(dto: RegisterCustomerDto): Promise<UserRegistrationResponseDto> {
     return this.userRegistrationService.registerCustomer(dto);

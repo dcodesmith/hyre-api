@@ -8,8 +8,7 @@ import { LoggerService } from "../../../shared/logging/logger.service";
  */
 @EventsHandler(OtpGeneratedEvent)
 export class OtpGeneratedHandler implements IEventHandler<OtpGeneratedEvent> {
-  constructor(private readonly logger: LoggerService) {
-  }
+  constructor(private readonly logger: LoggerService) {}
 
   async handle(event: OtpGeneratedEvent): Promise<void> {
     this.logger.info(

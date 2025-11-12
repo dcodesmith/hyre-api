@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { RedisService } from "../../../shared/redis/redis.service";
 import { PlatformFeeRepository } from "../../domain/repositories/platform-fee.repository";

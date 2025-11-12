@@ -5,13 +5,11 @@ import {
   BookingType as PrismaBookingType,
   PaymentStatus as PrismaPaymentStatus,
 } from "@prisma/client";
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingLeg } from "../../domain/entities/booking-leg.entity";
-import {
-  BookingRepository,
-  TransactionContext,
-} from "../../domain/repositories/booking.repository";
+import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import { BookingType } from "../../domain/value-objects/booking-type.vo";
@@ -204,6 +202,21 @@ export class PrismaBookingRepository implements BookingRepository {
     return booking ? this.toDomain(booking) : null;
   }
 
+  async findAll(): Promise<Booking[]> {
+    const bookings = await this.prisma.booking.findMany({
+      include: {
+        legs: {
+          include: { extensions: true },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return bookings.map((booking) => this.toDomain(booking));
+  }
+
   async findByCustomerId(customerId: string): Promise<Booking[]> {
     const bookings = await this.prisma.booking.findMany({
       where: { customerId: customerId },
@@ -211,6 +224,29 @@ export class PrismaBookingRepository implements BookingRepository {
         legs: {
           include: { extensions: true },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return bookings.map((booking) => this.toDomain(booking));
+  }
+
+  async findByFleetOwnerId(fleetOwnerId: string): Promise<Booking[]> {
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        car: {
+          ownerId: fleetOwnerId,
+        },
+      },
+      include: {
+        legs: {
+          include: { extensions: true },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 

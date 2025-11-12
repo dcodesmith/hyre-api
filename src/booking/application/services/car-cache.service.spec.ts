@@ -4,10 +4,20 @@ import { LoggerService } from "../../../shared/logging/logger.service";
 import { CachedCarRepository } from "../../infrastructure/repositories/cached-car.repository";
 import { CarCacheService } from "./car-cache.service";
 
+/**
+ * Testing Strategy for CarCacheService:
+ *
+ * This service orchestrates cache operations for car data.
+ * We test:
+ * 1. Single car cache operations (invalidate, preload, refresh)
+ * 2. Bulk car cache operations (invalidate multiple, refresh multiple)
+ * 3. Method execution order for refresh operations
+ * 4. Edge cases (empty arrays)
+ */
 describe("CarCacheService", () => {
   let service: CarCacheService;
-  let mockRepository: CachedCarRepository;
-  let mockLogger: LoggerService;
+  let repository: CachedCarRepository;
+  let logger: LoggerService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,11 +46,8 @@ describe("CarCacheService", () => {
     }).compile();
 
     service = module.get<CarCacheService>(CarCacheService);
-    mockRepository = module.get<CachedCarRepository>("CarRepository");
-    mockLogger = module.get<LoggerService>(LoggerService);
-
-    // Manually inject the logger since DI is not working
-    (service as any).logger = mockLogger;
+    repository = module.get<CachedCarRepository>("CarRepository");
+    logger = module.get<LoggerService>(LoggerService);
   });
 
   describe("invalidateCarCache", () => {
@@ -49,8 +56,8 @@ describe("CarCacheService", () => {
 
       await service.invalidateCarCache(carId);
 
-      expect(mockRepository.invalidateCarCache).toHaveBeenCalledWith(carId);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(repository.invalidateCarCache).toHaveBeenCalledWith(carId);
+      expect(logger.info).toHaveBeenCalledWith(
         "Invalidating car rates cache due to admin change for car car-123",
       );
     });
@@ -62,8 +69,8 @@ describe("CarCacheService", () => {
 
       await service.invalidateMultipleCarCache(carIds);
 
-      expect(mockRepository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(repository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
+      expect(logger.info).toHaveBeenCalledWith(
         "Invalidating car rates cache for 3 cars due to bulk update",
       );
     });
@@ -73,8 +80,8 @@ describe("CarCacheService", () => {
 
       await service.invalidateMultipleCarCache(carIds);
 
-      expect(mockRepository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(repository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
+      expect(logger.info).toHaveBeenCalledWith(
         "Invalidating car rates cache for 0 cars due to bulk update",
       );
     });
@@ -86,8 +93,8 @@ describe("CarCacheService", () => {
 
       await service.preloadCarCache(carId);
 
-      expect(mockRepository.preloadCarCache).toHaveBeenCalledWith(carId);
-      expect(mockLogger.info).toHaveBeenCalledWith("Preloading car rates cache for car car-123");
+      expect(repository.preloadCarCache).toHaveBeenCalledWith(carId);
+      expect(logger.info).toHaveBeenCalledWith("Preloading car rates cache for car car-123");
     });
   });
 
@@ -97,13 +104,13 @@ describe("CarCacheService", () => {
 
       await service.refreshCarCache(carId);
 
-      expect(mockRepository.invalidateCarCache).toHaveBeenCalledWith(carId);
-      expect(mockRepository.preloadCarCache).toHaveBeenCalledWith(carId);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(repository.invalidateCarCache).toHaveBeenCalledWith(carId);
+      expect(repository.preloadCarCache).toHaveBeenCalledWith(carId);
+      expect(logger.info).toHaveBeenCalledWith(
         "Invalidating car rates cache due to admin change for car car-123",
       );
-      expect(mockLogger.info).toHaveBeenCalledWith("Preloading car rates cache for car car-123");
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(logger.info).toHaveBeenCalledWith("Preloading car rates cache for car car-123");
+      expect(logger.info).toHaveBeenCalledWith(
         "Car rates cache refreshed successfully for car car-123",
       );
     });
@@ -112,13 +119,13 @@ describe("CarCacheService", () => {
       const carId = "car-123";
       const callOrder: string[] = [];
 
-      vi.mocked(mockRepository.invalidateCarCache).mockImplementation(async () => {
+      vi.mocked(repository.invalidateCarCache).mockImplementation(async () => {
         callOrder.push("invalidate");
       });
 
-      vi.mocked(mockRepository.preloadCarCache).mockImplementation(async () => {
+      vi.mocked(repository.preloadCarCache).mockImplementation(async () => {
         callOrder.push("preload");
-        return {} as any;
+        return null; // preloadCarCache returns Promise<CarDto | null>
       });
 
       await service.refreshCarCache(carId);
@@ -133,13 +140,13 @@ describe("CarCacheService", () => {
 
       await service.refreshMultipleCarCache(carIds);
 
-      expect(mockRepository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
-      expect(mockRepository.preloadCarCache).toHaveBeenCalledWith("car-123");
-      expect(mockRepository.preloadCarCache).toHaveBeenCalledWith("car-456");
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(repository.invalidateMultipleCarCache).toHaveBeenCalledWith(carIds);
+      expect(repository.preloadCarCache).toHaveBeenCalledWith("car-123");
+      expect(repository.preloadCarCache).toHaveBeenCalledWith("car-456");
+      expect(logger.info).toHaveBeenCalledWith(
         "Invalidating car rates cache for 2 cars due to bulk update",
       );
-      expect(mockLogger.info).toHaveBeenCalledWith("Car rates cache refreshed for 2 cars");
+      expect(logger.info).toHaveBeenCalledWith("Car rates cache refreshed for 2 cars");
     });
 
     it("should preload each car individually", async () => {
@@ -147,10 +154,10 @@ describe("CarCacheService", () => {
 
       await service.refreshMultipleCarCache(carIds);
 
-      expect(mockRepository.preloadCarCache).toHaveBeenCalledTimes(3);
-      expect(mockRepository.preloadCarCache).toHaveBeenNthCalledWith(1, "car-123");
-      expect(mockRepository.preloadCarCache).toHaveBeenNthCalledWith(2, "car-456");
-      expect(mockRepository.preloadCarCache).toHaveBeenNthCalledWith(3, "car-789");
+      expect(repository.preloadCarCache).toHaveBeenCalledTimes(3);
+      expect(repository.preloadCarCache).toHaveBeenNthCalledWith(1, "car-123");
+      expect(repository.preloadCarCache).toHaveBeenNthCalledWith(2, "car-456");
+      expect(repository.preloadCarCache).toHaveBeenNthCalledWith(3, "car-789");
     });
 
     it("should handle empty car IDs array", async () => {
@@ -158,22 +165,22 @@ describe("CarCacheService", () => {
 
       await service.refreshMultipleCarCache(carIds);
 
-      expect(mockRepository.invalidateMultipleCarCache).toHaveBeenCalledWith([]);
-      expect(mockRepository.preloadCarCache).not.toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith("Car rates cache refreshed for 0 cars");
+      expect(repository.invalidateMultipleCarCache).toHaveBeenCalledWith([]);
+      expect(repository.preloadCarCache).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith("Car rates cache refreshed for 0 cars");
     });
 
     it("should call methods in correct order for multiple cars", async () => {
       const carIds = ["car-123", "car-456"];
       const callOrder: string[] = [];
 
-      vi.mocked(mockRepository.invalidateMultipleCarCache).mockImplementation(async () => {
+      vi.mocked(repository.invalidateMultipleCarCache).mockImplementation(async () => {
         callOrder.push("invalidate-multiple");
       });
 
-      vi.mocked(mockRepository.preloadCarCache).mockImplementation(async (carId) => {
+      vi.mocked(repository.preloadCarCache).mockImplementation(async (carId: string) => {
         callOrder.push(`preload-${carId}`);
-        return {} as any;
+        return null; // preloadCarCache returns Promise<CarDto | null>
       });
 
       await service.refreshMultipleCarCache(carIds);

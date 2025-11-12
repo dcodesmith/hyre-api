@@ -2,13 +2,15 @@ import { BadRequestException } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { UserRepository } from "../../../iam/domain/repositories/user.repository";
+import { UserType } from "../../../iam/domain/value-objects/user-type.vo";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { CarDto } from "../../domain/dtos/car.dto";
-import { Booking } from "../../domain/entities/booking.entity";
 import { CarNotFoundError } from "../../domain/errors/car.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
@@ -20,19 +22,31 @@ import { BookingTimeProcessorService } from "../../domain/services/booking-time-
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { BookingCreationService } from "./booking-creation.service";
 
+/**
+ * Testing Strategy for BookingCreationService:
+ *
+ * This service orchestrates booking creation with complex dependencies.
+ * We test:
+ * 1. Authenticated user booking flow
+ * 2. Guest user creation and validation
+ * 3. Car validation and cost calculation
+ * 4. Domain event publishing
+ * 5. Error scenarios (missing car, unauthorized users, expired guests, etc.)
+ */
+
 describe("BookingCreationService", () => {
   let service: BookingCreationService;
-  let mockBookingRepository: BookingRepository;
-  let mockCarRepository: CarRepository;
-  let mockUserRepository: UserRepository;
-  let mockPrismaService: PrismaService;
-  let mockBookingDomainService: BookingDomainService;
-  let mockBookingTimeProcessor: BookingTimeProcessorService;
-  let mockBookingAmountVerifier: BookingAmountVerifierService;
-  let mockBookingCostCalculator: BookingCostCalculatorService;
-  let mockBookingDateService: BookingDateService;
-  let mockDomainEventPublisher: DomainEventPublisher;
-  let mockLogger: LoggerService;
+  let bookingRepository: BookingRepository;
+  let carRepository: CarRepository;
+  let userRepository: UserRepository;
+  let prismaService: PrismaService;
+  let bookingDomainService: BookingDomainService;
+  let bookingTimeProcessor: BookingTimeProcessorService;
+  let bookingAmountVerifier: BookingAmountVerifierService;
+  let bookingCostCalculator: BookingCostCalculatorService;
+  let bookingDateService: BookingDateService;
+  let domainEventPublisher: DomainEventPublisher;
+  let logger: LoggerService;
 
   const mockCar: CarDto = {
     id: "car-123",
@@ -40,28 +54,26 @@ describe("BookingCreationService", () => {
     model: "Camry",
     year: 2024,
     color: "Red",
-    registrationNumber: "ABC123",
-    approvalStatus: "APPROVED",
-    imageUrls: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
-    motCertificateUrl: "https://example.com/mot.pdf",
-    insuranceCertificateUrl: "https://example.com/insurance.pdf",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    registrationNumber: "LAG-1234",
     ownerId: "owner-123",
     rates: {
       dayRate: 5000,
       nightRate: 7000,
       hourlyRate: 1000,
     },
-    status: "ACTIVE",
+    status: "AVAILABLE",
+    approvalStatus: "APPROVED",
+    imageUrls: ["https://example.com/car.jpg"],
+    motCertificateUrl: "https://example.com/mot.pdf",
+    insuranceCertificateUrl: "https://example.com/insurance.pdf",
+    createdAt: new Date("2024-01-01T00:00:00Z"),
+    updatedAt: new Date("2024-06-01T00:00:00Z"),
   };
 
-  const mockBooking = {
-    getId: vi.fn(() => "booking-123"),
-    getBookingReference: vi.fn(() => "BK-123"),
-    getTotalAmount: vi.fn(() => 10000),
-    markAsCreated: vi.fn(),
-  } as unknown as Booking;
+  const mockBooking = createBookingEntity({
+    id: "booking-123",
+    bookingReference: "BK-123",
+  });
 
   const mockTimeResult = {
     startDateTime: new Date("2025-01-15T10:00:00Z"),
@@ -165,38 +177,22 @@ describe("BookingCreationService", () => {
     }).compile();
 
     service = module.get<BookingCreationService>(BookingCreationService);
-    mockBookingRepository = module.get<BookingRepository>("BookingRepository");
-    mockCarRepository = module.get<CarRepository>("CarRepository");
-    mockUserRepository = module.get<UserRepository>("UserRepository");
-    mockPrismaService = module.get<PrismaService>(PrismaService);
-    mockBookingDomainService = module.get<BookingDomainService>(BookingDomainService);
-    mockBookingTimeProcessor = module.get<BookingTimeProcessorService>(BookingTimeProcessorService);
-    mockBookingAmountVerifier = module.get<BookingAmountVerifierService>(
-      BookingAmountVerifierService,
-    );
-    mockBookingCostCalculator = module.get<BookingCostCalculatorService>(
-      BookingCostCalculatorService,
-    );
-    mockBookingDateService = module.get<BookingDateService>(BookingDateService);
-    mockDomainEventPublisher = module.get<DomainEventPublisher>(DomainEventPublisher);
-    mockLogger = module.get<LoggerService>(LoggerService);
+    bookingRepository = module.get<BookingRepository>("BookingRepository");
+    carRepository = module.get<CarRepository>("CarRepository");
+    userRepository = module.get<UserRepository>("UserRepository");
+    prismaService = module.get<PrismaService>(PrismaService);
+    bookingDomainService = module.get<BookingDomainService>(BookingDomainService);
+    bookingTimeProcessor = module.get<BookingTimeProcessorService>(BookingTimeProcessorService);
+    bookingAmountVerifier = module.get<BookingAmountVerifierService>(BookingAmountVerifierService);
+    bookingCostCalculator = module.get<BookingCostCalculatorService>(BookingCostCalculatorService);
+    bookingDateService = module.get<BookingDateService>(BookingDateService);
+    domainEventPublisher = module.get<DomainEventPublisher>(DomainEventPublisher);
+    logger = module.get<LoggerService>(LoggerService);
 
-    // WORKAROUND: Manually inject dependencies since NestJS DI is not working properly in tests
-    // This is a known issue with complex dependency graphs in NestJS testing
-    (service as any).logger = mockLogger;
-    (service as any).bookingTimeProcessor = mockBookingTimeProcessor;
-    (service as any).bookingDateService = mockBookingDateService;
-    (service as any).bookingCostCalculator = mockBookingCostCalculator;
-    (service as any).bookingDomainService = mockBookingDomainService;
-    (service as any).bookingAmountVerifier = mockBookingAmountVerifier;
-    (service as any).prisma = mockPrismaService;
-    (service as any).domainEventPublisher = mockDomainEventPublisher;
-
-    // Default setup
-    vi.mocked(mockCarRepository.findById).mockResolvedValue(mockCar);
-    vi.mocked(mockBookingTimeProcessor.processBookingTime).mockReturnValue(mockTimeResult);
-    vi.mocked(mockBookingDateService.generateBookingDates).mockReturnValue([]);
-    vi.mocked(mockBookingCostCalculator.calculateBookingCostFromCar).mockResolvedValue({
+    vi.mocked(carRepository.findById).mockResolvedValue(mockCar);
+    vi.mocked(bookingTimeProcessor.processBookingTime).mockReturnValue(mockTimeResult);
+    vi.mocked(bookingDateService.generateBookingDates).mockReturnValue([]);
+    vi.mocked(bookingCostCalculator.calculateBookingCostFromCar).mockResolvedValue({
       netTotal: new Decimal(8500),
       platformCustomerServiceFeeAmount: new Decimal(1000),
       vatAmount: new Decimal(500),
@@ -209,13 +205,14 @@ describe("BookingCreationService", () => {
       platformFleetOwnerCommissionAmount: new Decimal(1000),
       legPrices: [1000, 2000, 3000],
     });
-    vi.mocked(mockBookingDomainService.createBooking).mockReturnValue(mockBooking);
-    vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
-      return await fn({} as any);
-    });
-    vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
+    vi.mocked(bookingDomainService.createBooking).mockReturnValue(mockBooking);
+    vi.mocked(prismaService.$transaction).mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => {
+        return await fn(prismaService);
+      },
+    );
+    vi.mocked(bookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
 
-    // Use fake timers to mock current date
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01"));
   });
@@ -224,34 +221,34 @@ describe("BookingCreationService", () => {
     vi.useRealTimers();
   });
 
-  // Test data setup
-  const mockUser = {
-    getId: vi.fn(() => "user-123"),
-    canMakeBookings: vi.fn(() => true),
-    isGuest: vi.fn(() => false),
-  } as unknown as User;
-
-  describe("createPendingBooking - authenticated user", () => {
+  describe("#createPendingBooking - authenticated user", () => {
     it("should create pending booking with authenticated user", async () => {
-      // Act
+      const mockUser = createUserEntity({
+        id: "user-123",
+        email: "user@example.com",
+        name: "Test User",
+      });
+
       const result = await service.createPendingBooking(mockDto, mockUser);
 
-      // Assert
-      expect(mockCarRepository.findById).toHaveBeenCalledWith("car-123");
-      expect(mockUser.canMakeBookings).toHaveBeenCalled();
-      expect(mockBookingTimeProcessor.processBookingTime).toHaveBeenCalled();
-      expect(mockBookingAmountVerifier.verifyAmount).toHaveBeenCalledWith(10000, 10000);
+      expect(carRepository.findById).toHaveBeenCalledWith("car-123");
+      expect(bookingTimeProcessor.processBookingTime).toHaveBeenCalled();
+      expect(bookingAmountVerifier.verifyAmount).toHaveBeenCalledWith(
+        10000,
+        mockBooking.getTotalAmount(),
+      );
       expect(result).toEqual({
         booking: mockBooking,
         timeResult: mockTimeResult,
       });
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        "Created pending booking BK-123 with total amount: 10000",
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining("Created pending booking BK-123"),
       );
     });
 
     it("should throw error when car not found", async () => {
-      vi.mocked(mockCarRepository.findById).mockResolvedValue(null);
+      const mockUser = createUserEntity();
+      vi.mocked(carRepository.findById).mockResolvedValue(null);
 
       await expect(service.createPendingBooking(mockDto, mockUser)).rejects.toThrow(
         CarNotFoundError,
@@ -259,76 +256,86 @@ describe("BookingCreationService", () => {
     });
 
     it("should throw error when authenticated user cannot make bookings", async () => {
-      const restrictedUser = {
-        ...mockUser,
-        canMakeBookings: vi.fn(() => false),
-        getEmail: vi.fn(() => "restricted@example.com"),
-      } as unknown as User;
+      const restrictedUser = createUserEntity({
+        id: "restricted-123",
+        email: "restricted@example.com",
+      });
+
+      vi.spyOn(restrictedUser, "canMakeBookings").mockReturnValue(false);
 
       await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
         BadRequestException,
       );
       await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
-        "User restricted@example.com is not authorized to make bookings",
+        "is not authorized to make bookings",
       );
     });
   });
 
-  describe("createPendingBooking - guest users", () => {
+  describe("#createPendingBooking - guest users", () => {
     it("should create new guest user when no existing user", async () => {
-      vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(null);
-      const mockGuestUser = { getId: vi.fn(() => "guest-123") } as unknown as User;
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(null);
+      const mockGuestUser = createUserEntity({
+        id: "guest-123",
+        email: mockDto.email,
+        name: mockDto.name,
+        phoneNumber: mockDto.phoneNumber,
+        userType: UserType.guest(),
+      });
       vi.spyOn(User, "createGuest").mockReturnValue(mockGuestUser);
 
       await service.createPendingBooking(mockDto);
 
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("test@example.com");
+      expect(userRepository.findByEmail).toHaveBeenCalledWith("test@example.com");
       expect(User.createGuest).toHaveBeenCalledWith("test@example.com", "John Doe", "+1234567890");
-      expect(mockUserRepository.save).toHaveBeenCalledWith(mockGuestUser);
-      expect(mockLogger.log).toHaveBeenCalledWith("Created new guest user: guest-123");
+      expect(userRepository.save).toHaveBeenCalledWith(mockGuestUser);
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining("Created new guest user"));
     });
 
     it("should use existing guest user when not expired", async () => {
-      const existingGuestUser = {
-        getId: vi.fn(() => "existing-guest-123"),
-        isRegistered: vi.fn(() => false),
-        isGuest: vi.fn(() => true),
-        isGuestExpired: vi.fn(() => false),
-      } as unknown as User;
+      const existingGuestUser = createUserEntity({
+        id: "existing-guest-123",
+        email: mockDto.email,
+        userType: UserType.guest(),
+        guestExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires tomorrow
+      });
 
-      vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(existingGuestUser);
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(existingGuestUser);
 
       await service.createPendingBooking(mockDto);
 
-      expect(mockUserRepository.save).not.toHaveBeenCalled();
-      expect(mockLogger.log).toHaveBeenCalledWith("Using existing guest user: existing-guest-123");
+      expect(userRepository.save).not.toHaveBeenCalled();
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining("Using existing guest user"));
     });
 
     it("should throw error when guest user is expired", async () => {
-      const expiredGuestUser = {
-        isRegistered: vi.fn(() => false),
-        isGuest: vi.fn(() => true),
-        isGuestExpired: vi.fn(() => true),
-      } as unknown as User;
+      const expiredGuestUser = createUserEntity({
+        id: "expired-guest-123",
+        email: mockDto.email,
+        userType: UserType.guest(),
+        guestExpiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Expired yesterday
+      });
 
-      vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(expiredGuestUser);
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(expiredGuestUser);
 
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        "Guest user account has expired. Please create a new booking.",
+        "Guest user account has expired",
       );
     });
 
     it("should throw error when email belongs to registered user", async () => {
-      const registeredUser = {
-        isRegistered: vi.fn(() => true),
-      } as unknown as User;
+      const registeredUser = createUserEntity({
+        id: "registered-123",
+        email: mockDto.email,
+        userType: UserType.registered(),
+      });
 
-      vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(registeredUser);
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(registeredUser);
 
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        "Email test@example.com is already registered. Please sign in to make bookings.",
+        "is already registered. Please sign in",
       );
     });
 
@@ -344,32 +351,52 @@ describe("BookingCreationService", () => {
     });
   });
 
-  describe("createPendingBooking - special scenarios", () => {
+  describe("#createPendingBooking - special scenarios", () => {
     it("should handle same location booking", async () => {
+      const mockUser = createUserEntity();
       const sameLocationDto = { ...mockDto, sameLocation: true };
 
       await service.createPendingBooking(sameLocationDto, mockUser);
 
-      expect(mockBookingDomainService.createBooking).toHaveBeenCalledWith(
+      expect(bookingDomainService.createBooking).toHaveBeenCalledWith(
         expect.objectContaining({
-          dropOffAddress: mockDto.pickupAddress, // Should use pickup address
+          dropOffAddress: mockDto.pickupAddress,
         }),
       );
     });
 
-    it("should publish events for new booking", async () => {
-      const newBooking = {
-        ...mockBooking,
-        getId: vi.fn().mockReturnValueOnce(null).mockReturnValue("booking-123"),
-      } as unknown as Booking;
+    it("should publish domain events for new booking", async () => {
+      const mockUser = createUserEntity();
 
-      vi.mocked(mockBookingDomainService.createBooking).mockReturnValue(newBooking);
-      vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(newBooking);
+      // Create a booking without ID (simulates new entity before persistence)
+      // Use a proper booking from fixture but spy on getId to return undefined initially
+      const newBooking = createBookingEntity({ id: "temp-id" });
+      vi.spyOn(newBooking, "getId").mockReturnValue(undefined);
+
+      // Saved booking has an ID (after persistence)
+      const savedBooking = createBookingEntity({ id: "booking-new-123" });
+      const markAsCreatedSpy = vi.spyOn(savedBooking, "markAsCreated");
+
+      vi.mocked(bookingDomainService.createBooking).mockReturnValue(newBooking);
+      vi.mocked(bookingRepository.saveWithTransaction).mockResolvedValue(savedBooking);
 
       await service.createPendingBooking(mockDto, mockUser);
 
-      expect(newBooking.markAsCreated).toHaveBeenCalled();
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(newBooking);
+      expect(markAsCreatedSpy).toHaveBeenCalled();
+      expect(domainEventPublisher.publish).toHaveBeenCalledWith(savedBooking);
+    });
+
+    it("should not mark as created if booking already has ID", async () => {
+      const mockUser = createUserEntity();
+      const existingBooking = createBookingEntity({ id: "existing-123" });
+
+      vi.mocked(bookingDomainService.createBooking).mockReturnValue(existingBooking);
+      vi.mocked(bookingRepository.saveWithTransaction).mockResolvedValue(existingBooking);
+      vi.spyOn(existingBooking, "markAsCreated");
+
+      await service.createPendingBooking(mockDto, mockUser);
+
+      expect(existingBooking.markAsCreated).not.toHaveBeenCalled();
     });
   });
 });

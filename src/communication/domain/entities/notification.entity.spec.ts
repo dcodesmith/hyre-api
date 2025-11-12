@@ -227,17 +227,13 @@ describe("Notification Entity", () => {
     it("should throw error when marking as failed without reason", () => {
       const notification = createNotificationWithProps({});
 
-      expect(() => notification.markAsFailed("")).toThrow(
-        "Failure reason cannot be empty",
-      );
+      expect(() => notification.markAsFailed("")).toThrow("Failure reason cannot be empty");
     });
 
     it("should throw error when marking as failed with whitespace-only reason", () => {
       const notification = createNotificationWithProps({});
 
-      expect(() => notification.markAsFailed("   ")).toThrow(
-        "Failure reason cannot be empty",
-      );
+      expect(() => notification.markAsFailed("   ")).toThrow("Failure reason cannot be empty");
     });
   });
 
@@ -293,13 +289,17 @@ describe("Notification Entity", () => {
     it("should throw error when retrying notification that exceeded attempts", () => {
       const notification = createFailedNotification(3);
 
-      expect(() => notification.retry()).toThrow("Notification notification-123 cannot be retried: attempt count is 3, exceeds maximum of 3");
+      expect(() => notification.retry()).toThrow(
+        "Notification notification-123 cannot be retried: attempt count is 3, exceeds maximum of 3",
+      );
     });
 
     it("should throw error when retrying non-failed notification", () => {
       const notification = createSentNotification();
 
-      expect(() => notification.retry()).toThrow("Notification notification-123 cannot be retried: status is SENT, not FAILED");
+      expect(() => notification.retry()).toThrow(
+        "Notification notification-123 cannot be retried: status is SENT, not FAILED",
+      );
     });
   });
 

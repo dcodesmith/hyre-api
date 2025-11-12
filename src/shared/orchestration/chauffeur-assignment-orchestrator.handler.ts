@@ -64,7 +64,7 @@ export class ChauffeurAssignmentOrchestrator
   ): Promise<void> {
     try {
       const [booking, chauffeur, car] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(event.bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(event.bookingId),
         this.userProfileService.getUserById(event.chauffeurId),
         this.getCarForBooking(event.bookingId),
       ]);
@@ -116,7 +116,7 @@ export class ChauffeurAssignmentOrchestrator
   ): Promise<void> {
     try {
       const [booking, customer, chauffeur] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(event.bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(event.bookingId),
         this.userProfileService.getUserById(event.customerId),
         this.userProfileService.getUserById(event.chauffeurId),
       ]);
@@ -176,7 +176,7 @@ export class ChauffeurAssignmentOrchestrator
    */
   private async getCarForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
       this.logger.warn(

@@ -91,7 +91,7 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
    * Get booking data from Booking domain
    */
   private async getBookingData(bookingId: string) {
-    return this.bookingApplicationService.getBookingById(bookingId);
+    return this.bookingApplicationService.getBookingByIdInternally(bookingId);
   }
 
   /**
@@ -111,7 +111,7 @@ export class BookingNotificationOrchestrator implements IEventHandler<BookingAct
    */
   private async getCarData(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
       this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);

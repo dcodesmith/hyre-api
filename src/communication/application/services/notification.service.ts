@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { Notification } from "../../domain/entities/notification.entity";
 import {
   NotificationBatchProcessingError,
@@ -21,7 +21,6 @@ import { SmsService } from "../../domain/services/sms.service.interface";
 @Injectable()
 export class NotificationService {
   constructor(
-    @Inject("NotificationRepository")
     private readonly notificationRepository: NotificationRepository,
     private readonly notificationFactory: NotificationFactoryService,
     private readonly emailService: EmailService,

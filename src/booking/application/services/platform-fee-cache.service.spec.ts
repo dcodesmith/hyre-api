@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { CachedPlatformFeeRepository } from "../../infrastructure/repositories/cached-platform-fee.repository";
@@ -38,9 +38,6 @@ describe("PlatformFeeCacheService", () => {
     service = module.get<PlatformFeeCacheService>(PlatformFeeCacheService);
     mockRepository = module.get<CachedPlatformFeeRepository>("PlatformFeeRepository");
     mockLogger = module.get<LoggerService>(LoggerService);
-
-    // Manually inject the logger since DI is not working
-    (service as any).logger = mockLogger;
   });
 
   describe("invalidateRatesCache", () => {

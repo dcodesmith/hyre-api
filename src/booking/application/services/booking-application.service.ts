@@ -23,8 +23,7 @@ export class BookingApplicationService {
     private readonly bookingLifecycleService: BookingLifecycleService,
     private readonly bookingQueryService: BookingQueryService,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async createPendingBooking(dto: CreateBookingDto, user?: User): Promise<CreateBookingResponse> {
     // Create the booking using the specialized creation service
@@ -64,12 +63,20 @@ export class BookingApplicationService {
     return this.bookingPaymentService.confirmBookingWithPayment(bookingId, paymentId);
   }
 
-  async cancelBooking(bookingId: string, reason?: string): Promise<void> {
-    return this.bookingLifecycleService.cancelBooking(bookingId, reason);
+  async cancelBooking(bookingId: string, currentUser: User, reason?: string): Promise<void> {
+    return this.bookingLifecycleService.cancelBooking(bookingId, currentUser, reason);
   }
 
   async processBookingStatusUpdates(): Promise<string> {
     return this.bookingLifecycleService.processBookingStatusUpdates();
+  }
+
+  async processBookingActivations(): Promise<number> {
+    return this.bookingLifecycleService.processBookingActivations();
+  }
+
+  async processBookingCompletions(): Promise<number> {
+    return this.bookingLifecycleService.processBookingCompletions();
   }
 
   async findBookingsEligibleForStartReminders(): Promise<string[]> {
@@ -80,8 +87,12 @@ export class BookingApplicationService {
     return this.bookingQueryService.findBookingsEligibleForEndReminders();
   }
 
-  async getBookingById(bookingId: string): Promise<Booking> {
-    return this.bookingQueryService.getBookingById(bookingId);
+  async getBookingById(bookingId: string, currentUser: User): Promise<Booking> {
+    return this.bookingQueryService.getBookingById(bookingId, currentUser);
+  }
+
+  async getBookingByIdInternally(bookingId: string): Promise<Booking> {
+    return this.bookingQueryService.getBookingByIdInternal(bookingId);
   }
 
   async handlePaymentStatusCallback(
@@ -89,5 +100,9 @@ export class BookingApplicationService {
     query: PaymentStatusQueryDto,
   ): Promise<PaymentStatusResult> {
     return this.bookingPaymentService.handlePaymentStatusCallback(bookingId, query);
+  }
+
+  async getBookings(currentUser: User): Promise<Booking[]> {
+    return this.bookingQueryService.getBookings(currentUser);
   }
 }

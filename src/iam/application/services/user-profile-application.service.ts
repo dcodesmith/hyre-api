@@ -31,8 +31,7 @@ export class UserProfileApplicationService {
   constructor(
     @Inject("UserRepository") private readonly userRepository: UserRepository,
     private readonly logger: LoggerService,
-  ) {
-  }
+  ) {}
 
   async getUserById(userId: string): Promise<User> {
     const user = await this.userRepository.findById(userId);

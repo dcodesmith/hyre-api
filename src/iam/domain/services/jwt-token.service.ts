@@ -1,21 +1,28 @@
 import { Injectable } from "@nestjs/common";
+import type { JwtSignOptions } from "@nestjs/jwt";
 import { JwtService } from "@nestjs/jwt";
+import { JwtPayload } from "jsonwebtoken";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
 import { User } from "../entities/user.entity";
 import { TokenValidationError } from "../errors/iam.errors";
 
-export interface TokenPayload {
+export interface TokenPayload extends JwtPayload {
   userId: string;
   email: string;
   phoneNumber: string;
   roles: string[];
   approvalStatus: string;
-  iat: number;
-  exp: number;
 }
 
+type AccessTokenPayload = Pick<
+  TokenPayload,
+  "userId" | "email" | "phoneNumber" | "roles" | "approvalStatus"
+>;
+
+type JwtExpiresIn = NonNullable<JwtSignOptions["expiresIn"]>;
+
 export interface GenerateTokenOptions {
-  expiresIn?: string | number;
+  expiresIn?: JwtSignOptions["expiresIn"];
   includeRefreshToken?: boolean;
 }
 
@@ -36,8 +43,8 @@ export interface TokenValidationResult {
 export class JwtTokenService {
   private readonly JWT_SECRET: string;
   private readonly JWT_REFRESH_SECRET: string;
-  private readonly ACCESS_TOKEN_EXPIRY = "15m";
-  private readonly REFRESH_TOKEN_EXPIRY = "7d";
+  private readonly ACCESS_TOKEN_EXPIRY: JwtExpiresIn = "15m";
+  private readonly REFRESH_TOKEN_EXPIRY: JwtExpiresIn = "7d";
 
   constructor(
     private readonly jwtService: JwtService,
@@ -50,7 +57,7 @@ export class JwtTokenService {
   generateTokens(user: User, options: GenerateTokenOptions = {}): TokenPair {
     const payload = this.createTokenPayload(user);
 
-    const expiresIn = options.expiresIn ?? this.ACCESS_TOKEN_EXPIRY;
+    const expiresIn: JwtExpiresIn = options.expiresIn ?? this.ACCESS_TOKEN_EXPIRY;
     const accessToken = this.jwtService.sign(payload, {
       secret: this.JWT_SECRET,
       expiresIn,
@@ -126,10 +133,10 @@ export class JwtTokenService {
         isValid: true,
         userId: payload.userId,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         isValid: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -212,10 +219,10 @@ export class JwtTokenService {
         isValid: true,
         userId: payload.userId,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         isValid: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -262,15 +269,15 @@ export class JwtTokenService {
         userId: payload.userId,
         email: payload.email,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         isValid: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  private createTokenPayload(user: User): Omit<TokenPayload, "iat" | "exp"> {
+  private createTokenPayload(user: User): AccessTokenPayload {
     return {
       userId: user.getId(),
       email: user.getEmail(),
@@ -280,7 +287,7 @@ export class JwtTokenService {
     };
   }
 
-  private calculateExpirationDate(expiresIn: string | number): number {
+  private calculateExpirationDate(expiresIn: JwtExpiresIn): number {
     if (typeof expiresIn === "number") {
       return Date.now() + expiresIn * 1000;
     }

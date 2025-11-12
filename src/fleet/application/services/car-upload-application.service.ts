@@ -92,8 +92,7 @@ export class CarUploadApplicationService {
         message: result.message,
       };
     } catch (error) {
-      this.logger.error(`Car upload failed for owner ${ownerId}: ${error.message}`,
-error.stack);
+      this.logger.error(`Car upload failed for owner ${ownerId}: ${error.message}`, error.stack);
 
       if (error instanceof BadRequestException) {
         throw error;
@@ -171,8 +170,7 @@ error.stack);
 
       return response;
     } catch (error) {
-      this.logger.error(`Car upload failed for owner ${ownerId}: ${error.message}`,
-error.stack);
+      this.logger.error(`Car upload failed for owner ${ownerId}: ${error.message}`, error.stack);
 
       throw error;
     }

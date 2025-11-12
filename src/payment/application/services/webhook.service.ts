@@ -61,8 +61,7 @@ export class WebhookService {
 
       this.logger.log("Payment confirmed event published for booking");
     } catch (error) {
-      this.logger.error(`Error processing Flutterwave webhook: ${error.message}`,
-error.stack);
+      this.logger.error(`Error processing Flutterwave webhook: ${error.message}`, error.stack);
       throw error;
     }
   }

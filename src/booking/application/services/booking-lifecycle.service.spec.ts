@@ -1,28 +1,35 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createUserEntity } from "../../../../test/fixtures/user.fixture";
+import { User } from "../../../iam/domain/entities/user.entity";
+import { RegistrationType } from "../../../iam/domain/value-objects/registration-type.vo";
+import { UserRole } from "../../../iam/domain/value-objects/user-role.vo";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
+import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
+import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
+import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
 
 describe("BookingLifecycleService", () => {
   let service: BookingLifecycleService;
   let mockBookingRepository: BookingRepository;
+  let mockBookingAuthorizationService: BookingAuthorizationService;
   let mockBookingDomainService: BookingDomainService;
   let mockPrismaService: PrismaService;
   let mockDomainEventPublisher: DomainEventPublisher;
   let mockLogger: LoggerService;
 
-  const mockBooking = {
-    getId: vi.fn(() => "booking-123"),
-    getBookingReference: vi.fn(() => "BK-123"),
-    markAsCreated: vi.fn(),
-  } as unknown as Booking;
+  let mockBooking: Booking;
+  let mockCustomer: User;
+  let mockAdmin: User;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -35,6 +42,13 @@ describe("BookingLifecycleService", () => {
             saveWithTransaction: vi.fn(),
             findEligibleForActivation: vi.fn(),
             findEligibleForCompletion: vi.fn(),
+          },
+        },
+        {
+          provide: BookingAuthorizationService,
+          useValue: {
+            canModifyBooking: vi.fn(),
+            canCancelBooking: vi.fn(),
           },
         },
         {
@@ -73,16 +87,29 @@ describe("BookingLifecycleService", () => {
 
     service = module.get<BookingLifecycleService>(BookingLifecycleService);
     mockBookingRepository = module.get<BookingRepository>("BookingRepository");
+    mockBookingAuthorizationService = module.get<BookingAuthorizationService>(
+      BookingAuthorizationService,
+    );
     mockBookingDomainService = module.get<BookingDomainService>(BookingDomainService);
     mockPrismaService = module.get<PrismaService>(PrismaService);
     mockDomainEventPublisher = module.get<DomainEventPublisher>(DomainEventPublisher);
     mockLogger = module.get<LoggerService>(LoggerService);
 
-    // Manually inject dependencies since DI is not working
-    (service as any).logger = mockLogger;
-    (service as any).bookingDomainService = mockBookingDomainService;
-    (service as any).prisma = mockPrismaService;
-    (service as any).domainEventPublisher = mockDomainEventPublisher;
+    mockBooking = createBookingEntity({
+      id: "booking-123",
+      bookingReference: "BK-123",
+      customerId: "customer-123",
+    });
+    mockCustomer = createUserEntity({
+      id: "customer-123",
+      email: "customer@example.com",
+    });
+    mockAdmin = createUserEntity({
+      id: "admin-123",
+      email: "admin@example.com",
+      roles: [UserRole.admin()],
+      registrationType: RegistrationType.adminCreated("system-admin"),
+    });
 
     // Default setup for transaction
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
@@ -91,114 +118,143 @@ describe("BookingLifecycleService", () => {
     vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
   });
 
-  describe("cancelBooking", () => {
-    it("should cancel booking successfully", async () => {
-      // Arrange
+  describe("#cancelBooking", () => {
+    it("should cancel booking successfully and publish events when user is authorized", async () => {
       const bookingId = "booking-123";
       const reason = "User requested cancellation";
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
+      const booking = createBookingEntity({
+        id: bookingId,
+        bookingReference: "BK-123",
+        customerId: "customer-123",
+      });
 
-      // Act
-      await service.cancelBooking(bookingId, reason);
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(booking);
+      vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(booking);
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
+        isAuthorized: true,
+      });
 
-      // Assert
+      vi.mocked(mockBookingDomainService.cancelBooking).mockImplementation((booking, reason) =>
+        booking.cancel(reason),
+      );
+
+      await service.cancelBooking(bookingId, mockCustomer, reason);
+
       expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
-      expect(mockBookingDomainService.cancelBooking).toHaveBeenCalledWith(mockBooking, reason);
-      expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(mockBooking, {});
+      expect(mockBookingAuthorizationService.canCancelBooking).toHaveBeenCalledWith(
+        mockCustomer,
+        booking,
+      );
+      expect(mockBookingDomainService.cancelBooking).toHaveBeenCalledWith(booking, reason);
+      expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(booking, {});
+      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(booking);
       expect(mockLogger.log).toHaveBeenCalledWith(
         "Cancelled booking BK-123 with reason: User requested cancellation",
       );
     });
 
-    it("should cancel booking without reason", async () => {
-      // Arrange
+    it("should cancel booking without reason when admin", async () => {
       const bookingId = "booking-123";
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
+        isAuthorized: true,
+      });
 
-      // Act
-      await service.cancelBooking(bookingId);
+      await service.cancelBooking(bookingId, mockAdmin);
 
-      // Assert
       expect(mockBookingDomainService.cancelBooking).toHaveBeenCalledWith(mockBooking, undefined);
       expect(mockLogger.log).toHaveBeenCalledWith(
         "Cancelled booking BK-123 with reason: undefined",
       );
     });
 
+    it("should throw BookingNotFoundError when user is not authorized", async () => {
+      const bookingId = "booking-123";
+      const unauthorizedUser = createUserEntity({
+        id: "other-user-123",
+        email: "other@example.com",
+      });
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(mockBooking);
+      vi.mocked(mockBookingAuthorizationService.canCancelBooking).mockReturnValue({
+        isAuthorized: false,
+        reason: "You can only cancel your own bookings",
+      });
+
+      await expect(service.cancelBooking(bookingId, unauthorizedUser)).rejects.toThrow(
+        new BookingNotFoundError(bookingId),
+      );
+      expect(mockBookingDomainService.cancelBooking).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
     it("should throw error when booking not found", async () => {
-      // Arrange
       const bookingId = "nonexistent-booking";
       vi.mocked(mockBookingRepository.findById).mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(service.cancelBooking(bookingId)).rejects.toThrow(
+      await expect(service.cancelBooking(bookingId, mockCustomer)).rejects.toThrow(
         new BookingNotFoundError(bookingId),
       );
+      expect(mockBookingAuthorizationService.canCancelBooking).not.toHaveBeenCalled();
       expect(mockBookingDomainService.cancelBooking).not.toHaveBeenCalled();
     });
   });
 
-  describe("processBookingStatusUpdates", () => {
-    it("should process activation and completion successfully", async () => {
-      // Arrange
-      const confirmedBooking1 = {
-        getId: vi.fn(() => "booking-1"),
-        getBookingReference: vi.fn(() => "BK-001"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
+  describe("#processBookingActivations", () => {
+    it("should process activations successfully", async () => {
+      const activationStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in the future
+      const activationEnd = new Date(Date.now() + 65 * 60 * 1000); // 65 minutes in the future
 
-      const confirmedBooking2 = {
-        getId: vi.fn(() => "booking-2"),
-        getBookingReference: vi.fn(() => "BK-002"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
+      const confirmedBooking1 = createBookingEntity({
+        id: "booking-1",
+        bookingReference: "BK-001",
+        chauffeurId: "chauffeur-1",
+        dateRange: DateRange.create(activationStart, activationEnd),
+      });
 
-      const activeBooking = {
-        getId: vi.fn(() => "booking-3"),
-        getBookingReference: vi.fn(() => "BK-003"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
+      const confirmedBooking2 = createBookingEntity({
+        id: "booking-2",
+        bookingReference: "BK-002",
+        chauffeurId: "chauffeur-2",
+        dateRange: DateRange.create(activationStart, activationEnd),
+      });
 
       vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
         confirmedBooking1,
         confirmedBooking2,
       ]);
-      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([activeBooking]);
 
       vi.mocked(mockBookingRepository.saveWithTransaction)
         .mockResolvedValueOnce(confirmedBooking1)
-        .mockResolvedValueOnce(confirmedBooking2)
-        .mockResolvedValueOnce(activeBooking);
+        .mockResolvedValueOnce(confirmedBooking2);
 
-      // Act
-      const result = await service.processBookingStatusUpdates();
+      // Set up mock to actually call domain method to generate events
+      vi.mocked(mockBookingDomainService.activateBooking).mockImplementation((booking) =>
+        booking.activate(),
+      );
 
-      // Assert
+      const result = await service.processBookingActivations();
+
       expect(mockBookingRepository.findEligibleForActivation).toHaveBeenCalled();
-      expect(mockBookingRepository.findEligibleForCompletion).toHaveBeenCalled();
-
       expect(mockBookingDomainService.activateBooking).toHaveBeenCalledWith(confirmedBooking1);
       expect(mockBookingDomainService.activateBooking).toHaveBeenCalledWith(confirmedBooking2);
-      expect(mockBookingDomainService.completeBooking).toHaveBeenCalledWith(activeBooking);
 
-      expect(result).toBe("Processed status updates: 2 activated, 1 completed");
+      expect(result).toBe(2);
       expect(mockLogger.log).toHaveBeenCalledWith("Auto-activated booking: BK-001");
       expect(mockLogger.log).toHaveBeenCalledWith("Auto-activated booking: BK-002");
-      expect(mockLogger.log).toHaveBeenCalledWith("Auto-completed booking: BK-003");
+
+      expect(mockDomainEventPublisher.publish).toHaveBeenCalledTimes(2);
     });
 
     it("should handle activation errors gracefully", async () => {
-      // Arrange
-      const confirmedBooking = {
-        getId: vi.fn(() => "booking-1"),
-        getBookingReference: vi.fn(() => "BK-001"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
+      const confirmedBooking = createBookingEntity({
+        id: "booking-1",
+        bookingReference: "BK-001",
+      });
 
       vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
         confirmedBooking,
       ]);
-      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([]);
 
       const activationError = new Error("Activation failed");
       activationError.stack = "Error stack trace";
@@ -206,26 +262,79 @@ describe("BookingLifecycleService", () => {
         throw activationError;
       });
 
-      // Act
-      const result = await service.processBookingStatusUpdates();
+      const result = await service.processBookingActivations();
 
-      // Assert
-      expect(result).toBe("Processed status updates: 0 activated, 0 completed");
+      expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
         "Failed to activate booking BK-001: Activation failed",
         "Error stack trace",
       );
     });
 
-    it("should handle completion errors gracefully", async () => {
-      // Arrange
-      const activeBooking = {
-        getId: vi.fn(() => "booking-3"),
-        getBookingReference: vi.fn(() => "BK-003"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
-
+    it("should handle no eligible bookings", async () => {
       vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([]);
+
+      const result = await service.processBookingActivations();
+
+      expect(result).toBe(0);
+    });
+  });
+
+  describe("#processBookingCompletions", () => {
+    it("should process completions successfully", async () => {
+      // For completion tests, we need dates slightly in the future but close to now
+      // These bookings are ACTIVE and will be eligible for auto-completion
+      const completionStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in future
+      const completionEnd = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in future
+
+      const activeBooking1 = createBookingEntity({
+        id: "booking-3",
+        bookingReference: "BK-003",
+        status: BookingStatus.active(),
+        dateRange: DateRange.create(completionStart, completionEnd),
+      });
+
+      const activeBooking2 = createBookingEntity({
+        id: "booking-4",
+        bookingReference: "BK-004",
+        status: BookingStatus.active(),
+        dateRange: DateRange.create(completionStart, completionEnd),
+      });
+
+      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([
+        activeBooking1,
+        activeBooking2,
+      ]);
+
+      vi.mocked(mockBookingRepository.saveWithTransaction)
+        .mockResolvedValueOnce(activeBooking1)
+        .mockResolvedValueOnce(activeBooking2);
+
+      // Set up mock to actually call domain method to generate events
+      vi.mocked(mockBookingDomainService.completeBooking).mockImplementation((booking) =>
+        booking.complete(),
+      );
+
+      const result = await service.processBookingCompletions();
+
+      expect(mockBookingRepository.findEligibleForCompletion).toHaveBeenCalled();
+      expect(mockBookingDomainService.completeBooking).toHaveBeenCalledWith(activeBooking1);
+      expect(mockBookingDomainService.completeBooking).toHaveBeenCalledWith(activeBooking2);
+
+      expect(result).toBe(2);
+      expect(mockLogger.log).toHaveBeenCalledWith("Auto-completed booking: BK-003");
+      expect(mockLogger.log).toHaveBeenCalledWith("Auto-completed booking: BK-004");
+
+      expect(mockDomainEventPublisher.publish).toHaveBeenCalledTimes(2);
+    });
+
+    it("should handle completion errors gracefully", async () => {
+      const activeBooking = createBookingEntity({
+        id: "booking-3",
+        bookingReference: "BK-003",
+        status: BookingStatus.active(),
+      });
+
       vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([activeBooking]);
 
       const completionError = new Error("Completion failed");
@@ -234,11 +343,9 @@ describe("BookingLifecycleService", () => {
         throw completionError;
       });
 
-      // Act
-      const result = await service.processBookingStatusUpdates();
+      const result = await service.processBookingCompletions();
 
-      // Assert
-      expect(result).toBe("Processed status updates: 0 activated, 0 completed");
+      expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
         "Failed to complete booking BK-003: Completion failed",
         "Error stack trace",
@@ -246,58 +353,11 @@ describe("BookingLifecycleService", () => {
     });
 
     it("should handle no eligible bookings", async () => {
-      // Arrange
-      vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([]);
       vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([]);
 
-      // Act
-      const result = await service.processBookingStatusUpdates();
+      const result = await service.processBookingCompletions();
 
-      // Assert
-      expect(result).toBe("Processed status updates: 0 activated, 0 completed");
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        "Processed status updates: 0 activated, 0 completed",
-      );
-    });
-  });
-
-  describe("event publishing", () => {
-    it("should publish events for new booking", async () => {
-      // Arrange
-      const newBooking = {
-        getId: vi.fn().mockReturnValueOnce(null).mockReturnValue("booking-123"),
-        getBookingReference: vi.fn(() => "BK-123"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
-
-      vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(newBooking);
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(newBooking);
-
-      // Act
-      await service.cancelBooking("booking-123");
-
-      // Assert
-      expect(newBooking.markAsCreated).toHaveBeenCalled();
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(newBooking);
-    });
-
-    it("should not publish events for existing booking", async () => {
-      // Arrange
-      const existingBooking = {
-        getId: vi.fn(() => "booking-123"),
-        getBookingReference: vi.fn(() => "BK-123"),
-        markAsCreated: vi.fn(),
-      } as unknown as Booking;
-
-      vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(existingBooking);
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(existingBooking);
-
-      // Act
-      await service.cancelBooking("booking-123");
-
-      // Assert
-      expect(existingBooking.markAsCreated).not.toHaveBeenCalled();
-      expect(mockDomainEventPublisher.publish).not.toHaveBeenCalled();
+      expect(result).toBe(0);
     });
   });
 });

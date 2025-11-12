@@ -126,7 +126,7 @@ export class PaymentConfirmationOrchestrator
    * Get booking data from Booking domain
    */
   private async getBookingData(bookingId: string) {
-    return this.bookingApplicationService.getBookingById(bookingId);
+    return this.bookingApplicationService.getBookingByIdInternally(bookingId);
   }
 
   /**
@@ -134,7 +134,7 @@ export class PaymentConfirmationOrchestrator
    */
   private async getCustomerData(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
       this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
@@ -147,7 +147,7 @@ export class PaymentConfirmationOrchestrator
    */
   private async getCarData(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
       this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
@@ -160,7 +160,7 @@ export class PaymentConfirmationOrchestrator
    */
   private async getFleetOwnerData(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       const car = await this.fleetApplicationService.getCarById(booking.getCarId());
 
       if (!car) return null;

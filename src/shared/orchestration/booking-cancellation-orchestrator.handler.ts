@@ -5,7 +5,7 @@ import { NotificationService } from "../../communication/application/services/no
 import { BookingStatusUpdateData } from "../../communication/domain/services/notification-factory.service";
 import { FleetApplicationService } from "../../fleet/application/services/fleet-application.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
-import { LoggerService, type Logger } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for booking cancellation workflows
@@ -30,7 +30,9 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
 
     try {
       // Get booking data from Booking domain
-      const booking = await this.bookingApplicationService.getBookingById(event.aggregateId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(
+        event.aggregateId,
+      );
 
       if (!booking) {
         this.logger.warn(`Booking not found for cancellation notification: ${event.aggregateId}`);
@@ -62,7 +64,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
     try {
       // Gather cross-domain data in parallel
       const [booking, customer, car] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(bookingId),
         this.getCustomerDataForBooking(bookingId),
         this.getCarDataForBooking(bookingId),
       ]);
@@ -110,7 +112,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
    */
   private async orchestrateChauffeurCancellationNotification(bookingId: string): Promise<void> {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
 
       if (!booking?.getChauffeurId()) {
         this.logger.info(`No chauffeur assigned to cancelled booking: ${bookingId}`);
@@ -147,7 +149,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
   private async orchestrateFleetOwnerCancellationNotification(bookingId: string): Promise<void> {
     try {
       const [booking, car] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(bookingId),
         this.getCarDataForBooking(bookingId),
       ]);
 
@@ -190,7 +192,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
    */
   private async getCustomerDataForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
       this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
@@ -203,7 +205,7 @@ export class BookingCancellationOrchestrator implements IEventHandler<BookingCan
    */
   private async getCarDataForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
       this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);

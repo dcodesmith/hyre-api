@@ -2,7 +2,7 @@ import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { NotificationService } from "../../communication/application/services/notification.service";
 import { UserProfileApplicationService } from "../../iam/application/services/user-profile-application.service";
 import { UserRegisteredEvent } from "../../iam/domain/events/user-registered.event";
-import { LoggerService, type Logger } from "../logging/logger.service";
+import { type Logger, LoggerService } from "../logging/logger.service";
 
 /**
  * Higher-level orchestration handler for user registration workflows

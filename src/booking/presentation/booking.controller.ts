@@ -21,7 +21,6 @@ import { LoggerService } from "../../shared/logging/logger.service";
 import { BookingApplicationService } from "../application/services/booking-application.service";
 import { PaymentStatusResult } from "../application/services/booking-payment.service";
 import { ChauffeurAssignmentService } from "../application/services/chauffeur-assignment.service";
-import { BookingNotFoundError } from "../domain/errors/booking.errors";
 import { DateRange } from "../domain/value-objects/date-range.vo";
 import {
   AssignChauffeurDto,
@@ -72,18 +71,32 @@ export class BookingController {
     };
   }
 
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getBookings(@CurrentUser() currentUser: User) {
+    return this.bookingService.getBookings(currentUser);
+  }
+
   @Put(":id/cancel")
+  @UseGuards(JwtAuthGuard)
   async cancelBooking(
-    @ZodParam(z.string()) id: string,
+    @ZodParam(z.string()) bookingId: string,
+    @CurrentUser() currentUser: User,
     @ZodBody(z.string().optional()) reason?: string,
   ) {
-    return this.bookingService.cancelBooking(id, reason);
+    return this.bookingService.cancelBooking(bookingId, currentUser, reason);
+  }
+
+  @Get(":id")
+  @UseGuards(JwtAuthGuard)
+  async getBooking(@ZodParam(z.string()) bookingId: string, @CurrentUser() currentUser: User) {
+    return this.bookingService.getBookingById(bookingId, currentUser);
   }
 
   @Put(":id/assign-chauffeur")
   @UseGuards(JwtAuthGuard)
   async assignChauffeur(
-    @Param("id") bookingId: string,
+    @ZodParam(z.string()) bookingId: string,
     @ZodBody(assignChauffeurSchema) dto: AssignChauffeurDto,
     @CurrentUser() currentUser: User,
   ) {
@@ -93,11 +106,8 @@ export class BookingController {
       assignedBy: currentUser.getId(),
     });
 
-    // Get the booking first
-    const booking = await this.bookingService.getBookingById(bookingId);
-    if (!booking) {
-      throw new BookingNotFoundError(bookingId);
-    }
+    // Get the booking first (with authorization check)
+    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
 
     // Assign chauffeur
     const result = await this.chauffeurAssignmentService.assignChauffeurToBooking(booking, {
@@ -131,11 +141,8 @@ export class BookingController {
       reason: dto.reason,
     });
 
-    // Get the booking first
-    const booking = await this.bookingService.getBookingById(bookingId);
-    if (!booking) {
-      throw new BookingNotFoundError(bookingId);
-    }
+    // Get the booking first (with authorization check)
+    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
 
     // Unassign chauffeur
     const result = await this.chauffeurAssignmentService.unassignChauffeurFromBooking(booking, {
@@ -219,11 +226,8 @@ export class BookingController {
       requestedBy: currentUser.getId(),
     });
 
-    // Get the booking to extract date range
-    const booking = await this.bookingService.getBookingById(bookingId);
-    if (!booking) {
-      throw new BookingNotFoundError(bookingId);
-    }
+    // Get the booking to extract date range (with authorization check)
+    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
 
     // Check availability
     const availability = await this.chauffeurAssignmentService.checkChauffeurAvailability(

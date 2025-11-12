@@ -26,6 +26,7 @@ import { CarCacheService } from "./application/services/car-cache.service";
 import { ChauffeurAssignmentService } from "./application/services/chauffeur-assignment.service";
 import { PlatformFeeCacheService } from "./application/services/platform-fee-cache.service";
 import { BookingAmountVerifierService } from "./domain/services/booking-amount-verifier.service";
+import { BookingAuthorizationService } from "./domain/services/booking-authorization.service";
 import { BookingChauffeurService } from "./domain/services/booking-chauffeur.service";
 import { BookingCostCalculatorService } from "./domain/services/booking-cost-calculator.service";
 import { BookingCustomerResolverService } from "./domain/services/booking-customer-resolver.service";
@@ -74,6 +75,7 @@ const EventHandlers = [
 
     // Domain services
     BookingAmountVerifierService,
+    BookingAuthorizationService,
     BookingCostCalculatorService,
     BookingCustomerResolverService,
     BookingEligibilityService,

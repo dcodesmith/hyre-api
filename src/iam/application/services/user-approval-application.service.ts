@@ -141,5 +141,4 @@ export class UserApprovalApplicationService extends BaseIamApplicationService {
       totalPages: result.totalPages,
     };
   }
-
 }

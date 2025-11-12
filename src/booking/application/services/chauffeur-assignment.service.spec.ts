@@ -278,6 +278,7 @@ describe("ChauffeurAssignmentService", () => {
 
     it("should handle unassignment errors gracefully", async () => {
       vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
+      vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
       const unassignmentError = new Error("Domain unassignment error");
       vi.mocked(mockBooking.unassignChauffeur).mockImplementation(() => {
         throw unassignmentError;

@@ -32,7 +32,9 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
 
     try {
       // Get booking data first
-      const booking = await this.bookingApplicationService.getBookingById(event.aggregateId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(
+        event.aggregateId,
+      );
 
       if (!booking) {
         this.logger.error(`Booking not found: ${event.aggregateId}`);
@@ -61,7 +63,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
     try {
       // Gather required data from multiple domains
       const [booking, car, fleetOwner] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(bookingId),
         this.getCarDataForBooking(bookingId),
         this.getFleetOwnerDataForBooking(bookingId),
       ]);
@@ -120,7 +122,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
     try {
       // Gather cross-domain data in parallel
       const [booking, customer, car] = await Promise.allSettled([
-        this.bookingApplicationService.getBookingById(bookingId),
+        this.bookingApplicationService.getBookingByIdInternally(bookingId),
         this.getCustomerDataForBooking(bookingId),
         this.getCarDataForBooking(bookingId),
       ]);
@@ -166,7 +168,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
    */
   private async getCustomerDataForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.userProfileService.getUserById(booking.getCustomerId());
     } catch (error) {
       this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
@@ -179,7 +181,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
    */
   private async getCarDataForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       return await this.fleetApplicationService.getCarById(booking.getCarId());
     } catch (error) {
       this.logger.warn(`Failed to fetch car data for booking ${bookingId}: ${error.message}`);
@@ -192,7 +194,7 @@ export class BookingCompletionOrchestrator implements IEventHandler<BookingCompl
    */
   private async getFleetOwnerDataForBooking(bookingId: string) {
     try {
-      const booking = await this.bookingApplicationService.getBookingById(bookingId);
+      const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
       const car = await this.fleetApplicationService.getCarById(booking.getCarId());
 
       if (!car) return null;

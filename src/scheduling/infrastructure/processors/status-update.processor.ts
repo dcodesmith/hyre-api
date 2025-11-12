@@ -18,14 +18,14 @@ export class StatusUpdateProcessor {
     this.logger.log(`Processing confirmed to active status update job: ${job.id}`);
 
     try {
-      const result = await this.bookingApplicationService.processBookingStatusUpdates();
+      const activatedCount = await this.bookingApplicationService.processBookingActivations();
+      const result = `Activated ${activatedCount} booking(s)`;
 
       this.logger.log(`Confirmed to active updates processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(`Failed to process confirmed to active updates: ${error.message}`,
-error.stack);
+      this.logger.error(`Failed to process confirmed to active updates: ${error.message}`);
       throw error;
     }
   }
@@ -35,14 +35,14 @@ error.stack);
     this.logger.log(`Processing active to completed status update job: ${job.id}`);
 
     try {
-      const result = await this.bookingApplicationService.processBookingStatusUpdates();
+      const completedCount = await this.bookingApplicationService.processBookingCompletions();
+      const result = `Completed ${completedCount} booking(s)`;
 
       this.logger.log(`Active to completed updates processed: ${result}`);
 
       return { success: true, result };
     } catch (error) {
-      this.logger.error(`Failed to process active to completed updates: ${error.message}`,
-error.stack);
+      this.logger.error(`Failed to process active to completed updates: ${error.message}`);
       throw error;
     }
   }
