@@ -44,12 +44,16 @@ export class BookingAuthorizationService {
    * @param booking - The booking being accessed
    * @param fleetOwnerId - The ID of the fleet owner who owns the car (optional optimization to avoid DB lookup)
    */
-  public canViewBooking(user: User, booking: Booking, fleetOwnerId?: string): AuthorizationResult {
+  public canViewBooking(
+    user: User,
+    booking: Booking,
+    verifiedCarOwnerId?: string,
+  ): AuthorizationResult {
     if (
       user.isAdminOrStaff() ||
       booking.getCustomerId() === user.getId() ||
-      // Note: fleetOwnerId must be verified by caller to be the actual car owner
-      (fleetOwnerId && user.getId() === fleetOwnerId && user.isFleetOwner())
+      // Note: verifiedCarOwnerId must be verified by caller to be the actual car owner
+      (verifiedCarOwnerId && user.getId() === verifiedCarOwnerId && user.isFleetOwner())
     ) {
       return { isAuthorized: true };
     }
