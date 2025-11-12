@@ -367,11 +367,14 @@ pnpm check:ci                # Run all checks for CI (no auto-fix)
 
 ### Testing
 ```bash
-pnpm test                    # Run Jest unit tests
+pnpm test                    # Run all tests with Vitest
 pnpm test:watch              # Run tests in watch mode
-pnpm test:cov                # Run tests with coverage
-pnpm test:cucumber           # Run Cucumber BDD tests
-pnpm test:cucumber:booking   # Run booking-specific Cucumber tests
+pnpm test:ui                 # Run tests with Vitest UI
+pnpm test:coverage           # Run tests with coverage report
+pnpm test:unit               # Run unit tests once
+pnpm test:e2e                # Run E2E tests
+pnpm test:e2e:watch          # Run E2E tests in watch mode
+pnpm test:all                # Run all tests (unit + E2E)
 ```
 
 ### Database
@@ -437,7 +440,7 @@ pnpm db:migrate              # Create and apply migrations
 - **Caching**: Redis for queues and caching layers
 - **Validation**: Zod for environment config, class-validator for DTOs
 - **Code Quality**: Biome for linting and formatting
-- **Testing**: Jest for unit/e2e, Cucumber for BDD acceptance tests
+- **Testing**: Vitest for unit tests, Supertest + fishery for E2E tests
 - **File Storage**: AWS S3 for document and image storage
 - **External Services**: Resend (email), Twilio (SMS), Flutterwave (payments)
 

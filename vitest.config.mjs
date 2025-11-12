@@ -31,7 +31,6 @@ export default defineConfig({
         "**/*.module.ts",
         "src/main.ts",
         "prisma/",
-        "cucumber.cjs",
         "vitest.config.mjs",
       ],
       include: ["src/**/*.ts"],
