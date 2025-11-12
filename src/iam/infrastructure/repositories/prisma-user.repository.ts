@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, Role as PrismaRole, User as PrismaUser } from "@prisma/client";
-import { logger } from "test/support/logger";
-import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { PrismaService } from "../../../shared/database/prisma.service";
+import { TransactionContext } from "../../../shared/database/transaction-context.type";
+import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";
 import { UserNotFoundError } from "../../domain/errors/iam.errors";
 import {
@@ -22,7 +22,10 @@ type PrismaUserWithRoles = PrismaUser & {
 
 @Injectable()
 export class PrismaUserRepository implements UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async save(user: User): Promise<User> {
     try {
@@ -54,7 +57,7 @@ export class PrismaUserRepository implements UserRepository {
       const mappedUser = this.mapPrismaToUser(userWithRoles);
       return mappedUser;
     } catch (error) {
-      logger.error("Error in save method:", error);
+      this.logger.error("Error in save method:", error);
 
       // Handle unique constraint violations or other database errors
       throw new Error(`Failed to save user: ${error.message}`);
@@ -91,7 +94,7 @@ export class PrismaUserRepository implements UserRepository {
       const mappedUser = this.mapPrismaToUser(userWithRoles);
       return mappedUser;
     } catch (error) {
-      logger.error("Error in saveWithTransaction method:", error);
+      this.logger.error("Error in saveWithTransaction method:", error);
 
       // Handle unique constraint violations or other database errors
       throw new Error(`Failed to save user with transaction: ${error.message}`);
