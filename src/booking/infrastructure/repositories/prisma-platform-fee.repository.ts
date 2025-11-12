@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { PlatformFeeRepository } from "../../domain/repositories/platform-fee.repository";
 import { PlatformFeeRates } from "../../domain/services/booking-cost-calculator.service";

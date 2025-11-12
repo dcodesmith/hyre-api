@@ -1,4 +1,4 @@
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { Booking, BookingProps } from "@/booking/domain/entities/booking.entity";
 import { BookingFinancials } from "@/booking/domain/value-objects/booking-financials.vo";
 import { BookingStatus } from "@/booking/domain/value-objects/booking-status.vo";

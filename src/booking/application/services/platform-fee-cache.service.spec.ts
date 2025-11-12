@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { CachedPlatformFeeRepository } from "../../infrastructure/repositories/cached-platform-fee.repository";

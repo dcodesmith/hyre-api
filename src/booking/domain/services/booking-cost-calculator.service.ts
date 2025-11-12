@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { BookingCarDto } from "../dtos/car.dto";
 import { PlatformFeeRepository } from "../repositories/platform-fee.repository";
 import { BookingType } from "../value-objects/booking-type.vo";

@@ -1,4 +1,4 @@
-import { Decimal } from "decimal.js";
+import Decimal from "decimal.js";
 import { vi } from "vitest";
 import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
