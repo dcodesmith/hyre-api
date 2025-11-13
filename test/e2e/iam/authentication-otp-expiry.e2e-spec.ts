@@ -89,7 +89,7 @@ describe("Authentication OTP Expiry E2E", () => {
 
     const otpCode = assertOtpEmailSent(customerEmail, "registration");
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
     const expiredResponse = await request(app.getHttpServer())
       .post("/auth/verify")
@@ -146,7 +146,7 @@ describe("Authentication OTP Expiry E2E", () => {
 
     const firstOtp = assertOtpEmailSent(customerEmail, "registration");
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
     await request(app.getHttpServer())
       .post("/auth/verify")
