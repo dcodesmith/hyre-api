@@ -1,6 +1,5 @@
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
-// import { config } from "dotenv";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { config } from "@dotenvx/dotenvx";
@@ -32,7 +31,7 @@ export async function setup() {
       config({ path: envTestPath, quiet: true }); // Suppress dotenvx logs
       console.log("✅ Loaded .env.test");
     } catch {
-      // Fallback to .env
+      // Continue with existing environment variables
     }
 
     // Start PostgreSQL container
