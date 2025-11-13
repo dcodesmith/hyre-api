@@ -11,7 +11,6 @@ export const createAssertOtpEmailSent = (mockNotificationService: MockNotificati
     const otpEmail = emailNotifications.find((e) => e.to === email);
 
     expect(otpEmail, `No email sent to ${email}`).toBeDefined();
-    expect(otpEmail, `Email to ${email} is undefined`).not.toBeUndefined();
 
     if (expectedType === "registration") {
       expect(otpEmail?.subject).toContain("Welcome to Hyre");
