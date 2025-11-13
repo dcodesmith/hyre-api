@@ -1,6 +1,7 @@
+import { generateOtpCode } from "@/shared/utils/generate-otp";
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { RedisService } from "../../../shared/redis/redis.service";
-import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 export interface OtpGenerationResult {
   otpCode: string;
@@ -24,14 +25,24 @@ interface OtpData {
 
 @Injectable()
 export class OtpAuthenticationService {
-  private readonly OTP_EXPIRY_MINUTES = 10;
+  private readonly otpExpiryMinutes: number;
   private readonly MAX_ATTEMPTS = 3;
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly configService: ConfigService,
+  ) {
+    const configuredExpiry = Number(
+      this.configService.get<string | number>("AUTH_OTP_EXPIRY_MINUTES", 10),
+    );
+
+    this.otpExpiryMinutes =
+      Number.isFinite(configuredExpiry) && configuredExpiry > 0 ? configuredExpiry : 10;
+  }
 
   async generateOtp(email: string): Promise<OtpGenerationResult> {
     const otpCode = this.generateOtpCode();
-    const expiresAt = Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000;
+    const expiresAt = Date.now() + this.otpExpiryMinutes * 60 * 1000;
     const key = this.getEmailOtpKey(email);
 
     const otpData: OtpData = {
@@ -42,7 +53,11 @@ export class OtpAuthenticationService {
     };
 
     // Store OTP in Redis with TTL
-    await this.redisService.setex(key, this.OTP_EXPIRY_MINUTES * 60, JSON.stringify(otpData));
+    await this.redisService.setex(
+      key,
+      Math.ceil(this.otpExpiryMinutes * 60),
+      JSON.stringify(otpData),
+    );
 
     return {
       otpCode,
@@ -97,7 +112,7 @@ export class OtpAuthenticationService {
     // Verify OTP code
     if (storedOtp.code !== providedOtp) {
       // Update attempts in Redis
-      // await this.redisService.setex(key, this.OTP_EXPIRY_MINUTES * 60, JSON.stringify(storedOtp));
+      // await this.redisService.setex(key, this.otpExpiryMinutes * 60, JSON.stringify(storedOtp));
 
       // Do not refresh OTP expiry on failed attempts
 
@@ -127,7 +142,7 @@ export class OtpAuthenticationService {
 
   // Utility methods
   private generateOtpCode(): string {
-    return generateSecureRandomId();
+    return generateOtpCode();
   }
 
   private getEmailOtpKey(email: string): string {

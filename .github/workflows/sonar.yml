@@ -1,7 +1,7 @@
 name: SonarCloud Analysis
 on:
   push:
-    branches: [ main, feat/base-flow ]
+    branches: [ main, feat/*]
   pull_request:
     branches: [ main ]
 

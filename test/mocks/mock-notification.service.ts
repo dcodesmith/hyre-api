@@ -136,4 +136,21 @@ export class MockNotificationService extends NotificationService {
     const templateVariablePattern = /\{\{[^}]+\}\}/;
     return templateVariablePattern.test(content) || templateVariablePattern.test(subject);
   }
+
+  // Alias methods for better API compatibility
+  getLastOtpCode(email: string): string | null {
+    return this.extractOtpFromEmail(email);
+  }
+
+  getEmailHistory(): Array<{ to: string; subject: string; body: string }> {
+    return this.sentNotifications.map((notification) => ({
+      to: notification.getRecipient().email,
+      subject: notification.getContent().subject,
+      body: notification.getContent().body,
+    }));
+  }
+
+  clearHistory(): void {
+    this.clear();
+  }
 }

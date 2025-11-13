@@ -27,7 +27,7 @@ export class OtpNotificationOrchestrator implements IEventHandler<OtpGeneratedEv
 
     try {
       // Orchestrate secure OTP delivery
-      await this.orchestrateOtpDelivery(event);
+      // await this.orchestrateOtpDelivery(event);
 
       this.logger.info(`OTP notification orchestration completed for user: ${event.userId}`);
     } catch (error) {
@@ -47,6 +47,7 @@ export class OtpNotificationOrchestrator implements IEventHandler<OtpGeneratedEv
   /**
    * Orchestrates secure OTP delivery
    * Coordinates between IAM and Communication domains
+   * @deprecated Use direct call to notification service instead
    */
   private async orchestrateOtpDelivery(event: OtpGeneratedEvent): Promise<void> {
     try {

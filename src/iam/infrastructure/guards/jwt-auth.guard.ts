@@ -7,12 +7,14 @@ import {
 } from "@nestjs/common";
 import { UserRepository } from "../../domain/repositories/user.repository";
 import { JwtTokenService } from "../../domain/services/jwt-token.service";
+import { TokenBlacklistService } from "../../domain/services/token-blacklist.service";
 import { AuthenticatedRequest } from "../infrastructure.interface";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtTokenService,
+    private readonly tokenBlacklistService: TokenBlacklistService,
     @Inject("UserRepository") private readonly userRepository: UserRepository,
   ) {}
 
@@ -29,6 +31,12 @@ export class JwtAuthGuard implements CanActivate {
     const token = this.jwtService.extractTokenFromBearer(authHeader);
 
     try {
+      // Check if token is blacklisted (logged out)
+      const isBlacklisted = await this.tokenBlacklistService.isTokenBlacklisted(token);
+      if (isBlacklisted) {
+        throw new UnauthorizedException("Token has been revoked");
+      }
+
       // Validate token and extract payload
       const validationResult = this.jwtService.validateAccessToken(token);
 

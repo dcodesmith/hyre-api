@@ -1,3 +1,4 @@
+import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,7 +17,6 @@ import { BookingAuthorizationService } from "../../domain/services/booking-autho
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
-import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
 
 describe("BookingLifecycleService", () => {
   let service: BookingLifecycleService;

@@ -12,7 +12,7 @@ export class LoggerService implements NestLoggerService {
 
   constructor(private readonly configService: TypedConfigService) {
     this.logger = pino({
-      level: this.configService.isProduction ? "info" : "debug",
+      level: process.env.LOG_LEVEL || (this.configService.isProduction ? "info" : "debug"),
       transport: !this.configService.isProduction
         ? {
             target: "pino-pretty",

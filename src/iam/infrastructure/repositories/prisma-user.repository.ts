@@ -541,7 +541,7 @@ export class PrismaUserRepository implements UserRepository {
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where: {
-          bankDetailsId: { not: null },
+          bankDetails: { isNot: null },
         },
         include: { roles: true },
         skip,
@@ -550,7 +550,7 @@ export class PrismaUserRepository implements UserRepository {
       }),
       this.prisma.user.count({
         where: {
-          bankDetailsId: { not: null },
+          bankDetails: { isNot: null },
         },
       }),
     ]);
@@ -698,7 +698,6 @@ export class PrismaUserRepository implements UserRepository {
       fleetOwnerId: user.getFleetOwnerId(),
       fleetOwnerStatus,
       chauffeurApprovalStatus,
-      bankDetailsId: null, // Not implemented yet
       roles: user.getRoles().map((role) => role.toString()),
       createdAt: user.getCreatedAt(),
       updatedAt: user.getUpdatedAt(),
@@ -732,7 +731,7 @@ export class PrismaUserRepository implements UserRepository {
 
     return User.reconstitute({
       id: userData.id,
-      userType: UserType.fromString(userData.userType),
+      userType: UserType.registered(), // Default to REGISTERED (userType not stored in DB)
       email: userData.email,
       username: userData.username || undefined,
       name: userData.name || undefined,
@@ -744,7 +743,6 @@ export class PrismaUserRepository implements UserRepository {
       fleetOwnerId: userData.fleetOwnerId || undefined,
       approvalStatus,
       registrationType,
-      bankDetailsId: userData.bankDetailsId || undefined,
       driverLicenseNumber: undefined, // Not stored in current schema
       createdAt: userData.createdAt,
       updatedAt: userData.updatedAt,

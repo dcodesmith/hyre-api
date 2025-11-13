@@ -11,7 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import { Request } from "express";
+import { type Request } from "express";
 import { ZodBody, ZodQuery } from "../../shared/decorators/zod-body.decorator";
 import { ZodMultipart } from "../../shared/decorators/zod-multipart.decorator";
 import { OnboardingUploadInterceptor } from "../../shared/interceptors/file-upload.interceptor";
