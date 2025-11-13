@@ -29,7 +29,7 @@ export class ReminderProcessingService {
         const bookingData = await this.prisma.booking.findUnique({
           where: { id: booking.getId() },
           include: {
-            customer: true,
+            user: true,
             chauffeur: true,
             car: true,
           },
@@ -40,7 +40,7 @@ export class ReminderProcessingService {
         const reminderData: BookingReminderData = {
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          customerName: bookingData.customer?.name || "Customer",
+          customerName: bookingData.user?.name || "Customer",
           chauffeurName: bookingData.chauffeur?.name || "Chauffeur",
           carName: `${bookingData.car.make} ${bookingData.car.model}`,
           startTime: booking.getDateRange().startDate.toISOString(),
@@ -48,8 +48,8 @@ export class ReminderProcessingService {
           pickupLocation: booking.getPickupAddress(),
           returnLocation: booking.getDropOffAddress(),
           customerId: booking.getCustomerId(),
-          customerEmail: bookingData.customer?.email,
-          customerPhone: bookingData.customer?.phoneNumber,
+          customerEmail: bookingData.user?.email,
+          customerPhone: bookingData.user?.phoneNumber,
           chauffeurId: booking.getChauffeurId(),
           chauffeurEmail: bookingData.chauffeur?.email,
           chauffeurPhone: bookingData.chauffeur?.phoneNumber,
@@ -80,7 +80,7 @@ export class ReminderProcessingService {
         const bookingData = await this.prisma.booking.findUnique({
           where: { id: booking.getId() },
           include: {
-            customer: true,
+            user: true,
             chauffeur: true,
             car: true,
           },
@@ -91,7 +91,7 @@ export class ReminderProcessingService {
         const reminderData: BookingReminderData = {
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          customerName: bookingData.customer?.name || "Customer",
+          customerName: bookingData.user?.name || "Customer",
           chauffeurName: bookingData.chauffeur?.name || "Chauffeur",
           carName: `${bookingData.car.make} ${bookingData.car.model}`,
           startTime: booking.getDateRange().startDate.toISOString(),
@@ -99,8 +99,8 @@ export class ReminderProcessingService {
           pickupLocation: booking.getPickupAddress(),
           returnLocation: booking.getDropOffAddress(),
           customerId: booking.getCustomerId(),
-          customerEmail: bookingData.customer?.email,
-          customerPhone: bookingData.customer?.phoneNumber,
+          customerEmail: bookingData.user?.email,
+          customerPhone: bookingData.user?.phoneNumber,
           chauffeurId: booking.getChauffeurId(),
           chauffeurEmail: bookingData.chauffeur?.email,
           chauffeurPhone: bookingData.chauffeur?.phoneNumber,
@@ -141,7 +141,7 @@ export class ReminderProcessingService {
       include: {
         booking: {
           include: {
-            customer: true,
+            user: true,
             chauffeur: true,
             car: true,
           },
@@ -156,16 +156,16 @@ export class ReminderProcessingService {
         const reminderData: BookingLegReminderData = {
           bookingId: leg.bookingId,
           bookingLegId: leg.id,
-          customerName: leg.booking.customer?.name || "Customer",
+          customerName: leg.booking.user?.name || "Customer",
           chauffeurName: leg.booking.chauffeur?.name || "Chauffeur",
           carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
           legStartTime: leg.legStartTime.toISOString(),
           legEndTime: leg.legEndTime.toISOString(),
-          pickupLocation: leg.booking.pickupAddress,
-          returnLocation: leg.booking.dropOffAddress,
-          customerId: leg.booking.customerId,
-          customerEmail: leg.booking.customer?.email,
-          customerPhone: leg.booking.customer?.phoneNumber,
+          pickupLocation: leg.booking.pickupLocation,
+          returnLocation: leg.booking.returnLocation,
+          customerId: leg.booking.userId,
+          customerEmail: leg.booking.user?.email,
+          customerPhone: leg.booking.user?.phoneNumber,
           chauffeurId: leg.booking.chauffeurId,
           chauffeurEmail: leg.booking.chauffeur?.email,
           chauffeurPhone: leg.booking.chauffeur?.phoneNumber,
@@ -206,7 +206,7 @@ export class ReminderProcessingService {
       include: {
         booking: {
           include: {
-            customer: true,
+            user: true,
             chauffeur: true,
             car: true,
           },
@@ -221,16 +221,16 @@ export class ReminderProcessingService {
         const reminderData: BookingLegReminderData = {
           bookingId: leg.bookingId,
           bookingLegId: leg.id,
-          customerName: leg.booking.customer?.name || "Customer",
+          customerName: leg.booking.user?.name || "Customer",
           chauffeurName: leg.booking.chauffeur?.name || "Chauffeur",
           carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
           legStartTime: leg.legStartTime.toISOString(),
           legEndTime: leg.legEndTime.toISOString(),
-          pickupLocation: leg.booking.pickupAddress,
-          returnLocation: leg.booking.dropOffAddress,
-          customerId: leg.booking.customerId,
-          customerEmail: leg.booking.customer?.email,
-          customerPhone: leg.booking.customer?.phoneNumber,
+          pickupLocation: leg.booking.pickupLocation,
+          returnLocation: leg.booking.returnLocation,
+          customerId: leg.booking.userId,
+          customerEmail: leg.booking.user?.email,
+          customerPhone: leg.booking.user?.phoneNumber,
           chauffeurId: leg.booking.chauffeurId,
           chauffeurEmail: leg.booking.chauffeur?.email,
           chauffeurPhone: leg.booking.chauffeur?.phoneNumber,
