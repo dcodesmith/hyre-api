@@ -13,10 +13,10 @@ import type { RegisterCustomerDto } from "../../../src/iam/presentation/dto/regi
  * Note: This generates a basic user registration payload. For fleet owners
  * and chauffeurs, additional steps are required via IAM endpoints after registration.
  */
-export const UserFactory = Factory.define<RegisterCustomerDto>(({ sequence }) => ({
+export const UserFactory = Factory.define<RegisterCustomerDto>(({ sequence, params }) => ({
   email: `user${sequence}@test.com`,
   phoneNumber: "08012345678",
-  otpCode: "123456", // Valid test OTP
+  otpCode: params.otpCode ?? "123456", // Override with actual OTP from email
   countryCode: "+234", // Nigeria
   name: faker.person.fullName(),
 }));

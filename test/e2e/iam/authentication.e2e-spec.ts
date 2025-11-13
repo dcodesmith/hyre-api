@@ -8,6 +8,7 @@ import { NotificationService } from "../../../src/communication/application/serv
 import { PrismaService } from "../../../src/shared/database/prisma.service";
 import { RedisService } from "../../../src/shared/redis/redis.service";
 import { MockNotificationService } from "../../mocks/mock-notification.service";
+import { createAssertOtpEmailSent, uniqueEmail } from "./helpers/authentication.helpers";
 
 describe("Authentication E2E", () => {
   let app: INestApplication;
@@ -15,34 +16,7 @@ describe("Authentication E2E", () => {
   let prisma: PrismaService;
   let redis: RedisService;
   let mockNotificationService: MockNotificationService;
-
-  const uniqueEmail = (prefix: string) =>
-    `${prefix}-${Date.now()}-${Math.random().toString(36).substring(7)}@test.com`;
-
-  const assertOtpEmailSent = (
-    email: string,
-    expectedType: "registration" | "login" = "registration",
-  ): string => {
-    const emailNotifications = mockNotificationService.getEmailHistory();
-    const otpEmail = emailNotifications.find((e) => e.to === email);
-
-    expect(otpEmail, `No email sent to ${email}`).toBeDefined();
-    expect(otpEmail, `Email to ${email} is undefined`).not.toBeUndefined();
-
-    if (expectedType === "registration") {
-      expect(otpEmail?.subject).toContain("Welcome to Hyre");
-    } else {
-      expect(otpEmail?.subject).toContain("Login to Hyre");
-    }
-
-    const otpCode = mockNotificationService.getLastOtpCode(email);
-    expect(otpCode, `No OTP code found for ${email}`).toBeDefined();
-    expect(otpCode).toMatch(/^\d{6}$/);
-
-    expect(otpEmail?.body, `OTP code not found in email body for ${email}`).toContain(otpCode);
-
-    return otpCode;
-  };
+  let assertOtpEmailSent: ReturnType<typeof createAssertOtpEmailSent>;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -58,6 +32,8 @@ describe("Authentication E2E", () => {
     prisma = app.get(PrismaService);
     redis = app.get(RedisService);
     mockNotificationService = moduleFixture.get(NotificationService);
+
+    assertOtpEmailSent = createAssertOtpEmailSent(mockNotificationService);
   });
 
   afterAll(async () => {
@@ -167,31 +143,6 @@ describe("Authentication E2E", () => {
       expect(newOtpVerifyResponse.body.message).toContain(
         "Welcome to Hyre! Registration successful",
       );
-    });
-
-    it.skip("should reject OTP after expiration", async () => {
-      const customerEmail = uniqueEmail("customer-expired");
-
-      await request(app.getHttpServer())
-        .post("/auth/otp")
-        .send({ email: customerEmail })
-        .expect(HttpStatus.CREATED);
-
-      // Assert OTP email was sent with valid OTP
-      const otpCode = assertOtpEmailSent(customerEmail, "registration");
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const expiredResponse = await request(app.getHttpServer())
-        .post("/auth/verify")
-        .send({
-          email: customerEmail,
-          otpCode,
-          role: "customer",
-        })
-        .expect(HttpStatus.UNAUTHORIZED);
-
-      expect(expiredResponse.body.message).toMatch(/expired/i);
     });
   });
 
