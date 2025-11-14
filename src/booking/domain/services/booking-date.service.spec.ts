@@ -142,8 +142,9 @@ describe("BookingDateService", () => {
     describe("NIGHT bookings", () => {
       it("should generate correct count for multi-night bookings", () => {
         // 2 full calendar days apart (standard test format)
-        const startDate = new Date("2024-01-15T00:00:00Z");
-        const endDate = new Date("2024-01-17T00:00:00Z");
+        // Bookings start at 11pm for night bookings
+        const startDate = new Date("2024-01-15T23:00:00Z"); // Jan 15, 11pm UTC
+        const endDate = new Date("2024-01-17T23:00:00Z"); // Jan 17, 11pm UTC
 
         const dates = service.generateBookingDates(startDate, endDate, "NIGHT");
 
@@ -159,11 +160,7 @@ describe("BookingDateService", () => {
         const startDate = new Date("2024-01-15T10:00:00Z");
         const endDate = new Date("2024-01-17T10:00:00Z");
 
-        const fullDayDates = service.generateBookingDates(
-          startDate,
-          endDate,
-          "FULL_DAY",
-        );
+        const fullDayDates = service.generateBookingDates(startDate, endDate, "FULL_DAY");
         const dayDates = service.generateBookingDates(startDate, endDate, "DAY");
 
         // FULL_DAY: 48 hours = 2 × 24hr periods = 2 legs

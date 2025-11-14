@@ -38,6 +38,16 @@ export class FullDayBookingPeriod extends BookingPeriod {
   public static create(params: FullDayBookingPeriodCreateParams): FullDayBookingPeriod {
     const { startDateTime, endDateTime } = params;
 
+    // Validate in future
+    if (startDateTime < new Date()) {
+      throw new InvalidBookingPeriodError(
+        "FULL_DAY booking cannot start in the past",
+        "FULL_DAY",
+        startDateTime,
+        endDateTime,
+      );
+    }
+
     FullDayBookingPeriod.validateStartHour(startDateTime);
 
     // Validate duration is a multiple of 24 hours
@@ -55,16 +65,6 @@ export class FullDayBookingPeriod extends BookingPeriod {
     if (durationHours % FullDayBookingPeriod.PERIOD_HOURS !== 0) {
       throw new InvalidBookingPeriodError(
         `FULL_DAY bookings must be in multiples of ${FullDayBookingPeriod.PERIOD_HOURS} hours. Got: ${durationHours} hours`,
-        "FULL_DAY",
-        startDateTime,
-        endDateTime,
-      );
-    }
-
-    // Validate in future
-    if (startDateTime <= new Date()) {
-      throw new InvalidBookingPeriodError(
-        "FULL_DAY booking cannot start in the past",
         "FULL_DAY",
         startDateTime,
         endDateTime,
@@ -95,7 +95,7 @@ export class FullDayBookingPeriod extends BookingPeriod {
    * Returns the number of 24-hour periods in this booking
    */
   public getNumberOfFullDayPeriods(): number {
-    return this.getDurationInHours() / FullDayBookingPeriod.PERIOD_HOURS;
+    return Math.floor(this.getDurationInHours() / FullDayBookingPeriod.PERIOD_HOURS);
   }
 
   private static validateStartHour(startDateTime: Date): void {

@@ -1,3 +1,4 @@
+import { InvalidBookingPeriodError } from "../errors/invalid-booking-period.error";
 import type { BookingPeriod } from "./booking-period.vo";
 import { DayBookingPeriod } from "./day-booking-period.vo";
 import { FullDayBookingPeriod } from "./full-day-booking-period.vo";
@@ -24,8 +25,7 @@ export const BookingPeriodFactory = {
   /**
    * Creates a BookingPeriod value object with validation.
    *
-   * @throws InvalidBookingPeriodError if validation fails
-   * @throws Error if booking type is invalid or required params are missing
+   * @throws InvalidBookingPeriodError if validation fails, booking type is invalid, or required params are missing
    */
   create(params: CreateBookingPeriodParams): BookingPeriod {
     const { bookingType, startDate, endDate, pickupTime } = params;
@@ -33,7 +33,12 @@ export const BookingPeriodFactory = {
     switch (bookingType) {
       case "DAY":
         if (!pickupTime) {
-          throw new Error("DAY bookings require a pickup time");
+          throw new InvalidBookingPeriodError(
+            "DAY bookings require a pickup time",
+            bookingType,
+            startDate,
+            endDate ?? startDate,
+          );
         }
         return DayBookingPeriod.create({ startDate, pickupTime });
 
@@ -42,7 +47,12 @@ export const BookingPeriodFactory = {
 
       case "FULL_DAY":
         if (!endDate) {
-          throw new Error("FULL_DAY bookings require an end date");
+          throw new InvalidBookingPeriodError(
+            "FULL_DAY bookings require an end date",
+            bookingType,
+            startDate,
+            startDate,
+          );
         }
         return FullDayBookingPeriod.create({
           startDateTime: startDate,
@@ -50,7 +60,12 @@ export const BookingPeriodFactory = {
         });
 
       default:
-        throw new Error(`Invalid booking type: ${bookingType}`);
+        throw new InvalidBookingPeriodError(
+          `Invalid booking type: ${bookingType}`,
+          bookingType,
+          startDate,
+          endDate ?? startDate,
+        );
     }
   },
 

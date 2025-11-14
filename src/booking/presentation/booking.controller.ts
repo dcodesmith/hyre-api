@@ -188,6 +188,7 @@ export class BookingController {
     // Create booking period for availability check (using reconstitute to bypass validation)
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
+    // TODO: Use the correct booking type based on the query
     const bookingPeriod = BookingPeriodFactory.reconstitute("DAY", startDate, endDate);
 
     // Get available chauffeurs

@@ -422,7 +422,7 @@ export class PrismaBookingRepository implements BookingRepository {
     }>,
   ): Booking {
     const bookingPeriod = BookingPeriodFactory.reconstitute(
-      prismaBooking.type as "DAY" | "NIGHT" | "FULL_DAY",
+      prismaBooking.type,
       prismaBooking.startDate,
       prismaBooking.endDate,
     );

@@ -1,7 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import Decimal from "decimal.js";
-import { AddonRateRepository } from "../repositories/addon-rate.repository";
+import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingCarDto } from "../dtos/car.dto";
+import { AddonRateRepository } from "../repositories/addon-rate.repository";
 import { PlatformFeeRepository } from "../repositories/platform-fee.repository";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingDateService } from "./booking-date.service";
@@ -41,6 +42,7 @@ export class BookingCostCalculatorService {
     private readonly bookingDateService: BookingDateService,
     @Inject("PlatformFeeRepository") private readonly platformFeeRepository: PlatformFeeRepository,
     @Inject("AddonRateRepository") private readonly addonRateRepository: AddonRateRepository,
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -105,6 +107,8 @@ export class BookingCostCalculatorService {
         const multiplier = bookingPeriod.getSecurityDetailMultiplier();
         const securityDetailDays = legCount * multiplier;
         securityDetailCost = new Decimal(securityDetailRate).mul(securityDetailDays);
+      } else {
+        this.logger.warn("SECURITY_DETAIL rate not found, defaulting cost to 0");
       }
     }
 
