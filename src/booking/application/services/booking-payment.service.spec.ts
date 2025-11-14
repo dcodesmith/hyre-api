@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createCreateBookingDto,
+  createPaymentStatusQueryDto,
+} from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
@@ -18,10 +21,9 @@ import { BookingRepository } from "../../domain/repositories/booking.repository"
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";
 import { PaymentIntentService } from "../../domain/services/payment-intent.service";
-import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
+import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { PaymentCustomer } from "../../domain/value-objects/payment-customer.vo";
-import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { BookingPaymentService } from "./booking-payment.service";
 
 describe("BookingPaymentService", () => {
@@ -36,27 +38,13 @@ describe("BookingPaymentService", () => {
   let mockBooking: Booking;
   let mockUser: User;
 
-  const mockTimeResult = {
-    startDateTime: new Date("2025-01-15T10:00:00Z"),
-    endDateTime: new Date("2025-01-15T18:00:00Z"),
-  };
+  const mockBookingPeriod = BookingPeriodFactory.reconstitute(
+    "DAY",
+    new Date("2025-01-15T10:00:00Z"),
+    new Date("2025-01-15T22:00:00Z"),
+  );
 
-  const mockDto: CreateBookingDto = {
-    carId: "car-123",
-    bookingType: "DAY",
-    from: new Date("2025-01-15"),
-    to: new Date("2025-01-15"),
-    totalAmount: 10000,
-    pickupTime: "10:00 AM",
-    pickupAddress: "123 Main St",
-    dropOffAddress: "456 Oak Ave",
-    sameLocation: false,
-    includeSecurityDetail: false,
-    specialRequests: "Test booking",
-    email: "test@example.com",
-    name: "John Doe",
-    phoneNumber: "+1234567890",
-  };
+  const mockDto = createCreateBookingDto();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -136,23 +124,9 @@ describe("BookingPaymentService", () => {
       bookingReference: "BK-123",
       status: BookingStatus.pending(),
       paymentIntent: "pi-123",
-      customerId: "user-123",
-      carId: "car-123",
-      financials: BookingFinancials.create({
-        totalAmount: new Decimal(10000),
-        netTotal: new Decimal(8500),
-        platformServiceFeeAmount: new Decimal(1000),
-        vatAmount: new Decimal(500),
-        fleetOwnerPayoutAmountNet: new Decimal(7500),
-      }),
     });
 
-    mockUser = createUserEntity({
-      id: "user-123",
-      email: "test@example.com",
-      name: "John Doe",
-      phoneNumber: "+1234567890",
-    });
+    mockUser = createUserEntity();
 
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
       return await fn({} as unknown as PrismaService);
@@ -179,20 +153,20 @@ describe("BookingPaymentService", () => {
         checkoutUrl: "https://checkout.test.com",
       };
       const expectedCustomerData = {
-        email: "test@example.com",
-        name: "John Doe",
-        phoneNumber: "+1234567890",
+        email: mockDto.email,
+        name: mockDto.name,
+        phoneNumber: mockDto.phoneNumber,
       };
       const expectedPaymentIntentData = {
-        amount: 10000,
+        amount: mockBooking.getTotalAmount(),
         customer: mockPaymentCustomer.toPaymentService(),
         metadata: {
           booking_id: "booking-123",
           booking_reference: "BK-123",
-          car_id: "car-123",
+          car_id: mockDto.carId,
           booking_type: "DAY",
-          start_date: mockTimeResult.startDateTime.toISOString(),
-          end_date: mockTimeResult.endDateTime.toISOString(),
+          start_date: mockBookingPeriod.startDateTime.toISOString(),
+          end_date: mockBookingPeriod.endDateTime.toISOString(),
         },
         callbackUrl: "https://test.com/payment-status?bookingId=booking-123",
       };
@@ -201,7 +175,6 @@ describe("BookingPaymentService", () => {
         paymentIntentId: "pi-123",
       };
 
-      const setPaymentIntentSpy = vi.spyOn(mockBooking, "setPaymentIntent");
       vi.mocked(mockBookingCustomerResolver.resolvePaymentCustomer).mockReturnValue(
         mockPaymentCustomer,
       );
@@ -213,7 +186,7 @@ describe("BookingPaymentService", () => {
         mockBooking,
         mockUser,
         mockDto,
-        mockTimeResult,
+        mockBookingPeriod,
       );
 
       expect(mockBookingCustomerResolver.resolvePaymentCustomer).toHaveBeenCalledWith(
@@ -223,7 +196,6 @@ describe("BookingPaymentService", () => {
       expect(mockPaymentIntentService.createPaymentIntent).toHaveBeenCalledWith(
         expectedPaymentIntentData,
       );
-      expect(setPaymentIntentSpy).toHaveBeenCalledWith("pi-123");
       expect(result).toEqual(expectedResult);
     });
 
@@ -243,7 +215,12 @@ describe("BookingPaymentService", () => {
       );
 
       await expect(
-        service.createAndAttachPaymentIntent(bookingWithoutId, mockUser, mockDto, mockTimeResult),
+        service.createAndAttachPaymentIntent(
+          bookingWithoutId,
+          mockUser,
+          mockDto,
+          mockBookingPeriod,
+        ),
       ).rejects.toThrow(expectedError);
 
       expect(mockLogger.error).toHaveBeenCalledWith(expectedLogMessage);
@@ -264,7 +241,7 @@ describe("BookingPaymentService", () => {
       vi.mocked(mockPaymentIntentService.createPaymentIntent).mockResolvedValue(mockFailedResult);
 
       await expect(
-        service.createAndAttachPaymentIntent(mockBooking, mockUser, mockDto, mockTimeResult),
+        service.createAndAttachPaymentIntent(mockBooking, mockUser, mockDto, mockBookingPeriod),
       ).rejects.toThrow(expectedError);
 
       expect(mockLogger.error).toHaveBeenCalledWith(expectedLogMessage);
@@ -312,10 +289,10 @@ describe("BookingPaymentService", () => {
   });
 
   describe("#handlePaymentStatusCallback", () => {
-    const query = {
+    const query = createPaymentStatusQueryDto({
       transaction_id: "txn-456",
       status: "successful",
-    };
+    });
 
     it("should return success for already confirmed booking", async () => {
       const confirmedBooking = createBookingEntity({

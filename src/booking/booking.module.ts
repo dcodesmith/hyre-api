@@ -33,11 +33,11 @@ import { BookingCustomerResolverService } from "./domain/services/booking-custom
 import { BookingDateService } from "./domain/services/booking-date.service";
 import { BookingDomainService } from "./domain/services/booking-domain.service";
 import { BookingEligibilityService } from "./domain/services/booking-eligibility.service";
-import { BookingTimeProcessorService } from "./domain/services/booking-time-processor.service";
 import { ChauffeurValidationAdapter } from "./infrastructure/adapters/chauffeur-validation.adapter";
 import { FleetValidationAdapter } from "./infrastructure/adapters/fleet-validation.adapter";
 import { CachedCarRepository } from "./infrastructure/repositories/cached-car.repository";
 import { CachedPlatformFeeRepository } from "./infrastructure/repositories/cached-platform-fee.repository";
+import { PrismaAddonRateRepository } from "./infrastructure/repositories/prisma-addon-rate.repository";
 import { PrismaBookingRepository } from "./infrastructure/repositories/prisma-booking.repository";
 import { PrismaCarRepository as BookingPrismaCarRepository } from "./infrastructure/repositories/prisma-car.repository";
 import { PrismaPlatformFeeRepository } from "./infrastructure/repositories/prisma-platform-fee.repository";
@@ -82,7 +82,6 @@ const EventHandlers = [
     BookingChauffeurService,
     BookingDomainService,
     BookingDateService,
-    BookingTimeProcessorService,
     // Anti-corruption layer adapters
     {
       provide: "ChauffeurValidationService",
@@ -99,6 +98,10 @@ const EventHandlers = [
     {
       provide: "BookingRepository",
       useClass: PrismaBookingRepository,
+    },
+    {
+      provide: "AddonRateRepository",
+      useClass: PrismaAddonRateRepository,
     },
 
     // Base car repository for booking operations (returns DTOs)

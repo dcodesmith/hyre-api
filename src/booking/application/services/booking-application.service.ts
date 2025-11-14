@@ -27,7 +27,7 @@ export class BookingApplicationService {
 
   async createPendingBooking(dto: CreateBookingDto, user?: User): Promise<CreateBookingResponse> {
     // Create the booking using the specialized creation service
-    const { booking: savedBooking, timeResult } =
+    const { booking: savedBooking, bookingPeriod } =
       await this.bookingCreationService.createPendingBooking(dto, user);
 
     // Create payment intent and attach to booking
@@ -36,7 +36,7 @@ export class BookingApplicationService {
         savedBooking,
         user,
         dto,
-        timeResult,
+        bookingPeriod,
       );
 
     this.logger.log(

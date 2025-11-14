@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import Decimal from "decimal.js";
+import { AddonRateRepository } from "../repositories/addon-rate.repository";
 import { BookingCarDto } from "../dtos/car.dto";
 import { PlatformFeeRepository } from "../repositories/platform-fee.repository";
-import { BookingType } from "../value-objects/booking-type.vo";
-import { DateRange } from "../value-objects/date-range.vo";
+import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingDateService } from "./booking-date.service";
 
 // Helper type for rate extraction - keeps existing interface compatibility
@@ -17,6 +17,7 @@ export interface CarRates {
 export interface BookingCostCalculation {
   totalAmount: Decimal;
   netTotal: Decimal;
+  securityDetailCost: Decimal;
   platformCustomerServiceFeeRatePercent: Decimal;
   platformCustomerServiceFeeAmount: Decimal;
   subtotalBeforeVat: Decimal;
@@ -36,11 +37,10 @@ export interface PlatformFeeRates {
 
 @Injectable()
 export class BookingCostCalculatorService {
-  private readonly SECURITY_DETAIL_COST = 30000;
-
   constructor(
     private readonly bookingDateService: BookingDateService,
     @Inject("PlatformFeeRepository") private readonly platformFeeRepository: PlatformFeeRepository,
+    @Inject("AddonRateRepository") private readonly addonRateRepository: AddonRateRepository,
   ) {}
 
   /**
@@ -49,8 +49,7 @@ export class BookingCostCalculatorService {
   async calculateBookingCostFromCar(
     car: BookingCarDto,
     bookingDates: Date[],
-    dateRange: DateRange,
-    type: BookingType,
+    bookingPeriod: BookingPeriod,
     includeSecurityDetail: boolean = false,
   ): Promise<BookingCostCalculation> {
     // Convert DTO to expected CarRates interface
@@ -62,30 +61,29 @@ export class BookingCostCalculatorService {
     };
 
     // Delegate to existing method
-    return this.calculateBookingCost(
-      carRates,
-      bookingDates,
-      dateRange,
-      type,
-      includeSecurityDetail,
-    );
+    return this.calculateBookingCost(carRates, bookingDates, bookingPeriod, includeSecurityDetail);
   }
 
   async calculateBookingCost(
     car: CarRates,
     bookingDates: Date[],
-    dateRange: DateRange,
-    type: BookingType,
+    bookingPeriod: BookingPeriod,
     includeSecurityDetail: boolean = false,
   ): Promise<BookingCostCalculation> {
     // Fetch platform fee rates when needed - following Single Responsibility Principle
     const platformFeeRates = await this.platformFeeRepository.getCurrentRates();
-    const { startDate, endDate } = dateRange;
+    const startDate = bookingPeriod.startDateTime;
+    const endDate = bookingPeriod.endDateTime;
+    const bookingType = bookingPeriod.getBookingType();
 
     const legPrices: number[] = [];
 
     for (const legDate of bookingDates) {
-      const dailyPrice = this.calculateBookingLegPrice(car, { startDate, endDate, type }, legDate);
+      const dailyPrice = this.calculateBookingLegPrice(
+        car,
+        { startDate, endDate, type: bookingType },
+        legDate,
+      );
       legPrices.push(dailyPrice);
     }
 
@@ -94,10 +92,21 @@ export class BookingCostCalculatorService {
       .map((legPrice) => new Decimal(legPrice))
       .reduce((sum, legPrice) => sum.plus(legPrice), new Decimal(0));
 
-    // Calculate security detail cost
-    const securityDetailCost = includeSecurityDetail
-      ? new Decimal(this.SECURITY_DETAIL_COST).mul(bookingDates.length)
-      : new Decimal(0);
+    // Calculate security detail cost from database rate
+    // Security detail is charged per leg with a multiplier based on booking type:
+    // - DAY bookings: 1 day per leg (multiplier = 1)
+    // - NIGHT bookings: 1 day per leg (multiplier = 1, unsociable hours)
+    // - FULL_DAY bookings: 2 days per leg (multiplier = 2, 24-hour coverage)
+    let securityDetailCost = new Decimal(0);
+    if (includeSecurityDetail) {
+      const securityDetailRate = await this.addonRateRepository.findCurrentRate("SECURITY_DETAIL");
+      if (securityDetailRate) {
+        const legCount = legPrices.length; // Number of legs that will be created
+        const multiplier = bookingPeriod.getSecurityDetailMultiplier();
+        const securityDetailDays = legCount * multiplier;
+        securityDetailCost = new Decimal(securityDetailRate).mul(securityDetailDays);
+      }
+    }
 
     const netTotalWithSecurity = netTotal.plus(securityDetailCost);
 
@@ -134,6 +143,7 @@ export class BookingCostCalculatorService {
     return {
       totalAmount,
       netTotal,
+      securityDetailCost,
       platformCustomerServiceFeeRatePercent: platformFeeRates.platformServiceFeeRate,
       platformCustomerServiceFeeAmount,
       subtotalBeforeVat,
@@ -148,7 +158,7 @@ export class BookingCostCalculatorService {
 
   private calculateBookingLegPrice(
     car: CarRates,
-    booking: { startDate: Date; endDate: Date; type: BookingType },
+    booking: { startDate: Date; endDate: Date; type: "DAY" | "NIGHT" | "FULL_DAY" },
     legDate: Date,
   ): number {
     const { dayRate, nightRate, hourlyRate } = car;
@@ -161,7 +171,7 @@ export class BookingCostCalculatorService {
 
     const MINIMUM_CHARGEABLE_HOURS = 1;
 
-    if (type.value === "NIGHT") {
+    if (type === "NIGHT") {
       return validNightRate;
     }
 

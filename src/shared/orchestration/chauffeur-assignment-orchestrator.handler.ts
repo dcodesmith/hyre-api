@@ -88,8 +88,8 @@ export class ChauffeurAssignmentOrchestrator
         customerName: "Customer", // We could fetch customer data if needed
         carName: carData?.displayName || "Vehicle",
         status: "ASSIGNED",
-        startDate: bookingData.getDateRange().startDate.toISOString(),
-        endDate: bookingData.getDateRange().endDate.toISOString(),
+        startDate: bookingData.getStartDateTime().toISOString(),
+        endDate: bookingData.getEndDateTime().toISOString(),
         pickupLocation: bookingData.getPickupAddress(),
         returnLocation: bookingData.getDropOffAddress(),
         customerId: chauffeurData.getId(), // Using chauffeur as recipient

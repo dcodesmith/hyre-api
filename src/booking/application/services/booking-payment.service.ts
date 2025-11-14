@@ -12,9 +12,9 @@ import {
 import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
-import { TimeProcessingResult } from "../../domain/services/booking-time-processor.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";
 import { PaymentIntentService } from "../../domain/services/payment-intent.service";
+import type { BookingPeriod } from "../../domain/value-objects/booking-period.vo";
 import { PaymentCallbackUrl } from "../../domain/value-objects/payment-callback-url.vo";
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { PaymentStatusQueryDto } from "../../presentation/dto/payment-status.dto";
@@ -59,7 +59,7 @@ export class BookingPaymentService {
     booking: Booking,
     user: User | undefined,
     dto: CreateBookingDto,
-    timeResult: TimeProcessingResult,
+    bookingPeriod: BookingPeriod,
   ): Promise<PaymentIntentCreationResult> {
     const paymentCustomer = this.bookingCustomerResolver.resolvePaymentCustomer(user, {
       email: dto.email,
@@ -88,8 +88,8 @@ export class BookingPaymentService {
         booking_reference: booking.getBookingReference(),
         car_id: dto.carId,
         booking_type: dto.bookingType,
-        start_date: timeResult.startDateTime.toISOString(),
-        end_date: timeResult.endDateTime.toISOString(),
+        start_date: bookingPeriod.startDateTime.toISOString(),
+        end_date: bookingPeriod.endDateTime.toISOString(),
       },
       callbackUrl: callbackUrl.toString(),
     });
@@ -113,7 +113,7 @@ export class BookingPaymentService {
     const booking = await this.findBookingOrThrow(bookingId);
 
     if (!booking.isPending()) {
-      throw new BookingCannotBeConfirmedError(bookingId, booking.getStatus().toString());
+      throw new BookingCannotBeConfirmedError(bookingId, booking.getStatus());
     }
 
     booking.confirmWithPayment(paymentId);
@@ -144,7 +144,7 @@ export class BookingPaymentService {
           success: true,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: booking.getStatus().toString(),
+          bookingStatus: booking.getStatus(),
           transactionId: query.transaction_id,
           message: "Booking already confirmed",
         };
@@ -163,7 +163,7 @@ export class BookingPaymentService {
           success: true,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: booking.getStatus().toString(),
+          bookingStatus: booking.getStatus(),
           transactionId: query.transaction_id,
           message: "Payment still processing",
         };
@@ -174,9 +174,9 @@ export class BookingPaymentService {
         success: true,
         bookingId: booking.getId(),
         bookingReference: booking.getBookingReference(),
-        bookingStatus: booking.getStatus().toString(),
+        bookingStatus: booking.getStatus(),
         transactionId: query.transaction_id,
-        message: `Booking status: ${booking.getStatus().toString()}`,
+        message: `Booking status: ${booking.getStatus()}`,
       };
     } catch (error) {
       this.logger.error(
@@ -209,7 +209,7 @@ export class BookingPaymentService {
           success: false,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: booking.getStatus().toString(),
+          bookingStatus: booking.getStatus(),
           transactionId: query.transaction_id,
           message: "Payment intent missing; cannot verify payment yet",
           paymentVerified: false,
@@ -244,7 +244,7 @@ export class BookingPaymentService {
           success: false,
           bookingId: booking.getId(),
           bookingReference: booking.getBookingReference(),
-          bookingStatus: booking.getStatus().toString(),
+          bookingStatus: booking.getStatus(),
           transactionId: query.transaction_id,
           message: `Payment verification failed: ${paymentVerification.errorMessage}`,
           paymentVerified: false,
@@ -259,7 +259,7 @@ export class BookingPaymentService {
         success: false,
         bookingId: booking.getId(),
         bookingReference: booking.getBookingReference(),
-        bookingStatus: booking.getStatus().toString(),
+        bookingStatus: booking.getStatus(),
         transactionId: query.transaction_id,
         message: "Payment verification failed due to technical error",
       };

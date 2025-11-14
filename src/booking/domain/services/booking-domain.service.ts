@@ -8,8 +8,7 @@ import {
   BookingCannotBeCompletedError,
 } from "../errors/booking.errors";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
-import { BookingType } from "../value-objects/booking-type.vo";
-import { DateRange } from "../value-objects/date-range.vo";
+import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingCostCalculation } from "./booking-cost-calculator.service";
 import { BookingEligibilityService } from "./booking-eligibility.service";
 
@@ -28,8 +27,7 @@ export interface LegPricingData {
 export interface CreateBookingCommand {
   customerId: string;
   carId: string;
-  dateRange: DateRange;
-  bookingType: BookingType;
+  bookingPeriod: BookingPeriod;
   pickupAddress: string;
   dropOffAddress: string;
   includeSecurityDetail?: boolean;
@@ -51,8 +49,7 @@ export class BookingDomainService {
     const {
       customerId,
       carId,
-      dateRange,
-      bookingType,
+      bookingPeriod,
       includeSecurityDetail,
       specialRequests,
       pickupAddress,
@@ -65,6 +62,7 @@ export class BookingDomainService {
     const financials = BookingFinancials.create({
       totalAmount: precalculatedCosts.totalAmount,
       netTotal: precalculatedCosts.netTotal,
+      securityDetailCost: precalculatedCosts.securityDetailCost,
       platformServiceFeeAmount: precalculatedCosts.platformCustomerServiceFeeAmount,
       vatAmount: precalculatedCosts.vatAmount,
       fleetOwnerPayoutAmountNet: precalculatedCosts.fleetOwnerPayoutAmountNet,
@@ -74,10 +72,9 @@ export class BookingDomainService {
     const booking = Booking.create({
       customerId,
       carId,
-      dateRange,
+      bookingPeriod,
       pickupAddress,
       dropOffAddress,
-      bookingType,
       financials,
       includeSecurityDetail,
       specialRequests,
@@ -86,8 +83,8 @@ export class BookingDomainService {
     // Create leg pricing data from precalculated costs
     const legPricingData: LegPricingData = {
       legPrices: precalculatedCosts.legPrices,
-      startHours: dateRange.startDate.getHours(),
-      endHours: dateRange.endDate.getHours(),
+      startHours: bookingPeriod.startDateTime.getHours(),
+      endHours: bookingPeriod.endDateTime.getHours(),
     };
 
     // Create booking legs using precalculated dates and pricing data

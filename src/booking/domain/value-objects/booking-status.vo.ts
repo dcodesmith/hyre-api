@@ -83,7 +83,7 @@ export class BookingStatus extends ValueObject<BookingStatusProps> {
     return this.isCompleted();
   }
 
-  toString(): string {
+  toString(): BookingStatusEnum {
     return this.props.value;
   }
 }

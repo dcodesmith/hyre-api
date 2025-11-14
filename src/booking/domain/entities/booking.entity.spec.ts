@@ -9,20 +9,32 @@ import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
 import { BookingStatus } from "../value-objects/booking-status.vo";
-import { BookingType } from "../value-objects/booking-type.vo";
-import { DateRange } from "../value-objects/date-range.vo";
+import { BookingPeriodFactory } from "../value-objects/booking-period.factory";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
+import { PickupTime } from "../value-objects/pickup-time.vo";
 import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
 import { BookingLeg } from "./booking-leg.entity";
 
 describe("Booking Entity", () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const dayAfterTomorrow = new Date(Date.now() + 48 * 60 * 60 * 1000);
-  const validDateRange = DateRange.create(tomorrow, dayAfterTomorrow);
+  tomorrow.setHours(10, 0, 0, 0); // Set to 10am for DAY booking
+  const validBookingPeriod = BookingPeriodFactory.create({
+    bookingType: "DAY",
+    startDate: tomorrow,
+    pickupTime: PickupTime.create("10:00 AM"),
+  });
+
+  // Helper variables for backward compatibility with tests
+  const validDateRange = {
+    startDate: validBookingPeriod.startDateTime,
+    endDate: validBookingPeriod.endDateTime,
+  };
+  const dayAfterTomorrow = validBookingPeriod.endDateTime;
 
   const validFinancials = BookingFinancials.create({
     totalAmount: new Decimal(1000),
     netTotal: new Decimal(800),
+    securityDetailCost: new Decimal(0),
     platformServiceFeeAmount: new Decimal(200),
     vatAmount: new Decimal(80),
     fleetOwnerPayoutAmountNet: new Decimal(720),
@@ -31,10 +43,9 @@ describe("Booking Entity", () => {
   const validCreateParams: BookingCreateParams = {
     customerId: "customer-123",
     carId: "car-456",
-    dateRange: validDateRange,
+    bookingPeriod: validBookingPeriod,
     pickupAddress: "123 Main Street",
     dropOffAddress: "456 Oak Avenue",
-    bookingType: BookingType.day(),
     financials: validFinancials,
     includeSecurityDetail: false,
     specialRequests: "Child seat required",
@@ -53,13 +64,12 @@ describe("Booking Entity", () => {
       id,
       bookingReference: Booking.create(validCreateParams).getBookingReference(),
       status: BookingStatus.pending(),
-      dateRange: validDateRange,
+      bookingPeriod: validBookingPeriod,
       pickupAddress: "123 Main Street",
       dropOffAddress: "456 Oak Avenue",
       customerId: "customer-123",
       carId: "car-456",
       legs: [],
-      bookingType: BookingType.day(),
       paymentStatus: PaymentStatus.UNPAID,
       financials: validFinancials,
       includeSecurityDetail: false,
@@ -120,7 +130,7 @@ describe("Booking Entity", () => {
       expect(booking.getCustomerId()).toBe("customer-123");
       expect(booking.getCarId()).toBe("car-456");
       expect(booking.getSpecialRequests()).toBe("Child seat required");
-      expect(booking.getStatus().isPending()).toBe(true);
+      expect(booking.isPending()).toBe(true);
       expect(booking.getBookingReference()).toMatch(/^BK-[A-Z0-9]+-[A-Z0-9]+$/);
     });
 
@@ -128,10 +138,9 @@ describe("Booking Entity", () => {
       const minimalParams = {
         customerId: "customer-123",
         carId: "car-456",
-        dateRange: validDateRange,
+        bookingPeriod: validBookingPeriod,
         pickupAddress: "123 Main Street",
         dropOffAddress: "456 Oak Avenue",
-        bookingType: BookingType.day(),
         financials: validFinancials,
         specialRequests: undefined,
         paymentIntent: undefined,
@@ -153,11 +162,16 @@ describe("Booking Entity", () => {
 
   describe("Reconstitution", () => {
     it("should reconstitute booking from props", () => {
+      const nightBookingPeriod = BookingPeriodFactory.create({
+        bookingType: "NIGHT",
+        startDate: tomorrow,
+      });
+
       const props = {
         id: "booking-123",
         bookingReference: "BK-TEST-123",
         status: BookingStatus.confirmed(),
-        dateRange: validDateRange,
+        bookingPeriod: nightBookingPeriod,
         pickupAddress: "123 Main Street",
         dropOffAddress: "456 Oak Avenue",
         customerId: "customer-123",
@@ -165,7 +179,6 @@ describe("Booking Entity", () => {
         chauffeurId: "chauffeur-789",
         specialRequests: "VIP service",
         legs: [],
-        bookingType: BookingType.night(),
         paymentStatus: PaymentStatus.PAID,
         paymentId: "pay-123",
         financials: validFinancials,
@@ -177,7 +190,7 @@ describe("Booking Entity", () => {
       const booking = Booking.reconstitute(props);
 
       expect(booking.getId()).toBe("booking-123");
-      expect(booking.getStatus().isConfirmed()).toBeTruthy();
+      expect(booking.isConfirmed()).toBeTruthy();
       expect(booking.getChauffeurId()).toBe("chauffeur-789");
     });
   });
@@ -209,7 +222,7 @@ describe("Booking Entity", () => {
       const booking = createBookingWithId();
       booking.confirm();
 
-      expect(booking.getStatus().isConfirmed()).toBe(true);
+      expect(booking.isConfirmed()).toBe(true);
 
       const events = booking.getUncommittedEvents();
 
@@ -221,9 +234,9 @@ describe("Booking Entity", () => {
       const booking = createBookingWithId();
       booking.confirmWithPayment("payment-123");
 
-      expect(booking.getStatus().isConfirmed()).toBeTruthy();
+      expect(booking.isConfirmed()).toBeTruthy();
       expect(booking.getPaymentId()).toBe("payment-123");
-      expect(booking.getPaymentStatus().isPaid()).toBeTruthy();
+      expect(booking.isPaymentPaid()).toBeTruthy();
     });
 
     it("should throw an error when confirming a non-pending booking", () => {
@@ -238,7 +251,7 @@ describe("Booking Entity", () => {
       const booking = createConfirmedBooking();
       booking.activate();
 
-      expect(booking.getStatus().isActive()).toBeTruthy();
+      expect(booking.isActive()).toBeTruthy();
 
       const events = booking.getUncommittedEvents();
 
@@ -258,7 +271,7 @@ describe("Booking Entity", () => {
       const booking = createActiveBooking();
       booking.complete();
 
-      expect(booking.getStatus().isCompleted()).toBeTruthy();
+      expect(booking.isCompleted()).toBeTruthy();
 
       const events = booking.getUncommittedEvents();
 
@@ -278,7 +291,7 @@ describe("Booking Entity", () => {
       const booking = createConfirmedBooking();
       booking.cancel("Customer request");
 
-      expect(booking.getStatus().isCancelled()).toBeTruthy();
+      expect(booking.isCancelled()).toBeTruthy();
       expect(booking.getCancellationReason()).toBe("Customer request");
       expect(booking.getCancelledAt()).toBeInstanceOf(Date);
 
@@ -590,7 +603,7 @@ describe("Booking Entity", () => {
       booking.setPaymentId("payment-123");
 
       expect(booking.getPaymentId()).toBe("payment-123");
-      expect(booking.getPaymentStatus().isPaid()).toBeTruthy();
+      expect(booking.isPaymentPaid()).toBeTruthy();
     });
 
     it("should set payment intent", () => {
@@ -616,7 +629,7 @@ describe("Booking Entity", () => {
       const invalidLegDate = new Date(validDateRange.endDate.getTime() + 1000);
       const mockLeg = { getLegDate: () => invalidLegDate } as BookingLeg;
       expect(() => booking.addLeg(mockLeg)).toThrow(
-        "Booking leg date must be within booking date range",
+        "Booking leg date must be within booking period",
       );
     });
   });
@@ -635,7 +648,7 @@ describe("Booking Entity", () => {
       expect(booking.getFinancials().getTotalAmount().toNumber()).toBe(1000);
       expect(booking.getFinancials().getNetTotal().toNumber()).toBe(800);
       expect(booking.getFinancials().getPlatformServiceFeeAmount().toNumber()).toBe(200);
-      expect(booking.getBookingType().isDay()).toBeTruthy();
+      expect(booking.getBookingType()).toBe("DAY");
       expect(booking.getCancellationReason()).toBe("Test cancellation");
       expect(booking.getCreatedAt()).toBeInstanceOf(Date);
     });
@@ -643,30 +656,35 @@ describe("Booking Entity", () => {
 
   describe("Edge Cases", () => {
     it("should handle booking with night type", () => {
-      const nightBookingParams = { ...validCreateParams, bookingType: BookingType.night() };
+      const nightBookingPeriod = BookingPeriodFactory.create({
+        bookingType: "NIGHT",
+        startDate: tomorrow,
+      });
+      const nightBookingParams = { ...validCreateParams, bookingPeriod: nightBookingPeriod };
       const booking = createBooking(nightBookingParams);
 
-      expect(booking.getBookingType().isNight()).toBeTruthy();
+      expect(booking.getBookingType()).toBe("NIGHT");
     });
 
     it("should handle multiple status transitions correctly", () => {
       const booking = createBookingWithId();
-      expect(booking.getStatus().isPending()).toBeTruthy();
+      expect(booking.isPending()).toBeTruthy();
 
       booking.confirm();
-      expect(booking.getStatus().isConfirmed()).toBeTruthy();
+      expect(booking.isConfirmed()).toBeTruthy();
 
       booking.activate();
-      expect(booking.getStatus().isActive()).toBeTruthy();
+      expect(booking.isActive()).toBeTruthy();
 
       booking.complete();
-      expect(booking.getStatus().isCompleted()).toBeTruthy();
+      expect(booking.isCompleted()).toBeTruthy();
     });
 
     it("should handle booking with zero amounts in financials", () => {
       const zeroFinancials = BookingFinancials.create({
         totalAmount: new Decimal(100),
         netTotal: new Decimal(100),
+        securityDetailCost: new Decimal(0),
         platformServiceFeeAmount: new Decimal(0),
         vatAmount: new Decimal(0),
         fleetOwnerPayoutAmountNet: new Decimal(100),
@@ -678,4 +696,5 @@ describe("Booking Entity", () => {
       expect(booking.getVatAmount()).toBe(0);
     });
   });
+
 });

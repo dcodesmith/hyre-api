@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { Booking } from "../entities/booking.entity";
-import { DateRange } from "../value-objects/date-range.vo";
 
 export interface AvailableChauffeur {
   chauffeurId: string;
@@ -51,18 +50,18 @@ export class BookingChauffeurService {
       throw new Error("No chauffeur assigned to this booking");
     }
 
-    if (booking.getStatus().isCompleted()) {
+    if (booking.isCompleted()) {
       throw new Error("Cannot unassign chauffeur from completed booking");
     }
 
-    if (booking.getStatus().isActive()) {
+    if (booking.isActive()) {
       throw new Error("Cannot unassign chauffeur from active booking");
     }
   }
 
   public checkChauffeurAvailability(
     chauffeurId: string,
-    _dateRange: DateRange,
+    _dateRange: { startDate: Date; endDate: Date },
     _excludeBookingId?: string,
   ): ChauffeurAvailabilityCheck {
     // This method will be implemented with cross-domain validation
@@ -97,7 +96,7 @@ export class BookingChauffeurService {
     _fleetOwnerId: string,
   ): void {
     // Business rule: Cannot assign chauffeur if booking doesn't have payment confirmed
-    if (!booking.getPaymentStatus().isPaid()) {
+    if (!booking.isPaymentPaid()) {
       throw new Error("Bookings require payment confirmation before chauffeur assignment");
     }
 
@@ -109,7 +108,7 @@ export class BookingChauffeurService {
 
     // Business rule: Cannot assign to past bookings
     const now = new Date();
-    if (booking.getDateRange().endDate < now) {
+    if (booking.getEndDateTime() < now) {
       throw new Error("Cannot assign chauffeur to past booking");
     }
   }
@@ -121,7 +120,7 @@ export class BookingChauffeurService {
     bookingReference: string;
     customerId: string;
     chauffeurId: string;
-    dateRange: DateRange;
+    dateRange: { startDate: Date; endDate: Date };
     pickupLocation: string;
     returnLocation: string;
     specialRequests?: string;
@@ -131,7 +130,10 @@ export class BookingChauffeurService {
       bookingReference: booking.getBookingReference(),
       customerId: booking.getCustomerId(),
       chauffeurId,
-      dateRange: booking.getDateRange(),
+      dateRange: {
+        startDate: booking.getStartDateTime(),
+        endDate: booking.getEndDateTime(),
+      },
       pickupLocation: booking.getPickupAddress(),
       returnLocation: booking.getDropOffAddress(),
       specialRequests: booking.getSpecialRequests(),

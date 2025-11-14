@@ -16,12 +16,8 @@ import {
   BookingDomainService,
   CreateBookingCommand,
 } from "../../domain/services/booking-domain.service";
-import {
-  BookingTimeProcessorService,
-  TimeProcessingResult,
-} from "../../domain/services/booking-time-processor.service";
-import { BookingType } from "../../domain/value-objects/booking-type.vo";
-import { DateRange } from "../../domain/value-objects/date-range.vo";
+import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
+import type { BookingPeriod } from "../../domain/value-objects/booking-period.vo";
 import { PickupTime } from "../../domain/value-objects/pickup-time.vo";
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 
@@ -37,7 +33,6 @@ export class BookingCreationService {
     @Inject("UserRepository") private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
     private readonly bookingDomainService: BookingDomainService,
-    private readonly bookingTimeProcessor: BookingTimeProcessorService,
     private readonly bookingAmountVerifier: BookingAmountVerifierService,
     private readonly bookingCostCalculator: BookingCostCalculatorService,
     private readonly bookingDateService: BookingDateService,
@@ -48,7 +43,7 @@ export class BookingCreationService {
   async createPendingBooking(
     dto: CreateBookingDto,
     user?: User,
-  ): Promise<{ booking: Booking; timeResult: TimeProcessingResult }> {
+  ): Promise<{ booking: Booking; bookingPeriod: BookingPeriod }> {
     const { carId, bookingType, from, to, totalAmount, pickupTime } = dto;
 
     // Validate car exists
@@ -60,24 +55,17 @@ export class BookingCreationService {
     // Resolve customer ID
     const customerId = await this.resolveCustomerId(dto, user);
 
-    // Process booking time using domain logic
-    const bookingTypeObj = BookingType.create(bookingType);
-    const pickupTimeObj = PickupTime.create(pickupTime);
-    const timeResult = this.bookingTimeProcessor.processBookingTime(
-      from,
-      to,
-      pickupTimeObj,
-      bookingTypeObj,
-    );
+    // Create booking period with validation using BookingPeriodFactory
+    const pickupTimeObj = pickupTime ? PickupTime.create(pickupTime) : undefined;
+    const bookingPeriod = BookingPeriodFactory.create({
+      bookingType: bookingType as "DAY" | "NIGHT" | "FULL_DAY",
+      startDate: from,
+      endDate: to,
+      pickupTime: pickupTimeObj,
+    });
 
     // Create booking entity
-    const booking = await this.createBookingEntity(
-      dto,
-      customerId,
-      car,
-      timeResult,
-      bookingTypeObj,
-    );
+    const booking = await this.createBookingEntity(dto, customerId, car, bookingPeriod);
 
     // Verify client amount matches server calculation
     this.bookingAmountVerifier.verifyAmount(totalAmount, booking.getTotalAmount());
@@ -89,7 +77,7 @@ export class BookingCreationService {
       `Created pending booking ${savedBooking.getBookingReference()} with total amount: ${savedBooking.getTotalAmount()?.toString()}`,
     );
 
-    return { booking: savedBooking, timeResult };
+    return { booking: savedBooking, bookingPeriod };
   }
 
   /**
@@ -149,8 +137,7 @@ export class BookingCreationService {
     dto: CreateBookingDto,
     customerId: string,
     car: BookingCarDto,
-    timeResult: TimeProcessingResult,
-    bookingType: BookingType,
+    bookingPeriod: BookingPeriod,
   ): Promise<Booking> {
     const {
       carId,
@@ -161,21 +148,18 @@ export class BookingCreationService {
       specialRequests,
     } = dto;
 
-    const dateRange = DateRange.create(timeResult.startDateTime, timeResult.endDateTime);
-
     // Generate booking dates - done at application layer
     const bookingDates = this.bookingDateService.generateBookingDates(
-      dateRange.startDate,
-      dateRange.endDate,
-      bookingType,
+      bookingPeriod.startDateTime,
+      bookingPeriod.endDateTime,
+      bookingPeriod.getBookingType(),
     );
 
     // Calculate costs - done at application layer (cross-aggregate coordination)
     const costCalculation = await this.bookingCostCalculator.calculateBookingCostFromCar(
       car,
       bookingDates,
-      dateRange,
-      bookingType,
+      bookingPeriod,
       includeSecurityDetail,
     );
 
@@ -183,8 +167,7 @@ export class BookingCreationService {
     const createCommand: CreateBookingCommand = {
       customerId,
       carId,
-      dateRange,
-      bookingType,
+      bookingPeriod,
       pickupAddress,
       dropOffAddress: sameLocation ? pickupAddress : dropOffAddress,
       includeSecurityDetail,

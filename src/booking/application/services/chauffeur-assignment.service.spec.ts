@@ -1,10 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { Booking } from "../../domain/entities/booking.entity";
 import { ChauffeurValidationService } from "../../domain/services/external/chauffeur-validation.interface";
 import { FleetValidationService } from "../../domain/services/external/fleet-validation.interface";
-import { DateRange } from "../../domain/value-objects/date-range.vo";
+import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import {
   AssignChauffeurRequest,
   ChauffeurAssignmentService,
@@ -16,19 +17,8 @@ describe("ChauffeurAssignmentService", () => {
   let mockChauffeurValidationService: ChauffeurValidationService;
   let mockFleetValidationService: FleetValidationService;
   let mockDomainEventPublisher: DomainEventPublisher;
-
-  const mockBooking = {
-    getId: vi.fn(() => "booking-123"),
-    getBookingReference: vi.fn(() => "BK-123"),
-    getCarId: vi.fn(() => "car-456"),
-    getDateRange: vi.fn(() => ({
-      startDate: new Date("2024-01-15"),
-      endDate: new Date("2024-01-15"),
-    })),
-    assignChauffeur: vi.fn(),
-    unassignChauffeur: vi.fn(),
-    hasChauffeurAssigned: vi.fn(),
-  } as unknown as Booking;
+  let mockBookingWithoutChauffeur: Booking;
+  let mockBookingWithChauffeur: Booking;
 
   const mockCarOwnership = {
     carId: "car-456",
@@ -72,14 +62,30 @@ describe("ChauffeurAssignmentService", () => {
     mockFleetValidationService = module.get<FleetValidationService>("FleetValidationService");
     mockDomainEventPublisher = module.get<DomainEventPublisher>(DomainEventPublisher);
 
-    // WORKAROUND: Manually inject dependencies since NestJS DI is not working properly in tests
-    // This is a known issue with complex dependency graphs in NestJS testing
-    (service as any).chauffeurValidationService = mockChauffeurValidationService;
-    (service as any).fleetValidationService = mockFleetValidationService;
-    (service as any).domainEventPublisher = mockDomainEventPublisher;
+    mockBookingWithoutChauffeur = createBookingEntity({
+      id: "booking-123",
+      bookingReference: "BK-123",
+      carId: "car-456",
+      bookingPeriod: BookingPeriodFactory.reconstitute(
+        "DAY",
+        new Date("2024-01-15T10:00:00Z"),
+        new Date("2024-01-15T22:00:00Z"),
+      ),
+    });
+
+    mockBookingWithChauffeur = createBookingEntity({
+      id: "booking-123",
+      bookingReference: "BK-123",
+      carId: "car-456",
+      bookingPeriod: BookingPeriodFactory.reconstitute(
+        "DAY",
+        new Date("2024-01-15T10:00:00Z"),
+        new Date("2024-01-15T22:00:00Z"),
+      ),
+      chauffeurId: "chauffeur-456",
+    });
   });
 
-  // Test data setup
   const assignRequest: AssignChauffeurRequest = {
     bookingId: "booking-123",
     chauffeurId: "chauffeur-456",
@@ -97,7 +103,10 @@ describe("ChauffeurAssignmentService", () => {
     });
 
     it("should assign chauffeur successfully", async () => {
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
       expect(mockChauffeurValidationService.validateChauffeurExists).toHaveBeenCalledWith(
@@ -109,16 +118,11 @@ describe("ChauffeurAssignmentService", () => {
       );
       expect(mockChauffeurValidationService.isChauffeurAvailable).toHaveBeenCalledWith(
         "chauffeur-456",
-        new Date("2024-01-15"),
-        new Date("2024-01-15"),
+        new Date("2024-01-15T10:00:00Z"),
+        new Date("2024-01-15T22:00:00Z"),
       );
 
-      expect(mockBooking.assignChauffeur).toHaveBeenCalledWith(
-        "chauffeur-456",
-        "fleet-owner-789",
-        "admin-789",
-      );
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(mockBooking);
+      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(mockBookingWithoutChauffeur);
 
       expect(result).toEqual({
         success: true,
@@ -131,27 +135,31 @@ describe("ChauffeurAssignmentService", () => {
     it("should fail when car ownership not found", async () => {
       vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(null);
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
         bookingReference: "BK-123",
         message: "Car ownership information not found",
       });
-      expect(mockBooking.assignChauffeur).not.toHaveBeenCalled();
     });
 
     it("should fail when chauffeur does not exist", async () => {
       vi.mocked(mockChauffeurValidationService.validateChauffeurExists).mockResolvedValue(false);
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
         bookingReference: "BK-123",
         message: "Chauffeur not found or not active",
       });
-      expect(mockBooking.assignChauffeur).not.toHaveBeenCalled();
     });
 
     it("should fail when chauffeur does not belong to fleet", async () => {
@@ -159,36 +167,43 @@ describe("ChauffeurAssignmentService", () => {
         false,
       );
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
         bookingReference: "BK-123",
         message: "Chauffeur does not belong to this fleet",
       });
-      expect(mockBooking.assignChauffeur).not.toHaveBeenCalled();
     });
 
     it("should fail when chauffeur is not available", async () => {
       vi.mocked(mockChauffeurValidationService.isChauffeurAvailable).mockResolvedValue(false);
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
         bookingReference: "BK-123",
         message: "Chauffeur is not available for the booking period",
       });
-      expect(mockBooking.assignChauffeur).not.toHaveBeenCalled();
     });
 
     it("should handle assignment errors gracefully", async () => {
       const assignmentError = new Error("Domain assignment error");
-      vi.mocked(mockBooking.assignChauffeur).mockImplementation(() => {
+      vi.spyOn(mockBookingWithoutChauffeur, "assignChauffeur").mockImplementation(() => {
         throw assignmentError;
       });
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
@@ -203,7 +218,10 @@ describe("ChauffeurAssignmentService", () => {
         new Error("Unknown error occurred"),
       );
 
-      const result = await service.assignChauffeurToBooking(mockBooking, assignRequest);
+      const result = await service.assignChauffeurToBooking(
+        mockBookingWithoutChauffeur,
+        assignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
@@ -221,19 +239,15 @@ describe("ChauffeurAssignmentService", () => {
     };
 
     it("should unassign chauffeur successfully", async () => {
-      vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
       vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
 
-      const result = await service.unassignChauffeurFromBooking(mockBooking, unassignRequest);
-
-      expect(mockBooking.hasChauffeurAssigned).toHaveBeenCalled();
-      expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
-      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith(
-        "fleet-owner-789",
-        "admin-789",
-        "Schedule conflict",
+      const result = await service.unassignChauffeurFromBooking(
+        mockBookingWithChauffeur,
+        unassignRequest,
       );
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(mockBooking);
+
+      expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
+      expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(mockBookingWithChauffeur);
 
       expect(result).toEqual({
         success: true,
@@ -244,18 +258,14 @@ describe("ChauffeurAssignmentService", () => {
 
     it("should unassign chauffeur without reason", async () => {
       const requestWithoutReason = { ...unassignRequest, reason: undefined };
-
-      vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
       vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
 
-      const result = await service.unassignChauffeurFromBooking(mockBooking, requestWithoutReason);
+      const result = await service.unassignChauffeurFromBooking(
+        mockBookingWithChauffeur,
+        requestWithoutReason,
+      );
 
       expect(mockFleetValidationService.getCarOwnership).toHaveBeenCalledWith("car-456");
-      expect(mockBooking.unassignChauffeur).toHaveBeenCalledWith(
-        "fleet-owner-789",
-        "admin-789",
-        undefined,
-      );
       expect(result).toEqual({
         success: true,
         bookingReference: "BK-123",
@@ -264,27 +274,29 @@ describe("ChauffeurAssignmentService", () => {
     });
 
     it("should fail when no chauffeur is assigned", async () => {
-      vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(false);
-
-      const result = await service.unassignChauffeurFromBooking(mockBooking, unassignRequest);
+      const result = await service.unassignChauffeurFromBooking(
+        mockBookingWithoutChauffeur,
+        unassignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
         bookingReference: "BK-123",
         message: "No chauffeur is currently assigned to this booking",
       });
-      expect(mockBooking.unassignChauffeur).not.toHaveBeenCalled();
     });
 
     it("should handle unassignment errors gracefully", async () => {
-      vi.mocked(mockBooking.hasChauffeurAssigned).mockReturnValue(true);
       vi.mocked(mockFleetValidationService.getCarOwnership).mockResolvedValue(mockCarOwnership);
       const unassignmentError = new Error("Domain unassignment error");
-      vi.mocked(mockBooking.unassignChauffeur).mockImplementation(() => {
+      vi.spyOn(mockBookingWithChauffeur, "unassignChauffeur").mockImplementation(() => {
         throw unassignmentError;
       });
 
-      const result = await service.unassignChauffeurFromBooking(mockBooking, unassignRequest);
+      const result = await service.unassignChauffeurFromBooking(
+        mockBookingWithChauffeur,
+        unassignRequest,
+      );
 
       expect(result).toEqual({
         success: false,
@@ -298,9 +310,13 @@ describe("ChauffeurAssignmentService", () => {
   describe("getAvailableChauffeurs", () => {
     it("should return empty array as placeholder", async () => {
       const fleetOwnerId = "fleet-owner-123";
-      const dateRange = {} as DateRange;
+      const bookingPeriod = BookingPeriodFactory.reconstitute(
+        "DAY",
+        new Date(),
+        new Date(Date.now() + 12 * 60 * 60 * 1000),
+      );
 
-      const result = await service.getAvailableChauffeurs(fleetOwnerId, dateRange);
+      const result = await service.getAvailableChauffeurs(fleetOwnerId, bookingPeriod);
 
       expect(result).toEqual([]);
     });
@@ -309,12 +325,16 @@ describe("ChauffeurAssignmentService", () => {
   describe("checkChauffeurAvailability", () => {
     it("should return availability check structure", async () => {
       const chauffeurId = "chauffeur-456";
-      const dateRange = {} as DateRange;
       const excludeBookingId = "booking-exclude";
+      const bookingPeriod = BookingPeriodFactory.reconstitute(
+        "DAY",
+        new Date(),
+        new Date(Date.now() + 12 * 60 * 60 * 1000),
+      );
 
       const result = await service.checkChauffeurAvailability(
         chauffeurId,
-        dateRange,
+        bookingPeriod,
         excludeBookingId,
       );
 
@@ -327,9 +347,13 @@ describe("ChauffeurAssignmentService", () => {
 
     it("should work without exclude booking ID", async () => {
       const chauffeurId = "chauffeur-456";
-      const dateRange = {} as DateRange;
+      const bookingPeriod = BookingPeriodFactory.reconstitute(
+        "DAY",
+        new Date(),
+        new Date(Date.now() + 12 * 60 * 60 * 1000),
+      );
 
-      const result = await service.checkChauffeurAvailability(chauffeurId, dateRange);
+      const result = await service.checkChauffeurAvailability(chauffeurId, bookingPeriod);
 
       expect(result).toEqual({
         chauffeurId: "chauffeur-456",

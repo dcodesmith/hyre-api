@@ -7,7 +7,7 @@ import {
 } from "../../domain/services/booking-chauffeur.service";
 import { ChauffeurValidationService } from "../../domain/services/external/chauffeur-validation.interface";
 import { FleetValidationService } from "../../domain/services/external/fleet-validation.interface";
-import { DateRange } from "../../domain/value-objects/date-range.vo";
+import type { BookingPeriod } from "../../domain/value-objects/booking-period.vo";
 
 export interface AssignChauffeurRequest {
   bookingId: string;
@@ -165,8 +165,8 @@ export class ChauffeurAssignmentService {
     // 3. Check chauffeur availability for the booking period
     const isAvailable = await this.chauffeurValidationService.isChauffeurAvailable(
       chauffeurId,
-      booking.getDateRange().startDate,
-      booking.getDateRange().endDate,
+      booking.getStartDateTime(),
+      booking.getEndDateTime(),
     );
 
     if (!isAvailable) {
@@ -193,7 +193,7 @@ export class ChauffeurAssignmentService {
 
   public async getAvailableChauffeurs(
     _fleetOwnerId: string,
-    _dateRange: DateRange,
+    _bookingPeriod: BookingPeriod,
   ): Promise<AvailableChauffeur[]> {
     // This would integrate with the Fleet domain to get available chauffeurs
     // For now, return empty array as placeholder
@@ -202,7 +202,7 @@ export class ChauffeurAssignmentService {
 
   public async checkChauffeurAvailability(
     chauffeurId: string,
-    _dateRange: DateRange,
+    _bookingPeriod: BookingPeriod,
     _excludeBookingId?: string,
   ): Promise<ChauffeurAvailabilityCheck> {
     // This would integrate with the Fleet domain to check chauffeur availability

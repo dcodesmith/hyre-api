@@ -2,7 +2,9 @@ import { BadRequestException } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createCarDto } from "../../../../test/fixtures/car.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { UserRepository } from "../../../iam/domain/repositories/user.repository";
@@ -10,7 +12,6 @@ import { UserType } from "../../../iam/domain/value-objects/user-type.vo";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
-import { CarDto } from "../../domain/dtos/car.dto";
 import { CarNotFoundError } from "../../domain/errors/car.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
@@ -18,8 +19,6 @@ import { BookingAmountVerifierService } from "../../domain/services/booking-amou
 import { BookingCostCalculatorService } from "../../domain/services/booking-cost-calculator.service";
 import { BookingDateService } from "../../domain/services/booking-date.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
-import { BookingTimeProcessorService } from "../../domain/services/booking-time-processor.service";
-import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { BookingCreationService } from "./booking-creation.service";
 
 /**
@@ -41,61 +40,20 @@ describe("BookingCreationService", () => {
   let userRepository: UserRepository;
   let prismaService: PrismaService;
   let bookingDomainService: BookingDomainService;
-  let bookingTimeProcessor: BookingTimeProcessorService;
   let bookingAmountVerifier: BookingAmountVerifierService;
   let bookingCostCalculator: BookingCostCalculatorService;
   let bookingDateService: BookingDateService;
   let domainEventPublisher: DomainEventPublisher;
   let logger: LoggerService;
 
-  const mockCar: CarDto = {
-    id: "car-123",
-    make: "Toyota",
-    model: "Camry",
-    year: 2024,
-    color: "Red",
-    registrationNumber: "LAG-1234",
-    ownerId: "owner-123",
-    rates: {
-      dayRate: 5000,
-      nightRate: 7000,
-      hourlyRate: 1000,
-    },
-    status: "AVAILABLE",
-    approvalStatus: "APPROVED",
-    imageUrls: ["https://example.com/car.jpg"],
-    motCertificateUrl: "https://example.com/mot.pdf",
-    insuranceCertificateUrl: "https://example.com/insurance.pdf",
-    createdAt: new Date("2024-01-01T00:00:00Z"),
-    updatedAt: new Date("2024-06-01T00:00:00Z"),
-  };
+  const mockCar = createCarDto();
 
   const mockBooking = createBookingEntity({
     id: "booking-123",
     bookingReference: "BK-123",
   });
 
-  const mockTimeResult = {
-    startDateTime: new Date("2025-01-15T10:00:00Z"),
-    endDateTime: new Date("2025-01-15T18:00:00Z"),
-  };
-
-  const mockDto: CreateBookingDto = {
-    carId: "car-123",
-    bookingType: "DAY",
-    from: new Date("2025-01-15"),
-    to: new Date("2025-01-15"),
-    totalAmount: 10000,
-    pickupTime: "10:00 AM",
-    pickupAddress: "123 Main St",
-    dropOffAddress: "456 Oak Ave",
-    sameLocation: false,
-    includeSecurityDetail: false,
-    specialRequests: "Test booking",
-    email: "test@example.com",
-    name: "John Doe",
-    phoneNumber: "+1234567890",
-  };
+  const mockDto = createCreateBookingDto();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -130,12 +88,6 @@ describe("BookingCreationService", () => {
           provide: BookingDomainService,
           useValue: {
             createBooking: vi.fn(),
-          },
-        },
-        {
-          provide: BookingTimeProcessorService,
-          useValue: {
-            processBookingTime: vi.fn(),
           },
         },
         {
@@ -182,7 +134,6 @@ describe("BookingCreationService", () => {
     userRepository = module.get<UserRepository>("UserRepository");
     prismaService = module.get<PrismaService>(PrismaService);
     bookingDomainService = module.get<BookingDomainService>(BookingDomainService);
-    bookingTimeProcessor = module.get<BookingTimeProcessorService>(BookingTimeProcessorService);
     bookingAmountVerifier = module.get<BookingAmountVerifierService>(BookingAmountVerifierService);
     bookingCostCalculator = module.get<BookingCostCalculatorService>(BookingCostCalculatorService);
     bookingDateService = module.get<BookingDateService>(BookingDateService);
@@ -190,10 +141,10 @@ describe("BookingCreationService", () => {
     logger = module.get<LoggerService>(LoggerService);
 
     vi.mocked(carRepository.findById).mockResolvedValue(mockCar);
-    vi.mocked(bookingTimeProcessor.processBookingTime).mockReturnValue(mockTimeResult);
     vi.mocked(bookingDateService.generateBookingDates).mockReturnValue([]);
     vi.mocked(bookingCostCalculator.calculateBookingCostFromCar).mockResolvedValue({
       netTotal: new Decimal(8500),
+      securityDetailCost: new Decimal(0),
       platformCustomerServiceFeeAmount: new Decimal(1000),
       vatAmount: new Decimal(500),
       totalAmount: new Decimal(10000),
@@ -231,16 +182,14 @@ describe("BookingCreationService", () => {
 
       const result = await service.createPendingBooking(mockDto, mockUser);
 
-      expect(carRepository.findById).toHaveBeenCalledWith("car-123");
-      expect(bookingTimeProcessor.processBookingTime).toHaveBeenCalled();
+      expect(carRepository.findById).toHaveBeenCalledWith(mockDto.carId);
       expect(bookingAmountVerifier.verifyAmount).toHaveBeenCalledWith(
-        10000,
+        mockDto.totalAmount,
         mockBooking.getTotalAmount(),
       );
-      expect(result).toEqual({
-        booking: mockBooking,
-        timeResult: mockTimeResult,
-      });
+      expect(result.booking).toBe(mockBooking);
+      expect(result.bookingPeriod).toBeDefined();
+      expect(result.bookingPeriod.getBookingType()).toBe("DAY");
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("Created pending booking BK-123"),
       );
@@ -286,8 +235,12 @@ describe("BookingCreationService", () => {
 
       await service.createPendingBooking(mockDto);
 
-      expect(userRepository.findByEmail).toHaveBeenCalledWith("test@example.com");
-      expect(User.createGuest).toHaveBeenCalledWith("test@example.com", "John Doe", "+1234567890");
+      expect(userRepository.findByEmail).toHaveBeenCalledWith(mockDto.email);
+      expect(User.createGuest).toHaveBeenCalledWith(
+        mockDto.email,
+        mockDto.name,
+        mockDto.phoneNumber,
+      );
       expect(userRepository.save).toHaveBeenCalledWith(mockGuestUser);
       expect(logger.log).toHaveBeenCalledWith(expect.stringContaining("Created new guest user"));
     });

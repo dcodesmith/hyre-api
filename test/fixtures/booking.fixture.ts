@@ -1,23 +1,24 @@
-import Decimal from "decimal.js";
 import { Booking, BookingProps } from "@/booking/domain/entities/booking.entity";
 import { BookingFinancials } from "@/booking/domain/value-objects/booking-financials.vo";
+import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { BookingStatus } from "@/booking/domain/value-objects/booking-status.vo";
-import { BookingType } from "@/booking/domain/value-objects/booking-type.vo";
-import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
 import { PaymentStatus } from "@/booking/domain/value-objects/payment-status.vo";
+import Decimal from "decimal.js";
 
 export function createBookingEntity(overrides: Partial<BookingProps> = {}): Booking {
   const now = new Date();
   const defaultStart = new Date(now.getTime() + 60 * 60 * 1000);
   const defaultEnd = new Date(defaultStart.getTime() + 2 * 60 * 60 * 1000);
 
-  const dateRange = overrides.dateRange ?? DateRange.create(defaultStart, defaultEnd);
+  const bookingPeriod =
+    overrides.bookingPeriod ?? BookingPeriodFactory.reconstitute("DAY", defaultStart, defaultEnd);
 
   const financials =
     overrides.financials ??
     BookingFinancials.create({
       totalAmount: new Decimal(200),
       netTotal: new Decimal(180),
+      securityDetailCost: new Decimal(0),
       platformServiceFeeAmount: new Decimal(15),
       vatAmount: new Decimal(5),
       fleetOwnerPayoutAmountNet: new Decimal(160),
@@ -27,7 +28,7 @@ export function createBookingEntity(overrides: Partial<BookingProps> = {}): Book
     id: "booking-fixture-id",
     bookingReference: "BK-FIXTURE",
     status: BookingStatus.confirmed(),
-    dateRange,
+    bookingPeriod,
     pickupAddress: "123 Pickup Street",
     dropOffAddress: "456 Dropoff Avenue",
     customerId: "customer-fixture",
@@ -35,7 +36,6 @@ export function createBookingEntity(overrides: Partial<BookingProps> = {}): Book
     chauffeurId: undefined,
     specialRequests: undefined,
     legs: [],
-    bookingType: BookingType.day(),
     paymentStatus: PaymentStatus.PAID,
     paymentIntent: "payment-intent-fixture",
     paymentId: "payment-id-fixture",
@@ -50,7 +50,7 @@ export function createBookingEntity(overrides: Partial<BookingProps> = {}): Book
   const props = {
     ...baseProps,
     ...overrides,
-    dateRange: overrides.dateRange ?? dateRange,
+    bookingPeriod: overrides.bookingPeriod ?? bookingPeriod,
     financials: overrides.financials ?? financials,
     legs: overrides.legs ?? baseProps.legs,
   };

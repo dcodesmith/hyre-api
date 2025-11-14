@@ -8,6 +8,7 @@ import {
 export interface BookingFinancialsProps {
   totalAmount: Decimal;
   netTotal: Decimal;
+  securityDetailCost: Decimal;
   platformServiceFeeAmount: Decimal;
   vatAmount: Decimal;
   fleetOwnerPayoutAmountNet: Decimal;
@@ -25,6 +26,7 @@ export class BookingFinancials {
   private validateFinancials(): void {
     this.validateAmountIsFinite(this.props.totalAmount, "Total amount");
     this.validateAmountIsFinite(this.props.netTotal, "Net total");
+    this.validateAmountIsFinite(this.props.securityDetailCost, "Security detail cost");
     this.validateAmountIsFinite(this.props.platformServiceFeeAmount, "Platform service fee amount");
     this.validateAmountIsFinite(this.props.vatAmount, "VAT amount");
     this.validateAmountIsFinite(this.props.fleetOwnerPayoutAmountNet, "Fleet owner payout amount");
@@ -32,6 +34,7 @@ export class BookingFinancials {
     this.validateAmountIsPositive(this.props.totalAmount, "Total amount");
     this.validateAmountIsPositive(this.props.netTotal, "Net total");
 
+    this.validateAmountIsNonNegative(this.props.securityDetailCost, "Security detail cost");
     this.validateAmountIsNonNegative(
       this.props.platformServiceFeeAmount,
       "Platform service fee amount",
@@ -69,6 +72,10 @@ export class BookingFinancials {
     return this.props.netTotal;
   }
 
+  public getSecurityDetailCost(): Decimal {
+    return this.props.securityDetailCost;
+  }
+
   public getPlatformServiceFeeAmount(): Decimal {
     return this.props.platformServiceFeeAmount;
   }
@@ -85,6 +92,7 @@ export class BookingFinancials {
     return (
       this.props.totalAmount.equals(other.props.totalAmount) &&
       this.props.netTotal.equals(other.props.netTotal) &&
+      this.props.securityDetailCost.equals(other.props.securityDetailCost) &&
       this.props.platformServiceFeeAmount.equals(other.props.platformServiceFeeAmount) &&
       this.props.vatAmount.equals(other.props.vatAmount) &&
       this.props.fleetOwnerPayoutAmountNet.equals(other.props.fleetOwnerPayoutAmountNet)
@@ -98,6 +106,10 @@ export class BookingFinancials {
 
   public getNetTotalAsNumber(): number {
     return this.props.netTotal.toNumber();
+  }
+
+  public getSecurityDetailCostAsNumber(): number {
+    return this.props.securityDetailCost.toNumber();
   }
 
   public getPlatformServiceFeeAmountAsNumber(): number {

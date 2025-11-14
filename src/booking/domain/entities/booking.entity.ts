@@ -12,19 +12,17 @@ import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
-import { BookingStatus } from "../value-objects/booking-status.vo";
-import { BookingType } from "../value-objects/booking-type.vo";
-import { DateRange } from "../value-objects/date-range.vo";
-import { PaymentStatus } from "../value-objects/payment-status.vo";
+import type { BookingPeriod } from "../value-objects/booking-period.vo";
+import { BookingStatus, BookingStatusEnum } from "../value-objects/booking-status.vo";
+import { PaymentStatus, PaymentStatusType } from "../value-objects/payment-status.vo";
 import { BookingLeg } from "./booking-leg.entity";
 
 export interface BookingCreateParams {
   customerId: string;
   carId: string;
-  dateRange: DateRange;
+  bookingPeriod: BookingPeriod;
   pickupAddress: string;
   dropOffAddress: string;
-  bookingType: BookingType;
   financials: BookingFinancials;
   includeSecurityDetail?: boolean;
   specialRequests?: string;
@@ -35,7 +33,7 @@ export interface BookingProps {
   id?: string;
   bookingReference: string;
   status: BookingStatus;
-  dateRange: DateRange;
+  bookingPeriod: BookingPeriod;
   pickupAddress: string;
   dropOffAddress: string;
   customerId: string;
@@ -43,7 +41,6 @@ export interface BookingProps {
   chauffeurId?: string;
   specialRequests?: string;
   legs: BookingLeg[];
-  bookingType: BookingType;
   paymentStatus: PaymentStatus;
   paymentIntent?: string;
   paymentId?: string;
@@ -66,14 +63,13 @@ export class Booking extends AggregateRoot {
     const booking = new Booking({
       bookingReference,
       status: BookingStatus.pending(),
-      dateRange: params.dateRange,
+      bookingPeriod: params.bookingPeriod,
       pickupAddress: params.pickupAddress,
       dropOffAddress: params.dropOffAddress,
       customerId: params.customerId,
       carId: params.carId,
       specialRequests: params.specialRequests,
       legs: [],
-      bookingType: params.bookingType,
       paymentStatus: PaymentStatus.UNPAID,
       paymentIntent: params.paymentIntent,
       financials: params.financials,
@@ -297,8 +293,12 @@ export class Booking extends AggregateRoot {
   }
 
   public addLeg(leg: BookingLeg): void {
-    if (!this.props.dateRange.contains(leg.getLegDate())) {
-      throw new Error("Booking leg date must be within booking date range");
+    const legDate = leg.getLegDate();
+    if (
+      legDate < this.props.bookingPeriod.startDateTime ||
+      legDate > this.props.bookingPeriod.endDateTime
+    ) {
+      throw new Error("Booking leg date must be within booking period");
     }
 
     this.props.legs.push(leg);
@@ -320,31 +320,37 @@ export class Booking extends AggregateRoot {
     const now = new Date();
     return (
       this.props.status.isConfirmed() &&
-      this.props.dateRange.startDate <= now &&
+      this.props.bookingPeriod.startDateTime <= now &&
       !!this.props.chauffeurId
     );
   }
 
   public isEligibleForCompletion(): boolean {
     const now = new Date();
-    return this.props.status.isActive() && this.props.dateRange.endDate <= now;
+    return this.props.status.isActive() && this.props.bookingPeriod.endDateTime <= now;
   }
 
   public isEligibleForStartReminder(): boolean {
     const now = new Date();
-    const oneHourBeforeStart = new Date(this.props.dateRange.startDate.getTime() - 60 * 60 * 1000);
+    const oneHourBeforeStart = new Date(
+      this.props.bookingPeriod.startDateTime.getTime() - 60 * 60 * 1000,
+    );
     return (
       this.props.status.isConfirmed() &&
       now >= oneHourBeforeStart &&
-      now < this.props.dateRange.startDate
+      now < this.props.bookingPeriod.startDateTime
     );
   }
 
   public isEligibleForEndReminder(): boolean {
     const now = new Date();
-    const oneHourBeforeEnd = new Date(this.props.dateRange.endDate.getTime() - 60 * 60 * 1000);
+    const oneHourBeforeEnd = new Date(
+      this.props.bookingPeriod.endDateTime.getTime() - 60 * 60 * 1000,
+    );
     return (
-      this.props.status.isActive() && now >= oneHourBeforeEnd && now < this.props.dateRange.endDate
+      this.props.status.isActive() &&
+      now >= oneHourBeforeEnd &&
+      now < this.props.bookingPeriod.endDateTime
     );
   }
 
@@ -356,7 +362,7 @@ export class Booking extends AggregateRoot {
 
     // Must be at least 12 hours before booking start time
     const now = new Date();
-    const bookingStartTime = this.props.dateRange.startDate;
+    const bookingStartTime = this.props.bookingPeriod.startDateTime;
     const twelveHoursInMs = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
     const cancellationDeadline = new Date(bookingStartTime.getTime() - twelveHoursInMs);
 
@@ -393,12 +399,28 @@ export class Booking extends AggregateRoot {
     return this.props.bookingReference;
   }
 
-  public getStatus(): BookingStatus {
+  public getStatus(): BookingStatusEnum {
+    return this.props.status.value;
+  }
+
+  public getStatusObject(): BookingStatus {
     return this.props.status;
   }
 
-  public getDateRange(): DateRange {
-    return this.props.dateRange;
+  public getBookingPeriod(): BookingPeriod {
+    return this.props.bookingPeriod;
+  }
+
+  public getStartDateTime(): Date {
+    return this.props.bookingPeriod.startDateTime;
+  }
+
+  public getEndDateTime(): Date {
+    return this.props.bookingPeriod.endDateTime;
+  }
+
+  public getBookingType(): "DAY" | "NIGHT" | "FULL_DAY" {
+    return this.props.bookingPeriod.getBookingType();
   }
 
   public getPickupAddress(): string {
@@ -429,12 +451,24 @@ export class Booking extends AggregateRoot {
     return [...this.props.legs];
   }
 
-  public getBookingType(): BookingType {
-    return this.props.bookingType;
+  public getPaymentStatus(): PaymentStatusType {
+    return this.props.paymentStatus.toString();
   }
 
-  public getPaymentStatus(): PaymentStatus {
+  public getPaymentStatusObject(): PaymentStatus {
     return this.props.paymentStatus;
+  }
+
+  public isPaymentPaid(): boolean {
+    return this.props.paymentStatus.isPaid();
+  }
+
+  public isPaymentUnpaid(): boolean {
+    return this.props.paymentStatus.isUnpaid();
+  }
+
+  public isPaymentRefunded(): boolean {
+    return this.props.paymentStatus.isRefunded();
   }
 
   public getPaymentIntent(): string | undefined {
@@ -463,6 +497,10 @@ export class Booking extends AggregateRoot {
 
   public getFleetOwnerPayoutAmountNet(): number {
     return this.props.financials.getFleetOwnerPayoutAmountNetAsNumber();
+  }
+
+  public getSecurityDetailCost(): number {
+    return this.props.financials.getSecurityDetailCostAsNumber();
   }
 
   public getFinancials(): BookingFinancials {
