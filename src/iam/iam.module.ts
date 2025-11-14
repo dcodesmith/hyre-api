@@ -148,6 +148,7 @@ const externalServices = [
     ApprovalWorkflowService,
     OtpAuthenticationService,
     JwtTokenService,
+    TokenBlacklistService, // Needed by JwtAuthGuard
 
     // Export guards for use by other modules
     JwtAuthGuard,

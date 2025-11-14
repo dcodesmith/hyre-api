@@ -21,6 +21,7 @@ import { SharedModule } from "./shared/shared.module";
     ConfigModule.forRoot({
       isGlobal: true,
       validate: envValidation,
+      ignoreEnvFile: process.env.NODE_ENV === "test",
     }),
 
     // Queue system

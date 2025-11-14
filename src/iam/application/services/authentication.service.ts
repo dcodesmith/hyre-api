@@ -1,5 +1,13 @@
 import { createHash } from "node:crypto";
-import { Inject, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { NotificationService } from "../../../communication/application/services/notification.service";
+import { NotificationFactoryService } from "../../../communication/domain/services/notification-factory.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { User } from "../../domain/entities/user.entity";
@@ -55,6 +63,8 @@ export class AuthenticationService {
     private readonly tokenBlacklistService: TokenBlacklistService,
     private readonly sessionCleanupService: SessionCleanupService,
     private readonly domainEventPublisher: DomainEventPublisher,
+    private readonly notificationService: NotificationService,
+    private readonly notificationFactory: NotificationFactoryService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -87,7 +97,23 @@ export class AuthenticationService {
     // Generate OTP
     const otpResult = await this.otpAuthenticationService.generateOtp(request.email);
 
-    // Publish domain event
+    this.logger.info("OTP generated for email", {
+      email: request.email,
+      otpType,
+      expiresAt: otpResult.expiresAt,
+    });
+
+    // Send OTP notification directly (synchronous) - fixes race condition in tests
+    // Previously this was done via domain events which are fire-and-forget
+    await this.sendOtpNotification(request.email, otpResult.otpCode, otpResult.expiresAt, userId, otpType);
+
+    this.logger.info("OTP notification sent successfully", {
+      email: request.email,
+      otpType,
+    });
+
+    // Optionally publish event for audit/analytics (fire-and-forget is OK here)
+    // This event can be used by other handlers that don't need to block the response
     await this.domainEventPublisher.publish(
       new OtpGeneratedEvent(
         userId || "anonymous",
@@ -98,12 +124,6 @@ export class AuthenticationService {
         otpResult.expiresAt,
       ),
     );
-
-    this.logger.info("OTP generated for email", {
-      email: request.email,
-      otpType,
-      expiresAt: otpResult.expiresAt,
-    });
 
     return {
       success: true,
@@ -133,11 +153,7 @@ export class AuthenticationService {
         reason: verificationResult.reason,
       });
 
-      return {
-        success: false,
-        user: undefined, // Will be handled by error response
-        message: verificationResult.reason || "OTP verification failed",
-      };
+      throw new UnauthorizedException(verificationResult.reason || "OTP verification failed");
     }
 
     // Check if user exists
@@ -155,11 +171,7 @@ export class AuthenticationService {
           role: request.role,
         });
 
-        return {
-          success: false,
-          user: undefined,
-          message: `${request.role} accounts must be created by authorized users`,
-        };
+        throw new ForbiddenException(`${request.role} accounts must be created by authorized users`);
       }
 
       // Use a placeholder phone number that the user can update later
@@ -180,11 +192,7 @@ export class AuthenticationService {
         );
       } else {
         // This should never happen due to validation above, but just in case
-        return {
-          success: false,
-          user: undefined,
-          message: "Invalid role for public registration",
-        };
+        throw new BadRequestException("Invalid role for public registration");
       }
 
       user = await this.userRepository.save(user);
@@ -205,11 +213,9 @@ export class AuthenticationService {
           actualRoles: userRoles,
         });
 
-        return {
-          success: false,
-          user: undefined,
-          message: `User ${request.email} has role(s) [${userRoles.join(", ")}] but requested role "${request.role}"`,
-        };
+        throw new ForbiddenException(
+          `User ${request.email} has role(s) [${userRoles.join(", ")}] but requested role "${request.role}"`,
+        );
       }
 
       this.logger.info("Existing user authenticated", {
@@ -323,6 +329,39 @@ export class AuthenticationService {
       approvalStatus: user.getApprovalStatus().toString(),
       hasOnboarded: user.hasOnboarded(),
     };
+  }
+
+  /**
+   * Send OTP notification directly (synchronous)
+   * This replaces the async event-driven approach to fix race conditions in tests
+   */
+  private async sendOtpNotification(
+    email: string,
+    otpCode: string,
+    expiresAt: number,
+    userId: string | null,
+    otpType: "registration" | "login",
+  ): Promise<void> {
+    try {
+      // Create OTP notification using the Communication domain factory
+      const notification = this.notificationFactory.createOtpNotification({
+        userId: userId || "anonymous",
+        email,
+        otpCode,
+        otpType,
+        expiresAt,
+      });
+
+      // Send the notification synchronously
+      await this.notificationService.sendNotification(notification);
+
+      this.logger.info("OTP notification delivered", { email, otpType });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send OTP notification to ${email}: ${errorMessage}`);
+      // Don't throw - we still want to return success if OTP was generated
+      // The user can request a new OTP if they didn't receive it
+    }
   }
 
   // Validate JWT token

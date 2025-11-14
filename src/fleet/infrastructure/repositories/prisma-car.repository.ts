@@ -136,14 +136,18 @@ export class PrismaCarRepository implements CarRepository {
       year: car.getYear(),
       color: car.getColor(),
       registrationNumber: car.getRegistrationNumber(),
-      ownerId: car.getOwnerId(),
       dayRate: car.getDayRate(),
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
+      fuelUpgradeRate: 0,
+      fullDayRate: car.getDayRate(),
       status: car.getStatus().toString() as PrismaStatus,
       approvalStatus: car.getApprovalStatus().toString() as PrismaCarApprovalStatus,
       createdAt: car.getCreatedAt(),
       updatedAt: car.getUpdatedAt(),
+      owner: {
+        connect: { id: car.getOwnerId() },
+      },
     };
 
     // Update data excludes ownerId as it's a relation field that shouldn't change
