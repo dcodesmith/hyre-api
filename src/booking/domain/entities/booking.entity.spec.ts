@@ -29,7 +29,6 @@ describe("Booking Entity", () => {
     startDate: validBookingPeriod.startDateTime,
     endDate: validBookingPeriod.endDateTime,
   };
-  const dayAfterTomorrow = validBookingPeriod.endDateTime;
 
   const validFinancials = BookingFinancials.create({
     totalAmount: new Decimal(1000),
@@ -496,13 +495,7 @@ describe("Booking Entity", () => {
       expect(activeBooking.isEligibleForCompletion()).toBeFalsy(); // Before end time
     });
 
-    it("should be eligible for cancellation when conditions are met", () => {
-      const booking = createConfirmedBooking();
-
-      expect(booking.isEligibleForCancellation()).toBeTruthy();
-    });
-
-    it("should be eligible for cancellation 12 hours before start time", () => {
+    it("should be eligible for cancellation at least12 hours before start time", () => {
       const booking = createConfirmedBooking();
       const twelveHoursInMilliseconds = validDateRange.startDate.getTime() - 12 * 60 * 60 * 1000;
 
@@ -514,7 +507,7 @@ describe("Booking Entity", () => {
       vi.useRealTimers();
     });
 
-    it("should not be eligible for cancellation 12 hours before start time", () => {
+    it("should not be eligible for cancellation when less than 12 hours before start time", () => {
       const booking = createConfirmedBooking();
       const elevenHoursInMilliseconds = validDateRange.startDate.getTime() - 11 * 60 * 60 * 1000;
 
@@ -696,5 +689,4 @@ describe("Booking Entity", () => {
       expect(booking.getVatAmount()).toBe(0);
     });
   });
-
 });
