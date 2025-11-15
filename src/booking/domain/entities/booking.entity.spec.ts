@@ -659,6 +659,19 @@ describe("Booking Entity", () => {
       expect(booking.getBookingType()).toBe("NIGHT");
     });
 
+    it("should handle booking with full day type", () => {
+      const dayAfterTomorrow = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+      const fullDayBookingPeriod = BookingPeriodFactory.create({
+        bookingType: "FULL_DAY",
+        startDate: tomorrow,
+        endDate: dayAfterTomorrow,
+      });
+      const fullDayBookingParams = { ...validCreateParams, bookingPeriod: fullDayBookingPeriod };
+      const booking = createBooking(fullDayBookingParams);
+
+      expect(booking.getBookingType()).toBe("FULL_DAY");
+    });
+
     it("should handle multiple status transitions correctly", () => {
       const booking = createBookingWithId();
       expect(booking.isPending()).toBeTruthy();

@@ -78,16 +78,12 @@ export class BookingChauffeurService {
     _booking: Booking,
   ): AvailableChauffeur | null {
     // Filter available chauffeurs for this date range
-    const eligibleChauffeurs = availableChauffeurs.filter((chauffeur) => chauffeur.isAvailable);
+    const eligibleChauffeurs = availableChauffeurs
+      .filter((chauffeur) => chauffeur.isAvailable)
+      .slice() // avoid mutating caller
+      .sort((a, b) => a.currentBookings - b.currentBookings);
 
-    if (eligibleChauffeurs.length === 0) {
-      return null;
-    }
-
-    // Sort by current workload (fewer bookings first)
-    eligibleChauffeurs.sort((a, b) => a.currentBookings - b.currentBookings);
-
-    return eligibleChauffeurs[0];
+    return eligibleChauffeurs[0] ?? null;
   }
 
   public validateBusinessRules(

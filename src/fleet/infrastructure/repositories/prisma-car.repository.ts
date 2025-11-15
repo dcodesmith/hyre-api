@@ -33,6 +33,7 @@ export class PrismaCarRepository implements CarRepository {
         dayRate: true,
         nightRate: true,
         hourlyRate: true,
+        fullDayRate: true,
       },
     });
 
@@ -45,6 +46,7 @@ export class PrismaCarRepository implements CarRepository {
       dayRate: result.dayRate,
       nightRate: result.nightRate,
       hourlyRate: result.hourlyRate,
+      fullDayRate: result.fullDayRate,
       currency: "NGN", // System-wide currency
     };
   }
@@ -140,7 +142,7 @@ export class PrismaCarRepository implements CarRepository {
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
       fuelUpgradeRate: 0,
-      fullDayRate: car.getDayRate(),
+      fullDayRate: car.getFullDayRate(),
       status: car.getStatus().toString() as PrismaStatus,
       approvalStatus: car.getApprovalStatus().toString() as PrismaCarApprovalStatus,
       createdAt: car.getCreatedAt(),
@@ -160,6 +162,7 @@ export class PrismaCarRepository implements CarRepository {
       dayRate: car.getDayRate(),
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
+      fullDayRate: car.getFullDayRate(),
       status: car.getStatus().toString() as PrismaStatus,
       approvalStatus: car.getApprovalStatus().toString() as PrismaCarApprovalStatus,
       updatedAt: car.getUpdatedAt(),
@@ -199,6 +202,7 @@ export class PrismaCarRepository implements CarRepository {
       dayRate: Number(prismaData.dayRate),
       nightRate: Number(prismaData.nightRate),
       hourlyRate: Number(prismaData.hourlyRate),
+      fullDayRate: Number(prismaData.fullDayRate),
       status: CarStatus.create(prismaData.status),
       imageUrls: prismaData.imageUrls,
       motCertificateUrl: prismaData.motCertificateUrl,

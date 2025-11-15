@@ -164,7 +164,7 @@ describe("BookingPaymentService", () => {
           booking_id: "booking-123",
           booking_reference: "BK-123",
           car_id: mockDto.carId,
-          booking_type: "DAY",
+          booking_type: mockBookingPeriod.getBookingType(),
           start_date: mockBookingPeriod.startDateTime.toISOString(),
           end_date: mockBookingPeriod.endDateTime.toISOString(),
         },

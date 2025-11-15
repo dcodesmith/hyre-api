@@ -1,4 +1,5 @@
 import { InvalidBookingPeriodError } from "../errors/invalid-booking-period.error";
+import { BookingType } from "../interfaces/booking.interface";
 import type { BookingPeriod } from "./booking-period.vo";
 import { DayBookingPeriod } from "./day-booking-period.vo";
 import { FullDayBookingPeriod } from "./full-day-booking-period.vo";
@@ -6,7 +7,7 @@ import { NightBookingPeriod } from "./night-booking-period.vo";
 import type { PickupTime } from "./pickup-time.vo";
 
 export interface CreateBookingPeriodParams {
-  bookingType: "DAY" | "NIGHT" | "FULL_DAY";
+  bookingType: BookingType;
   startDate: Date;
   endDate?: Date; // Only required for FULL_DAY bookings
   pickupTime?: PickupTime;
@@ -75,11 +76,7 @@ export const BookingPeriodFactory = {
    *
    * @internal This should only be used by the repository layer
    */
-  reconstitute(
-    bookingType: "DAY" | "NIGHT" | "FULL_DAY",
-    startDateTime: Date,
-    endDateTime: Date,
-  ): BookingPeriod {
+  reconstitute(bookingType: BookingType, startDateTime: Date, endDateTime: Date): BookingPeriod {
     // Bypass validation since data is already persisted and trusted
     switch (bookingType) {
       case "DAY":

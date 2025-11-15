@@ -17,53 +17,37 @@ describe("BookingDomainService", () => {
   });
 
   describe("#createBooking", () => {
-    describe("FULL_DAY bookings with equal start/end hours", () => {
-      it("should create 24-hour legs when start and end hours are equal (10:00 → 10:00)", () => {
-        // FULL_DAY booking: Feb 15 10:00 → Feb 16 10:00 (24 hours)
-        const startDateTime = new Date("2025-02-15T10:00:00Z");
-        const endDateTime = new Date("2025-02-16T10:00:00Z");
-        const bookingPeriod = FullDayBookingPeriod.create({ startDateTime, endDateTime });
-
-        const precalculatedCosts: BookingCostCalculation = {
-          totalAmount: new Decimal(240),
-          netTotal: new Decimal(200),
-          securityDetailCost: new Decimal(0),
-          platformCustomerServiceFeeRatePercent: new Decimal(10),
-          platformCustomerServiceFeeAmount: new Decimal(20),
-          subtotalBeforeVat: new Decimal(220),
-          vatRatePercent: new Decimal(20),
-          vatAmount: new Decimal(40),
-          platformFleetOwnerCommissionRatePercent: new Decimal(15),
-          platformFleetOwnerCommissionAmount: new Decimal(30),
-          fleetOwnerPayoutAmountNet: new Decimal(170),
-          legPrices: [200], // Single 24-hour period
-        };
-
-        const command: CreateBookingCommand = {
-          customerId: "customer-123",
-          carId: "car-456",
-          bookingPeriod,
-          pickupAddress: "123 Pickup Street",
-          dropOffAddress: "456 Dropoff Avenue",
-          includeSecurityDetail: false,
-          precalculatedCosts,
-          precalculatedBookingDates: [startDateTime],
-        };
-
-        const booking = service.createBooking(command);
-
-        expect(booking.getLegs()).toHaveLength(1);
-
-        const leg = booking.getLegs()[0];
-        expect(leg.getLegStartTime()).toEqual(new Date("2025-02-15T10:00:00Z"));
-        expect(leg.getLegEndTime()).toEqual(new Date("2025-02-16T10:00:00Z"));
-        expect(leg.getDurationInHours()).toBe(24);
-      });
-
-      it("should create 24-hour legs when start and end hours are equal (07:00 → 07:00)", () => {
-        // FULL_DAY booking at lower bound: Feb 15 07:00 → Feb 16 07:00 (24 hours)
-        const startDateTime = new Date("2025-02-15T07:00:00Z");
-        const endDateTime = new Date("2025-02-16T07:00:00Z");
+    describe("FULL_DAY bookings", () => {
+      it.each([
+        {
+          description: "10:00 → 10:00 (standard time)",
+          startTime: "2025-02-15T10:00:00Z",
+          endTime: "2025-02-16T10:00:00Z",
+          expectedLegs: 1,
+          expectedDuration: 24,
+        },
+        {
+          description: "07:00 → 07:00 (lower bound start time)",
+          startTime: "2025-02-15T07:00:00Z",
+          endTime: "2025-02-16T07:00:00Z",
+          expectedLegs: 1,
+          expectedDuration: 24,
+        },
+        {
+          description: "22:00 → 22:00 (upper bound start time)",
+          startTime: "2025-02-15T22:00:00Z",
+          endTime: "2025-02-16T22:00:00Z",
+          expectedLegs: 1,
+          expectedDuration: 24,
+        },
+      ])("should create $expectedLegs 24-hour leg for $description", ({
+        startTime,
+        endTime,
+        expectedLegs,
+        expectedDuration,
+      }) => {
+        const startDateTime = new Date(startTime);
+        const endDateTime = new Date(endTime);
         const bookingPeriod = FullDayBookingPeriod.create({ startDateTime, endDateTime });
 
         const precalculatedCosts: BookingCostCalculation = {
@@ -94,12 +78,11 @@ describe("BookingDomainService", () => {
 
         const booking = service.createBooking(command);
 
-        expect(booking.getLegs()).toHaveLength(1);
-
+        expect(booking.getLegs()).toHaveLength(expectedLegs);
         const leg = booking.getLegs()[0];
-        expect(leg.getLegStartTime()).toEqual(new Date("2025-02-15T07:00:00Z"));
-        expect(leg.getLegEndTime()).toEqual(new Date("2025-02-16T07:00:00Z"));
-        expect(leg.getDurationInHours()).toBe(24);
+        expect(leg.getLegStartTime()).toEqual(startDateTime);
+        expect(leg.getLegEndTime()).toEqual(endDateTime);
+        expect(leg.getDurationInHours()).toBe(expectedDuration);
       });
 
       it("should create multiple 24-hour legs for multi-day FULL_DAY booking (48 hours)", () => {
@@ -152,51 +135,6 @@ describe("BookingDomainService", () => {
         expect(leg2.getLegStartTime()).toEqual(new Date("2025-02-16T10:00:00Z"));
         expect(leg2.getLegEndTime()).toEqual(new Date("2025-02-17T10:00:00Z"));
         expect(leg2.getDurationInHours()).toBe(24);
-      });
-    });
-
-    describe("FULL_DAY bookings with different start/end hours (cross-midnight)", () => {
-      it("should create proper legs when end hour is less than start hour (22:00 → 05:00)", () => {
-        // FULL_DAY booking: Feb 15 22:00 → Feb 16 22:00 (24 hours)
-        // But testing the edge case where endHours < startHours conceptually
-        const startDateTime = new Date("2025-02-15T22:00:00Z");
-        const endDateTime = new Date("2025-02-16T22:00:00Z");
-        const bookingPeriod = FullDayBookingPeriod.create({ startDateTime, endDateTime });
-
-        const precalculatedCosts: BookingCostCalculation = {
-          totalAmount: new Decimal(240),
-          netTotal: new Decimal(200),
-          securityDetailCost: new Decimal(0),
-          platformCustomerServiceFeeRatePercent: new Decimal(10),
-          platformCustomerServiceFeeAmount: new Decimal(20),
-          subtotalBeforeVat: new Decimal(220),
-          vatRatePercent: new Decimal(20),
-          vatAmount: new Decimal(40),
-          platformFleetOwnerCommissionRatePercent: new Decimal(15),
-          platformFleetOwnerCommissionAmount: new Decimal(30),
-          fleetOwnerPayoutAmountNet: new Decimal(170),
-          legPrices: [200],
-        };
-
-        const command: CreateBookingCommand = {
-          customerId: "customer-123",
-          carId: "car-456",
-          bookingPeriod,
-          pickupAddress: "123 Pickup Street",
-          dropOffAddress: "456 Dropoff Avenue",
-          includeSecurityDetail: false,
-          precalculatedCosts,
-          precalculatedBookingDates: [startDateTime],
-        };
-
-        const booking = service.createBooking(command);
-
-        expect(booking.getLegs()).toHaveLength(1);
-
-        const leg = booking.getLegs()[0];
-        expect(leg.getLegStartTime()).toEqual(new Date("2025-02-15T22:00:00Z"));
-        expect(leg.getLegEndTime()).toEqual(new Date("2025-02-16T22:00:00Z"));
-        expect(leg.getDurationInHours()).toBe(24);
       });
     });
   });

@@ -6,12 +6,14 @@ import { AddonRateRepository } from "../repositories/addon-rate.repository";
 import { PlatformFeeRepository } from "../repositories/platform-fee.repository";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingDateService } from "./booking-date.service";
+import { BookingType } from "../interfaces/booking.interface";
 
 // Helper type for rate extraction - keeps existing interface compatibility
 export interface CarRates {
   dayRate: number;
   nightRate: number;
   hourlyRate: number;
+  fullDayRate: number;
   id: string;
 }
 
@@ -59,6 +61,7 @@ export class BookingCostCalculatorService {
       dayRate: car.rates.dayRate,
       nightRate: car.rates.nightRate,
       hourlyRate: car.rates.hourlyRate,
+      fullDayRate: car.rates.fullDayRate,
       id: car.id,
     };
 
@@ -96,8 +99,8 @@ export class BookingCostCalculatorService {
 
     // Calculate security detail cost from database rate
     // Security detail is charged per leg with a multiplier based on booking type:
-    // - DAY bookings: 1 day per leg (multiplier = 1)
-    // - NIGHT bookings: 1 day per leg (multiplier = 1, unsociable hours)
+    // - DAY bookings: 1 day per leg (multiplier = 1, 12-hour coverage)
+    // - NIGHT bookings: 1 day per leg (multiplier = 1, 6-hour unsociable hours)
     // - FULL_DAY bookings: 2 days per leg (multiplier = 2, 24-hour coverage)
     let securityDetailCost = new Decimal(0);
     if (includeSecurityDetail) {
@@ -162,21 +165,28 @@ export class BookingCostCalculatorService {
 
   private calculateBookingLegPrice(
     car: CarRates,
-    booking: { startDate: Date; endDate: Date; type: "DAY" | "NIGHT" | "FULL_DAY" },
+    booking: { startDate: Date; endDate: Date; type: BookingType },
     legDate: Date,
   ): number {
-    const { dayRate, nightRate, hourlyRate } = car;
+    const { dayRate, nightRate, hourlyRate, fullDayRate } = car;
     const { startDate, endDate, type } = booking;
 
     // Ensure rates are positive, default to 0 if not
     const validDayRate = Math.max(0, dayRate);
     const validNightRate = Math.max(0, nightRate);
     const validHourlyRate = Math.max(0, hourlyRate);
+    const validFullDayRate = Math.max(0, fullDayRate);
 
     const MINIMUM_CHARGEABLE_HOURS = 1;
 
     if (type === "NIGHT") {
       return validNightRate;
+    }
+
+    // FULL_DAY: flat rate per 24-hour period
+    // Each FULL_DAY leg is exactly 24 hours, so we charge the fullDayRate
+    if (type === "FULL_DAY") {
+      return validFullDayRate;
     }
 
     // BookingType.DAY calculations

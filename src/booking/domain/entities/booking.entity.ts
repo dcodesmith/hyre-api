@@ -11,6 +11,7 @@ import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-una
 import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
+import { BookingType } from "../interfaces/booking.interface";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingStatus, BookingStatusEnum } from "../value-objects/booking-status.vo";
@@ -419,7 +420,7 @@ export class Booking extends AggregateRoot {
     return this.props.bookingPeriod.endDateTime;
   }
 
-  public getBookingType(): "DAY" | "NIGHT" | "FULL_DAY" {
+  public getBookingType(): BookingType {
     return this.props.bookingPeriod.getBookingType();
   }
 

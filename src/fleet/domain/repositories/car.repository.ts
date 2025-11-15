@@ -17,6 +17,7 @@ export interface CarRates {
   dayRate: number;
   nightRate: number;
   hourlyRate: number;
+  fullDayRate: number;
   currency: string;
 }
 

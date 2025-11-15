@@ -29,3 +29,5 @@ export interface CreateBookingResponse {
     totalAmount: number;
   };
 }
+
+export type BookingType = "DAY" | "NIGHT" | "FULL_DAY";

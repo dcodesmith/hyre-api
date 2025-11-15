@@ -24,6 +24,7 @@ export interface CarRatesDto {
   readonly dayRate: number;
   readonly nightRate: number;
   readonly hourlyRate: number;
+  readonly fullDayRate: number;
 }
 
 /**

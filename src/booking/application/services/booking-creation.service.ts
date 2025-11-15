@@ -58,7 +58,7 @@ export class BookingCreationService {
     // Create booking period with validation using BookingPeriodFactory
     const pickupTimeObj = pickupTime ? PickupTime.create(pickupTime) : undefined;
     const bookingPeriod = BookingPeriodFactory.create({
-      bookingType: bookingType as "DAY" | "NIGHT" | "FULL_DAY",
+      bookingType: bookingType,
       startDate: from,
       endDate: to,
       pickupTime: pickupTimeObj,

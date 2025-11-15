@@ -41,6 +41,7 @@ export class PrismaCarRepository implements CarRepository {
         dayRate: Number(car.dayRate),
         nightRate: Number(car.nightRate),
         hourlyRate: Number(car.hourlyRate),
+        fullDayRate: Number(car.fullDayRate),
       },
       status: car.status,
       approvalStatus: car.approvalStatus,

@@ -186,6 +186,21 @@ describe("BookingController", () => {
       expect(bookingServiceMock.cancelBooking).toHaveBeenCalledWith(bookingId, user, reason);
       expect(result).toBeUndefined();
     });
+
+    it("should propagate error when attempting to cancel a non-cancellable booking", async () => {
+      const bookingId = "booking-pending";
+      const user = createUserEntity({ id: "user-123" });
+
+      // Simulate domain error for invalid status
+      vi.mocked(bookingServiceMock.cancelBooking).mockRejectedValue(
+        new Error("Cannot cancel booking in PENDING status"),
+      );
+
+      await expect(controller.cancelBooking(bookingId, user)).rejects.toThrow(
+        "Cannot cancel booking in PENDING status",
+      );
+      expect(bookingServiceMock.cancelBooking).toHaveBeenCalledWith(bookingId, user, undefined);
+    });
   });
 
   describe("#assignChauffeur", () => {
@@ -264,6 +279,56 @@ describe("BookingController", () => {
         ForbiddenException,
       );
       expect(chauffeurAssignmentServiceMock.getAvailableChauffeurs).not.toHaveBeenCalled();
+    });
+
+    it("should allow fleet owner to query their own chauffeurs", async () => {
+      const fleetOwnerUser = createUserEntity({
+        id: "fleet-owner-1",
+        roles: [UserRole.fleetOwner()],
+        fleetOwnerId: "fleet-owner-1",
+      });
+      const startDate = new Date("2024-03-03T08:00:00.000Z");
+      const endDate = new Date("2024-03-03T12:00:00.000Z");
+      const query = createGetAvailableChauffeursDto({
+        startDate,
+        endDate,
+        fleetOwnerId: "fleet-owner-1", // Same as user's fleetOwnerId
+      });
+
+      vi.mocked(chauffeurAssignmentServiceMock.getAvailableChauffeurs).mockResolvedValue([
+        {
+          chauffeurId: "chauffeur-1",
+          name: "John Smith",
+          phoneNumber: "+1234567890",
+          licenseNumber: "DL-456",
+          isAvailable: true,
+          currentBookings: 0,
+        },
+      ]);
+
+      const response = await controller.getAvailableChauffeurs(query, fleetOwnerUser);
+
+      expect(chauffeurAssignmentServiceMock.getAvailableChauffeurs).toHaveBeenCalledWith(
+        "fleet-owner-1",
+        expect.any(Object),
+      );
+      expect(response).toEqual({
+        success: true,
+        chauffeurs: [
+          {
+            chauffeurId: "chauffeur-1",
+            name: "John Smith",
+            phoneNumber: "+1234567890",
+            licenseNumber: "DL-456",
+            isAvailable: true,
+            currentBookings: 0,
+          },
+        ],
+        dateRange: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      });
     });
 
     it("should return available chauffeurs for admin users", async () => {
@@ -361,7 +426,7 @@ describe("BookingController", () => {
   });
 
   describe("#getPaymentStatus", () => {
-    it("should delegate to the booking service and log the result", async () => {
+    it("should delegate to the booking service and return the result", async () => {
       const bookingId = "booking-789";
       const query = createPaymentStatusQueryDto({
         transaction_id: "tx-123",

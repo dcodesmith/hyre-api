@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { BookingDateService } from "./booking-date.service";
 
 describe("BookingDateService", () => {
+  // Note: TZ=UTC is enforced in vitest.config.mjs for consistent test behavior
+  // The BookingDateService uses date-fns functions that operate in local timezone
   const service = new BookingDateService();
 
   describe("generateBookingDates", () => {

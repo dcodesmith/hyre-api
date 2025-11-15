@@ -8,6 +8,7 @@ import {
   isSameDay,
   startOfDay,
 } from "date-fns";
+import { BookingType } from "../interfaces/booking.interface";
 
 @Injectable()
 export class BookingDateService {
@@ -17,18 +18,12 @@ export class BookingDateService {
    * For FULL_DAY bookings: generates one date per 24-hour period
    * For DAY bookings: generates one date per calendar day touched
    */
-  generateBookingDates(
-    startDate: Date,
-    endDate: Date,
-    type: "DAY" | "NIGHT" | "FULL_DAY",
-  ): Date[] {
+  generateBookingDates(startDate: Date, endDate: Date, type: BookingType): Date[] {
     if (type === "NIGHT") {
       // For night bookings, generate legs for each night
       const startDay = startOfDay(startDate);
       const endDay = startOfDay(endDate);
-      const daysDiff = Math.ceil(
-        (endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24),
-      );
+      const daysDiff = Math.ceil((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
 
       const bookingDates: Date[] = [];
       for (let i = 0; i < daysDiff; i++) {

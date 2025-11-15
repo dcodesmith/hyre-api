@@ -1,4 +1,5 @@
 import { ValueObject } from "../../../shared/domain/value-object";
+import { BookingType } from "../interfaces/booking.interface";
 
 export interface BookingPeriodProps {
   startDateTime: Date;
@@ -26,7 +27,7 @@ export abstract class BookingPeriod extends ValueObject<BookingPeriodProps> {
   /**
    * Returns the booking type discriminator for persistence/serialization
    */
-  abstract getBookingType(): "DAY" | "NIGHT" | "FULL_DAY";
+  abstract getBookingType(): BookingType;
 
   /**
    * Returns the security detail cost multiplier for this booking type
@@ -39,8 +40,7 @@ export abstract class BookingPeriod extends ValueObject<BookingPeriodProps> {
    */
   getDurationInHours(): number {
     return (
-      (this.props.endDateTime.getTime() - this.props.startDateTime.getTime()) /
-      (1000 * 60 * 60)
+      (this.props.endDateTime.getTime() - this.props.startDateTime.getTime()) / (1000 * 60 * 60)
     );
   }
 
@@ -49,8 +49,7 @@ export abstract class BookingPeriod extends ValueObject<BookingPeriodProps> {
    */
   overlaps(other: BookingPeriod): boolean {
     return (
-      this.props.startDateTime < other.endDateTime &&
-      this.props.endDateTime > other.startDateTime
+      this.props.startDateTime < other.endDateTime && this.props.endDateTime > other.startDateTime
     );
   }
 

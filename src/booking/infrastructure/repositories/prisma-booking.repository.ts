@@ -167,7 +167,7 @@ export class PrismaBookingRepository implements BookingRepository {
         bookingReference: savedBooking.bookingReference,
         status: BookingStatus.create(savedBooking.status as BookingStatusEnum),
         bookingPeriod: BookingPeriodFactory.reconstitute(
-          savedBooking.type as "DAY" | "NIGHT" | "FULL_DAY",
+          savedBooking.type,
           savedBooking.startDate,
           savedBooking.endDate,
         ),
