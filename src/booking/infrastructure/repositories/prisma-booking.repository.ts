@@ -161,7 +161,27 @@ export class PrismaBookingRepository implements BookingRepository {
         });
       }
 
-      // Return reconstituted booking with the database-assigned ID
+      // Load the persisted legs from the database within the transaction
+      const persistedLegs = await tx.bookingLeg.findMany({
+        where: { bookingId: savedBooking.id },
+        include: { extensions: true },
+      });
+
+      const domainLegs = persistedLegs.map((leg) =>
+        BookingLeg.reconstitute({
+          id: leg.id,
+          bookingId: leg.bookingId,
+          legDate: leg.legDate,
+          legStartTime: leg.legStartTime,
+          legEndTime: leg.legEndTime,
+          totalDailyPrice: leg.totalDailyPrice.toNumber(),
+          itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
+          fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
+          notes: leg.notes,
+        }),
+      );
+
+      // Return reconstituted booking with legs loaded from the transaction
       return Booking.reconstitute({
         id: savedBooking.id,
         bookingReference: savedBooking.bookingReference,
@@ -177,7 +197,7 @@ export class PrismaBookingRepository implements BookingRepository {
         carId: savedBooking.carId,
         chauffeurId: savedBooking.chauffeurId || undefined,
         specialRequests: savedBooking.specialRequests || undefined,
-        legs: [], // Legs will be loaded separately if needed
+        legs: domainLegs,
         paymentStatus: PaymentStatus.create(savedBooking.paymentStatus),
         paymentIntent: savedBooking.paymentIntent || undefined,
         paymentId: savedBooking.paymentId || undefined,

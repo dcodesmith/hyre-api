@@ -24,6 +24,7 @@ import { PaymentIntentService } from "../../domain/services/payment-intent.servi
 import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
 import { PaymentCustomer } from "../../domain/value-objects/payment-customer.vo";
+import { PickupTime } from "../../domain/value-objects/pickup-time.vo";
 import { BookingPaymentService } from "./booking-payment.service";
 
 describe("BookingPaymentService", () => {
@@ -38,13 +39,13 @@ describe("BookingPaymentService", () => {
   let mockBooking: Booking;
   let mockUser: User;
 
-  const mockBookingPeriod = BookingPeriodFactory.reconstitute(
-    "DAY",
-    new Date("2025-01-15T10:00:00Z"),
-    new Date("2025-01-15T22:00:00Z"),
-  );
-
   const mockDto = createCreateBookingDto();
+  const mockBookingPeriod = BookingPeriodFactory.create({
+    bookingType: mockDto.bookingType,
+    startDate: mockDto.from,
+    endDate: mockDto.to,
+    pickupTime: PickupTime.create(mockDto.pickupTime),
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

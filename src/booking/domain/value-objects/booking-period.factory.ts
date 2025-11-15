@@ -86,7 +86,12 @@ export const BookingPeriodFactory = {
       case "FULL_DAY":
         return FullDayBookingPeriod.reconstitute(startDateTime, endDateTime);
       default:
-        throw new Error(`Invalid booking type: ${bookingType}`);
+        throw new InvalidBookingPeriodError(
+          `Invalid booking type: ${bookingType}`,
+          bookingType,
+          startDateTime,
+          endDateTime,
+        );
     }
   },
 } as const;

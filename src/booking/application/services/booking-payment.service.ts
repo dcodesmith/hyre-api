@@ -86,8 +86,8 @@ export class BookingPaymentService {
       metadata: {
         booking_id: booking.getId(),
         booking_reference: booking.getBookingReference(),
-        car_id: dto.carId,
-        booking_type: dto.bookingType,
+        car_id: booking.getCarId(),
+        booking_type: bookingPeriod.getBookingType(),
         start_date: bookingPeriod.startDateTime.toISOString(),
         end_date: bookingPeriod.endDateTime.toISOString(),
       },
