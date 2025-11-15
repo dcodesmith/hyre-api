@@ -23,6 +23,7 @@ interface SerializedCar {
   dayRate: number;
   nightRate: number;
   hourlyRate: number;
+  fullDayRate: number;
   currency: string;
   createdAt: string;
 }
@@ -244,6 +245,7 @@ export class CachedFleetCarRepository implements CarRepository {
       dayRate: car.getDayRate(),
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
+      fullDayRate: car.getFullDayRate(),
       currency: "NGN", // Default currency - this should be configurable
       createdAt: car.getCreatedAt().toISOString(),
     }));
@@ -263,6 +265,7 @@ export class CachedFleetCarRepository implements CarRepository {
         dayRate: carData.dayRate,
         nightRate: carData.nightRate,
         hourlyRate: carData.hourlyRate,
+        fullDayRate: carData.fullDayRate,
         imageUrls: [], // Would need to be serialized/deserialized if needed
         motCertificateUrl: "", // Would need to be serialized/deserialized if needed
         insuranceCertificateUrl: "", // Would need to be serialized/deserialized if needed
