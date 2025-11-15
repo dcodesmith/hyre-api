@@ -79,11 +79,7 @@ export class BookingStatus extends ValueObject<BookingStatusProps> {
     return validTransitions[this.props.value].includes(newStatus.value);
   }
 
-  public canBeCancelled(): boolean {
-    return this.isCompleted();
-  }
-
-  toString(): string {
+  toString(): BookingStatusEnum {
     return this.props.value;
   }
 }

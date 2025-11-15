@@ -1,4 +1,4 @@
-import { DateRange } from "@/booking/domain/value-objects/date-range.vo";
+import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -209,14 +209,14 @@ describe("BookingLifecycleService", () => {
         id: "booking-1",
         bookingReference: "BK-001",
         chauffeurId: "chauffeur-1",
-        dateRange: DateRange.create(activationStart, activationEnd),
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
       });
 
       const confirmedBooking2 = createBookingEntity({
         id: "booking-2",
         bookingReference: "BK-002",
         chauffeurId: "chauffeur-2",
-        dateRange: DateRange.create(activationStart, activationEnd),
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
       });
 
       vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
@@ -291,14 +291,14 @@ describe("BookingLifecycleService", () => {
         id: "booking-3",
         bookingReference: "BK-003",
         status: BookingStatus.active(),
-        dateRange: DateRange.create(completionStart, completionEnd),
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
       });
 
       const activeBooking2 = createBookingEntity({
         id: "booking-4",
         bookingReference: "BK-004",
         status: BookingStatus.active(),
-        dateRange: DateRange.create(completionStart, completionEnd),
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
       });
 
       vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([

@@ -21,6 +21,7 @@ export interface UpdateCarDto {
   dayRate?: number;
   nightRate?: number;
   hourlyRate?: number;
+  fullDayRate?: number;
   status?: string;
 }
 
@@ -47,6 +48,7 @@ export interface CarSummary {
   dayRate: number;
   nightRate: number;
   hourlyRate: number;
+  fullDayRate: number;
   currency: string;
   displayName: string;
   createdAt: Date;
@@ -85,11 +87,12 @@ export class FleetApplicationService {
     }
 
     // Update rates if provided
-    if (dto.dayRate || dto.nightRate || dto.hourlyRate) {
+    if (dto.dayRate || dto.nightRate || dto.hourlyRate || dto.fullDayRate) {
       car.updateRates(
         dto.dayRate ?? car.getDayRate(),
         dto.nightRate ?? car.getNightRate(),
         dto.hourlyRate ?? car.getHourlyRate(),
+        dto.fullDayRate ?? car.getFullDayRate(),
       );
     }
 
@@ -200,6 +203,7 @@ export class FleetApplicationService {
       dayRate: car.getDayRate(),
       nightRate: car.getNightRate(),
       hourlyRate: car.getHourlyRate(),
+      fullDayRate: car.getFullDayRate(),
       currency: "NGN", // System-wide currency
       displayName: car.getDisplayName(),
       createdAt: car.getCreatedAt(),

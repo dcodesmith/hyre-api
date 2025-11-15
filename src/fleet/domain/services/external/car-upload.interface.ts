@@ -10,6 +10,7 @@ export interface CarUploadData {
   readonly dayRate: number;
   readonly nightRate: number;
   readonly hourlyRate: number;
+  readonly fullDayRate: number;
   readonly ownerId: string;
 }
 

@@ -14,6 +14,7 @@ export interface CarUploadDto {
   readonly dayRate: number;
   readonly nightRate: number;
   readonly hourlyRate: number;
+  readonly fullDayRate: number;
   readonly images: FileUploadDto[];
   readonly motCertificate: FileUploadDto;
   readonly insuranceCertificate: FileUploadDto;

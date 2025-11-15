@@ -26,7 +26,9 @@ export const CreateBookingSchema = z
 
     // Booking details
     carId: z.uuid({ message: "Car ID must be a valid UUID" }),
-    bookingType: z.enum(["DAY", "NIGHT"], { error: "Booking type must be either DAY or NIGHT" }),
+    bookingType: z.enum(["DAY", "NIGHT", "FULL_DAY"], {
+      message: "Booking type must be either DAY, NIGHT or FULL_DAY",
+    }),
     includeSecurityDetail: z.boolean().default(false),
     specialRequests: z.string().max(1000, { message: "Special requests too long" }).optional(),
 

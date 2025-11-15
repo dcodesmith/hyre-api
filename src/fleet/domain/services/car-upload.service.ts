@@ -64,6 +64,7 @@ export class CarUploadService {
         ownerId: carData.ownerId, // This establishes the fleet relationship!
         dayRate: carData.dayRate,
         nightRate: carData.nightRate,
+        fullDayRate: carData.fullDayRate,
         hourlyRate: carData.hourlyRate,
         imageUrls,
         motCertificateUrl,

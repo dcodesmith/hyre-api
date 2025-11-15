@@ -58,6 +58,7 @@ export class CarUploadApplicationService {
         dayRate: validatedData.dayRate,
         nightRate: validatedData.nightRate,
         hourlyRate: validatedData.hourlyRate,
+        fullDayRate: validatedData.fullDayRate,
         images: (validatedData.images ?? []).map((file) => ({
           fileName: file.originalname,
           contentType: file.mimetype,
@@ -125,6 +126,7 @@ export class CarUploadApplicationService {
           dayRate: dto.dayRate,
           nightRate: dto.nightRate,
           hourlyRate: dto.hourlyRate,
+          fullDayRate: dto.fullDayRate,
           ownerId,
         },
         images: dto.images.map((img) => ({

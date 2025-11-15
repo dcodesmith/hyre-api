@@ -21,7 +21,7 @@ import { LoggerService } from "../../shared/logging/logger.service";
 import { BookingApplicationService } from "../application/services/booking-application.service";
 import { PaymentStatusResult } from "../application/services/booking-payment.service";
 import { ChauffeurAssignmentService } from "../application/services/chauffeur-assignment.service";
-import { DateRange } from "../domain/value-objects/date-range.vo";
+import { BookingPeriodFactory } from "../domain/value-objects/booking-period.factory";
 import {
   AssignChauffeurDto,
   assignChauffeurSchema,
@@ -60,9 +60,9 @@ export class BookingController {
         totalAmount: result.totalAmount,
         breakdown: result.breakdown,
         booking: {
-          startDate: result.booking.getDateRange().startDate.toISOString(),
-          endDate: result.booking.getDateRange().endDate.toISOString(),
-          type: result.booking.getBookingType().value,
+          startDate: result.booking.getStartDateTime().toISOString(),
+          endDate: result.booking.getEndDateTime().toISOString(),
+          type: result.booking.getBookingType(),
           pickupAddress: result.booking.getPickupAddress(),
           dropOffAddress: result.booking.getDropOffAddress(),
         },
@@ -185,22 +185,16 @@ export class BookingController {
       }
     }
 
-    // Create date range
+    // Create booking period for availability check (using reconstitute to bypass validation)
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-    let dateRange: DateRange;
-
-    try {
-      dateRange = DateRange.create(startDate, endDate);
-    } catch (error) {
-      // Surface validation errors as HTTP 400
-      throw new BadRequestException(error instanceof Error ? error.message : "Invalid date range");
-    }
+    // TODO: Use the correct booking type based on the query
+    const bookingPeriod = BookingPeriodFactory.reconstitute("DAY", startDate, endDate);
 
     // Get available chauffeurs
     const chauffeurs = await this.chauffeurAssignmentService.getAvailableChauffeurs(
       fleetOwnerId,
-      dateRange,
+      bookingPeriod,
     );
 
     return {
@@ -232,7 +226,7 @@ export class BookingController {
     // Check availability
     const availability = await this.chauffeurAssignmentService.checkChauffeurAvailability(
       chauffeurId,
-      booking.getDateRange(),
+      booking.getBookingPeriod(),
       bookingId,
     );
 

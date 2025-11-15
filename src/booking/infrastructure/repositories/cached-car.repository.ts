@@ -15,6 +15,7 @@ interface SerializedCar {
   dayRate: string;
   nightRate: string;
   hourlyRate: string;
+  fullDayRate: string;
   status: string;
   approvalStatus: string;
   imageUrls: string[];
@@ -135,6 +136,7 @@ export class CachedCarRepository implements CarRepository {
       dayRate: car.rates.dayRate.toString(),
       nightRate: car.rates.nightRate.toString(),
       hourlyRate: car.rates.hourlyRate.toString(),
+      fullDayRate: car.rates.fullDayRate.toString(),
       status: car.status,
       approvalStatus: car.approvalStatus,
       imageUrls: [...car.imageUrls],
@@ -158,6 +160,7 @@ export class CachedCarRepository implements CarRepository {
         dayRate: Number(data.dayRate),
         nightRate: Number(data.nightRate),
         hourlyRate: Number(data.hourlyRate),
+        fullDayRate: Number(data.fullDayRate),
       },
       status: data.status,
       approvalStatus: data.approvalStatus,

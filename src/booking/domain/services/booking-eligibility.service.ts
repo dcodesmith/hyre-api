@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { Booking } from "../entities/booking.entity";
-import { DateRange } from "../value-objects/date-range.vo";
 
 export class BookingEligibilityResult {
   constructor(
@@ -20,7 +19,7 @@ export class BookingEligibilityResult {
 @Injectable()
 export class BookingEligibilityService {
   public canActivateBooking(booking: Booking): BookingEligibilityResult {
-    if (!booking.getStatus().isConfirmed()) {
+    if (!booking.isConfirmed()) {
       return BookingEligibilityResult.ineligible("Booking must be confirmed to activate");
     }
 
@@ -31,7 +30,7 @@ export class BookingEligibilityService {
     }
 
     const now = new Date();
-    if (booking.getDateRange().startDate > now) {
+    if (booking.getStartDateTime() > now) {
       return BookingEligibilityResult.ineligible("Booking start time has not arrived yet");
     }
 
@@ -39,13 +38,13 @@ export class BookingEligibilityService {
   }
 
   public canCancelBooking(booking: Booking): BookingEligibilityResult {
-    if (booking.getStatus().isCancelled()) {
+    if (booking.isCancelled()) {
       return BookingEligibilityResult.ineligible("Booking is already cancelled");
     }
 
     if (!booking.isEligibleForCancellation()) {
       return BookingEligibilityResult.ineligible(
-        `Booking cannot be cancelled in ${booking.getStatus().toString()} status`,
+        `Booking cannot be cancelled in ${booking.getStatus()} status`,
       );
     }
 
@@ -53,12 +52,12 @@ export class BookingEligibilityService {
   }
 
   public canCompleteBooking(booking: Booking): BookingEligibilityResult {
-    if (!booking.getStatus().isActive()) {
+    if (!booking.isActive()) {
       return BookingEligibilityResult.ineligible("Booking must be active to complete");
     }
 
     const now = new Date();
-    if (booking.getDateRange().endDate > now) {
+    if (booking.getEndDateTime() > now) {
       return BookingEligibilityResult.ineligible("Booking end time has not arrived yet");
     }
 
@@ -66,7 +65,7 @@ export class BookingEligibilityService {
   }
 
   public needsStartReminder(booking: Booking): BookingEligibilityResult {
-    if (!booking.getStatus().isConfirmed()) {
+    if (!booking.isConfirmed()) {
       return BookingEligibilityResult.ineligible("Only confirmed bookings need start reminders");
     }
 
@@ -78,7 +77,7 @@ export class BookingEligibilityService {
   }
 
   public needsEndReminder(booking: Booking): BookingEligibilityResult {
-    if (!booking.getStatus().isActive()) {
+    if (!booking.isActive()) {
       return BookingEligibilityResult.ineligible("Only active bookings need end reminders");
     }
 
@@ -91,13 +90,20 @@ export class BookingEligibilityService {
 
   public canBookCarForDateRange(
     existingBookings: Booking[],
-    requestedDateRange: DateRange,
+    requestedDateRange: { startDate: Date; endDate: Date },
   ): BookingEligibilityResult {
     const conflictingBookings = existingBookings.filter((booking) => {
-      return (
-        (booking.getStatus().isConfirmed() || booking.getStatus().isActive()) &&
-        booking.getDateRange().overlaps(requestedDateRange)
-      );
+      if (!booking.isConfirmed() && !booking.isActive()) {
+        return false;
+      }
+
+      // Check overlap: two periods overlap if start1 < end2 AND start2 < end1
+      const bookingStart = booking.getStartDateTime();
+      const bookingEnd = booking.getEndDateTime();
+      const requestedStart = requestedDateRange.startDate;
+      const requestedEnd = requestedDateRange.endDate;
+
+      return bookingStart < requestedEnd && requestedStart < bookingEnd;
     });
 
     if (conflictingBookings.length > 0) {

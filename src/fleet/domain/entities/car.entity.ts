@@ -16,6 +16,7 @@ export interface CarCreationParams {
   ownerId: string;
   dayRate: number;
   nightRate: number;
+  fullDayRate: number;
   hourlyRate: number;
   imageUrls: string[];
   motCertificateUrl: string;
@@ -32,6 +33,7 @@ export interface CarProps {
   dayRate: number;
   nightRate: number;
   hourlyRate: number;
+  fullDayRate: number;
   status: CarStatus;
   approvalStatus: CarApprovalStatus;
   imageUrls: string[];
@@ -128,10 +130,16 @@ export class Car extends AggregateRoot {
     );
   }
 
-  public updateRates(dayRate: number, nightRate: number, hourlyRate: number): void {
+  public updateRates(
+    dayRate: number,
+    nightRate: number,
+    hourlyRate: number,
+    fullDayRate: number,
+  ): void {
     this.props.dayRate = dayRate;
     this.props.nightRate = nightRate;
     this.props.hourlyRate = hourlyRate;
+    this.props.fullDayRate = fullDayRate;
     this.props.updatedAt = new Date();
   }
 
@@ -207,6 +215,10 @@ export class Car extends AggregateRoot {
     return this.props.hourlyRate;
   }
 
+  public getFullDayRate(): number {
+    return this.props.fullDayRate;
+  }
+
   public getStatus(): CarStatus {
     return this.props.status;
   }
@@ -243,12 +255,19 @@ export class Car extends AggregateRoot {
    * Helper method to extract rates for booking calculations
    * This replaces the need for a separate CarRates interface
    */
-  public getRates(): { id: string; dayRate: number; nightRate: number; hourlyRate: number } {
+  public getRates(): {
+    id: string;
+    dayRate: number;
+    nightRate: number;
+    hourlyRate: number;
+    fullDayRate: number;
+  } {
     return {
       id: this.getId(),
       dayRate: this.getDayRate(),
       nightRate: this.getNightRate(),
       hourlyRate: this.getHourlyRate(),
+      fullDayRate: this.getFullDayRate(),
     };
   }
 }

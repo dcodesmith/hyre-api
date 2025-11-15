@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createCarDto } from "../../../../test/fixtures/car.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { UserRole } from "../../../iam/domain/value-objects/user-role.vo";
 import { LoggerService } from "../../../shared/logging/logger.service";
-import { CarDto } from "../../domain/dtos/car.dto";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
@@ -18,27 +18,7 @@ describe("BookingQueryService", () => {
   let mockBookingAuthorizationService: BookingAuthorizationService;
   let mockLogger: LoggerService;
 
-  const mockCar: CarDto = {
-    id: "car-123",
-    make: "Tesla",
-    model: "Model S",
-    year: 2024,
-    color: "Red",
-    registrationNumber: "ABC-123",
-    ownerId: "fleet-owner-1",
-    rates: {
-      dayRate: 100,
-      nightRate: 120,
-      hourlyRate: 20,
-    },
-    status: "available",
-    approvalStatus: "approved",
-    imageUrls: [],
-    motCertificateUrl: "mot-url",
-    insuranceCertificateUrl: "insurance-url",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const mockCar = createCarDto();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

@@ -8,6 +8,9 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.ts"],
     exclude: ["node_modules/**", "dist/**", "**/*.e2e-spec.ts"],
     setupFiles: ["./test/setup.ts"],
+    env: {
+      TZ: "UTC", // Force UTC timezone for consistent test behavior across CI/CD environments
+    },
     pool: "threads",
     poolOptions: {
       threads: {

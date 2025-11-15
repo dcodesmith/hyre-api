@@ -73,6 +73,7 @@ export const carUploadCompleteSchema = z.object({
   dayRate: z.coerce.number().positive(),
   nightRate: z.coerce.number().positive(),
   hourlyRate: z.coerce.number().positive(),
+  fullDayRate: z.coerce.number().positive(),
 
   // File fields (come as arrays from multer)
   images: z

@@ -27,34 +27,33 @@ export class BookingApplicationService {
 
   async createPendingBooking(dto: CreateBookingDto, user?: User): Promise<CreateBookingResponse> {
     // Create the booking using the specialized creation service
-    const { booking: savedBooking, timeResult } =
+    const { booking, bookingPeriod, customer } =
       await this.bookingCreationService.createPendingBooking(dto, user);
 
     // Create payment intent and attach to booking
     const { paymentIntentId, checkoutUrl } =
       await this.bookingPaymentService.createAndAttachPaymentIntent(
-        savedBooking,
-        user,
-        dto,
-        timeResult,
+        booking,
+        customer,
+        bookingPeriod,
       );
 
     this.logger.log(
-      `Created pending booking ${savedBooking.getBookingReference()} with total amount: ${savedBooking.getTotalAmount()?.toString()}`,
+      `Created pending booking ${booking.getBookingReference()} with total amount: ${booking.getTotalAmount()?.toString()}`,
     );
 
     return {
-      booking: savedBooking,
-      totalAmount: savedBooking.getTotalAmount() || 0,
-      netTotal: savedBooking.getNetTotal() || 0,
-      fleetOwnerPayoutAmountNet: savedBooking.getFleetOwnerPayoutAmountNet() || 0,
+      booking,
+      totalAmount: booking.getTotalAmount() || 0,
+      netTotal: booking.getNetTotal() || 0,
+      fleetOwnerPayoutAmountNet: booking.getFleetOwnerPayoutAmountNet() || 0,
       checkoutUrl,
       paymentIntentId,
       breakdown: {
-        netTotal: savedBooking.getNetTotal() || 0,
-        platformServiceFee: savedBooking.getPlatformServiceFeeAmount() || 0,
-        vat: savedBooking.getVatAmount() || 0,
-        totalAmount: savedBooking.getTotalAmount() || 0,
+        netTotal: booking.getNetTotal() || 0,
+        platformServiceFee: booking.getPlatformServiceFeeAmount() || 0,
+        vat: booking.getVatAmount() || 0,
+        totalAmount: booking.getTotalAmount() || 0,
       },
     };
   }

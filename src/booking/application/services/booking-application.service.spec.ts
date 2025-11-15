@@ -1,11 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
-import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
+import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
+import { PickupTime } from "../../domain/value-objects/pickup-time.vo";
 import { BookingApplicationService } from "./booking-application.service";
 import { BookingCreationService } from "./booking-creation.service";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
@@ -40,16 +42,21 @@ describe("BookingApplicationService", () => {
     financials: BookingFinancials.create({
       totalAmount: new Decimal(10000),
       netTotal: new Decimal(8500),
+      securityDetailCost: new Decimal(0),
       platformServiceFeeAmount: new Decimal(1000),
       vatAmount: new Decimal(500),
       fleetOwnerPayoutAmountNet: new Decimal(7500),
     }),
   });
 
-  const mockTimeResult = {
-    startDateTime: new Date("2024-01-15T10:00:00Z"),
-    endDateTime: new Date("2024-01-15T18:00:00Z"),
-  };
+  // Create a valid future booking period that passes validation
+  const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+  futureDate.setHours(10, 0, 0, 0); // Set to 10 AM
+  const mockBookingPeriod = BookingPeriodFactory.create({
+    bookingType: "DAY",
+    startDate: futureDate,
+    pickupTime: PickupTime.create("10:00 AM"),
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -95,23 +102,7 @@ describe("BookingApplicationService", () => {
     vi.clearAllMocks();
   });
 
-  // Test data setup
-  const mockDto: CreateBookingDto = {
-    carId: "car-123",
-    bookingType: "DAY",
-    from: new Date("2024-01-15"),
-    to: new Date("2024-01-15"),
-    totalAmount: 10000,
-    pickupTime: "10:00",
-    pickupAddress: "123 Main St",
-    dropOffAddress: "456 Oak Ave",
-    sameLocation: false,
-    includeSecurityDetail: false,
-    specialRequests: "Test booking",
-    email: "test@example.com",
-    name: "John Doe",
-    phoneNumber: "+1234567890",
-  };
+  const mockDto = createCreateBookingDto();
 
   const mockUser = createUserEntity({
     id: "user-123",
@@ -121,7 +112,8 @@ describe("BookingApplicationService", () => {
     it("should orchestrate booking creation and payment intent attachment", async () => {
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockBooking,
-        timeResult: mockTimeResult,
+        bookingPeriod: mockBookingPeriod,
+        customer: mockUser,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({
@@ -135,8 +127,7 @@ describe("BookingApplicationService", () => {
       expect(bookingPaymentService.createAndAttachPaymentIntent).toHaveBeenCalledWith(
         mockBooking,
         mockUser,
-        mockDto,
-        mockTimeResult,
+        mockBookingPeriod,
       );
 
       expect(result).toEqual({
@@ -160,9 +151,11 @@ describe("BookingApplicationService", () => {
     });
 
     it("should handle guest bookings (no user provided)", async () => {
+      const mockGuestCustomer = createUserEntity({ id: "guest-456" });
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockBooking,
-        timeResult: mockTimeResult,
+        bookingPeriod: mockBookingPeriod,
+        customer: mockGuestCustomer,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({
@@ -175,9 +168,8 @@ describe("BookingApplicationService", () => {
       expect(bookingCreationService.createPendingBooking).toHaveBeenCalledWith(mockDto, undefined);
       expect(bookingPaymentService.createAndAttachPaymentIntent).toHaveBeenCalledWith(
         mockBooking,
-        undefined,
-        mockDto,
-        mockTimeResult,
+        mockGuestCustomer,
+        mockBookingPeriod,
       );
     });
 
@@ -188,6 +180,7 @@ describe("BookingApplicationService", () => {
         financials: BookingFinancials.create({
           totalAmount: new Decimal(5000),
           netTotal: new Decimal(4200),
+          securityDetailCost: new Decimal(0),
           platformServiceFeeAmount: new Decimal(600),
           vatAmount: new Decimal(200),
           fleetOwnerPayoutAmountNet: new Decimal(3800),
@@ -196,7 +189,8 @@ describe("BookingApplicationService", () => {
 
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockDetailedBooking,
-        timeResult: mockTimeResult,
+        bookingPeriod: mockBookingPeriod,
+        customer: mockUser,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({
@@ -226,14 +220,11 @@ describe("BookingApplicationService", () => {
       const bookingId = "booking-system-123";
       const booking = createBookingEntity({ id: bookingId });
 
-      (bookingQueryService.getBookingByIdInternal as ReturnType<typeof vi.fn>).mockResolvedValue(
-        booking,
-      );
+      vi.mocked(bookingQueryService.getBookingByIdInternal).mockResolvedValue(booking);
 
       const result = await service.getBookingByIdInternally(bookingId);
-
-      expect(bookingQueryService.getBookingByIdInternal).toHaveBeenCalledWith(bookingId);
       expect(result).toBe(booking);
+      expect(bookingQueryService.getBookingByIdInternal).toHaveBeenCalledWith(bookingId);
     });
   });
 });

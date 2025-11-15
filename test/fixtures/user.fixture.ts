@@ -8,25 +8,24 @@ export function createUserEntity(overrides: Partial<UserProps> = {}): User {
   const now = new Date();
 
   const props = {
-    id: overrides.id ?? "user-fixture-id",
-    userType: overrides.userType ?? UserType.registered(),
-    email: overrides.email ?? "user.fixture@example.com",
-    username: overrides.username,
-    name: overrides.name ?? "Fixture User",
-    phoneNumber: overrides.phoneNumber ?? "+1234567890",
-    address: overrides.address,
-    city: overrides.city,
-    hasOnboarded: overrides.hasOnboarded ?? true,
-    guestExpiresAt: overrides.guestExpiresAt,
-    roles: overrides.roles ? [...overrides.roles] : [UserRole.customer()],
-    fleetOwnerId: overrides.fleetOwnerId,
-    approvalStatus: overrides.approvalStatus ?? ApprovalStatus.approved("system"),
-    registrationType: overrides.registrationType ?? RegistrationType.selfRegistration(),
-    bankDetailsId: overrides.bankDetailsId,
-    driverLicenseNumber: overrides.driverLicenseNumber,
-    createdAt: overrides.createdAt ?? now,
-    updatedAt: overrides.updatedAt ?? now,
+    id: "user-fixture-id",
+    userType: UserType.registered(),
+    email: "user.fixture@example.com",
+    name: "Fixture User",
+    phoneNumber: "+1234567890",
+    address: "123 Main St",
+    city: "New York",
+    hasOnboarded: true,
+    guestExpiresAt: undefined,
+    roles: [UserRole.customer()],
+    fleetOwnerId: undefined,
+    approvalStatus: ApprovalStatus.approved("system"),
+    registrationType: RegistrationType.selfRegistration(),
+    bankDetailsId: undefined,
+    driverLicenseNumber: undefined,
+    createdAt: now,
+    updatedAt: now,
   };
 
-  return User.reconstitute(props);
+  return User.reconstitute({ ...props, ...overrides });
 }
