@@ -16,7 +16,6 @@ import { PaymentVerificationService } from "../../domain/services/external/payme
 import { PaymentIntentService } from "../../domain/services/payment-intent.service";
 import type { BookingPeriod } from "../../domain/value-objects/booking-period.vo";
 import { PaymentCallbackUrl } from "../../domain/value-objects/payment-callback-url.vo";
-import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { PaymentStatusQueryDto } from "../../presentation/dto/payment-status.dto";
 
 export interface PaymentStatusResult {
@@ -57,19 +56,14 @@ export class BookingPaymentService {
 
   async createAndAttachPaymentIntent(
     booking: Booking,
-    user: User | undefined,
-    dto: CreateBookingDto,
+    customer: User,
     bookingPeriod: BookingPeriod,
   ): Promise<PaymentIntentCreationResult> {
-    const paymentCustomer = this.bookingCustomerResolver.resolvePaymentCustomer(user, {
-      email: dto.email,
-      name: dto.name,
-      phoneNumber: dto.phoneNumber,
-    });
+    const paymentCustomer = this.bookingCustomerResolver.resolvePaymentCustomer(customer);
 
-    const bookingIdVal = booking.getId();
+    const bookingId = booking.getId();
 
-    if (!bookingIdVal) {
+    if (!bookingId) {
       this.logger.error(
         `Cannot create payment intent: booking has no ID (ref ${booking.getBookingReference()})`,
       );
@@ -78,7 +72,7 @@ export class BookingPaymentService {
       );
     }
 
-    const callbackUrl = PaymentCallbackUrl.create(this.configService.app.domain, bookingIdVal);
+    const callbackUrl = PaymentCallbackUrl.create(this.configService.app.domain, bookingId);
 
     const paymentIntent = await this.paymentIntentService.createPaymentIntent({
       amount: booking.getTotalAmount() || 0,

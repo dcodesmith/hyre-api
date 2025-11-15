@@ -95,6 +95,37 @@ export class BookingCannotBeCompletedError extends BookingDomainError {
   }
 }
 
+export class BookingCustomerNotAuthorizedError extends BookingDomainError {
+  readonly code = "BOOKING_CUSTOMER_NOT_AUTHORIZED";
+  constructor(userId: string, email?: string) {
+    super(`User ${email ?? userId} is not authorized to make bookings`, {
+      userId,
+      email,
+    });
+  }
+}
+
+export class GuestCustomerDetailsRequiredError extends BookingDomainError {
+  readonly code = "GUEST_CUSTOMER_DETAILS_REQUIRED";
+  constructor(missingFields: string[]) {
+    super(`Guest users must provide: ${missingFields.join(", ")}`, { missingFields });
+  }
+}
+
+export class GuestCustomerEmailRegisteredError extends BookingDomainError {
+  readonly code = "GUEST_CUSTOMER_EMAIL_REGISTERED";
+  constructor(email: string) {
+    super(`Email ${email} is already registered. Please sign in to make bookings.`, { email });
+  }
+}
+
+export class GuestCustomerAccountExpiredError extends BookingDomainError {
+  readonly code = "GUEST_CUSTOMER_ACCOUNT_EXPIRED";
+  constructor(email: string) {
+    super(`Guest user account for ${email} has expired. Please create a new booking.`, { email });
+  }
+}
+
 export class CarOwnerIdRequiredForFleetOwnerVerificationError extends BookingDomainError {
   readonly code = "CAR_OWNER_ID_REQUIRED_FOR_FLEET_OWNER_VERIFICATION";
   constructor(bookingId: string) {

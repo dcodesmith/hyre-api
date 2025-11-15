@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { UserRepository } from "../../../iam/domain/repositories/user.repository";
 import { PrismaService } from "../../../shared/database/prisma.service";
@@ -7,6 +7,12 @@ import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingCarDto } from "../../domain/dtos/car.dto";
 import { Booking } from "../../domain/entities/booking.entity";
 import { CarNotFoundError } from "../../domain/errors/car.errors";
+import {
+  BookingCustomerNotAuthorizedError,
+  GuestCustomerAccountExpiredError,
+  GuestCustomerDetailsRequiredError,
+  GuestCustomerEmailRegisteredError,
+} from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAmountVerifierService } from "../../domain/services/booking-amount-verifier.service";
@@ -43,17 +49,17 @@ export class BookingCreationService {
   async createPendingBooking(
     dto: CreateBookingDto,
     user?: User,
-  ): Promise<{ booking: Booking; bookingPeriod: BookingPeriod }> {
+  ): Promise<{ booking: Booking; bookingPeriod: BookingPeriod; customer: User }> {
     const { carId, bookingType, from, to, totalAmount, pickupTime } = dto;
 
-    // Validate car exists
     const car = await this.carRepository.findById(carId);
+
     if (!car) {
       throw new CarNotFoundError(carId);
     }
 
-    // Resolve customer ID
-    const customerId = await this.resolveCustomerId(dto, user);
+    // Resolve customer entity (registered or guest)
+    const customer = await this.resolveCustomer(dto, user);
 
     // Create booking period with validation using BookingPeriodFactory
     const pickupTimeObj = pickupTime ? PickupTime.create(pickupTime) : undefined;
@@ -65,7 +71,7 @@ export class BookingCreationService {
     });
 
     // Create booking entity
-    const booking = await this.createBookingEntity(dto, customerId, car, bookingPeriod);
+    const booking = await this.createBookingEntity(dto, customer.getId(), car, bookingPeriod);
 
     // Verify client amount matches server calculation
     this.bookingAmountVerifier.verifyAmount(totalAmount, booking.getTotalAmount());
@@ -77,7 +83,7 @@ export class BookingCreationService {
       `Created pending booking ${savedBooking.getBookingReference()} with total amount: ${savedBooking.getTotalAmount()?.toString()}`,
     );
 
-    return { booking: savedBooking, bookingPeriod };
+    return { booking: savedBooking, bookingPeriod, customer };
   }
 
   /**
@@ -85,44 +91,46 @@ export class BookingCreationService {
    * For authenticated users: Use their user ID
    * For guest users: Validate guest fields and create guest user record
    */
-  private async resolveCustomerId(dto: CreateBookingDto, user?: User): Promise<string> {
+  private async resolveCustomer(dto: CreateBookingDto, user?: User): Promise<User> {
     if (user) {
       // Authenticated user - validate they can make bookings
       if (!user.canMakeBookings()) {
-        throw new BadRequestException(`User ${user.getEmail()} is not authorized to make bookings`);
+        throw new BookingCustomerNotAuthorizedError(user.getId(), user.getEmail());
       }
 
       this.logger.log(
         `Creating booking for authenticated ${user.isGuest() ? "guest" : "registered"} user: ${user.getId()}`,
       );
-      return user.getId();
+      return user;
     }
 
     // Guest user - validate required fields
     const { email, name, phoneNumber } = dto;
 
-    if (!email || !name || !phoneNumber) {
-      throw new BadRequestException("Guest users must provide email, name, and phone number");
+    const missingFields = [
+      !email ? "email" : null,
+      !name ? "name" : null,
+      !phoneNumber ? "phoneNumber" : null,
+    ].filter((field): field is string => Boolean(field));
+
+    if (missingFields.length > 0) {
+      throw new GuestCustomerDetailsRequiredError(missingFields);
     }
 
     // Check if guest email belongs to existing registered user
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser?.isRegistered()) {
-      throw new BadRequestException(
-        `Email ${email} is already registered. Please sign in to make bookings.`,
-      );
+      throw new GuestCustomerEmailRegisteredError(email);
     }
 
     // If existing guest user found, use that
     if (existingUser?.isGuest()) {
       if (existingUser.isGuestExpired()) {
-        throw new BadRequestException(
-          `Guest user account has expired. Please create a new booking.`,
-        );
+        throw new GuestCustomerAccountExpiredError(existingUser.getEmail() ?? email);
       }
 
       this.logger.log(`Using existing guest user: ${existingUser.getId()}`);
-      return existingUser.getId();
+      return existingUser;
     }
 
     // Create new guest user
@@ -130,7 +138,7 @@ export class BookingCreationService {
     await this.userRepository.save(guestUser);
 
     this.logger.log(`Created new guest user: ${guestUser.getId()}`);
-    return guestUser.getId();
+    return guestUser;
   }
 
   private async createBookingEntity(

@@ -50,8 +50,8 @@ export function createBookingEntity(overrides: Partial<BookingProps> = {}): Book
   const props = {
     ...baseProps,
     ...overrides,
-    bookingPeriod: overrides.bookingPeriod ?? bookingPeriod,
-    financials: overrides.financials ?? financials,
+    bookingPeriod,
+    financials,
     legs: overrides.legs ?? baseProps.legs,
   };
 

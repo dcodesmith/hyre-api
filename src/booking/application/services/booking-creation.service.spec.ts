@@ -1,4 +1,3 @@
-import { BadRequestException } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,6 +18,12 @@ import { BookingAmountVerifierService } from "../../domain/services/booking-amou
 import { BookingCostCalculatorService } from "../../domain/services/booking-cost-calculator.service";
 import { BookingDateService } from "../../domain/services/booking-date.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
+import {
+  BookingCustomerNotAuthorizedError,
+  GuestCustomerAccountExpiredError,
+  GuestCustomerDetailsRequiredError,
+  GuestCustomerEmailRegisteredError,
+} from "../../domain/errors/booking.errors";
 import { BookingCreationService } from "./booking-creation.service";
 
 /**
@@ -190,6 +195,7 @@ describe("BookingCreationService", () => {
       expect(result.booking).toBe(mockBooking);
       expect(result.bookingPeriod).toBeDefined();
       expect(result.bookingPeriod.getBookingType()).toBe("DAY");
+      expect(result.customer).toBe(mockUser);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("Created pending booking BK-123"),
       );
@@ -213,7 +219,7 @@ describe("BookingCreationService", () => {
       vi.spyOn(restrictedUser, "canMakeBookings").mockReturnValue(false);
 
       await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
-        BadRequestException,
+        BookingCustomerNotAuthorizedError,
       );
       await expect(service.createPendingBooking(mockDto, restrictedUser)).rejects.toThrow(
         "is not authorized to make bookings",
@@ -271,9 +277,11 @@ describe("BookingCreationService", () => {
 
       vi.mocked(userRepository.findByEmail).mockResolvedValue(expiredGuestUser);
 
-      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        "Guest user account has expired",
+        GuestCustomerAccountExpiredError,
+      );
+      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
+        "Guest user account for",
       );
     });
 
@@ -286,7 +294,9 @@ describe("BookingCreationService", () => {
 
       vi.mocked(userRepository.findByEmail).mockResolvedValue(registeredUser);
 
-      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(BadRequestException);
+      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
+        GuestCustomerEmailRegisteredError,
+      );
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
         "is already registered. Please sign in",
       );
@@ -296,10 +306,10 @@ describe("BookingCreationService", () => {
       const incompleteDto = { ...mockDto, email: undefined };
 
       await expect(service.createPendingBooking(incompleteDto)).rejects.toThrow(
-        BadRequestException,
+        GuestCustomerDetailsRequiredError,
       );
       await expect(service.createPendingBooking(incompleteDto)).rejects.toThrow(
-        "Guest users must provide email, name, and phone number",
+        "Guest users must provide",
       );
     });
   });

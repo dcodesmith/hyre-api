@@ -113,6 +113,7 @@ describe("BookingApplicationService", () => {
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockBooking,
         bookingPeriod: mockBookingPeriod,
+        customer: mockUser,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({
@@ -126,7 +127,6 @@ describe("BookingApplicationService", () => {
       expect(bookingPaymentService.createAndAttachPaymentIntent).toHaveBeenCalledWith(
         mockBooking,
         mockUser,
-        mockDto,
         mockBookingPeriod,
       );
 
@@ -151,9 +151,11 @@ describe("BookingApplicationService", () => {
     });
 
     it("should handle guest bookings (no user provided)", async () => {
+      const mockGuestCustomer = createUserEntity({ id: "guest-456" });
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockBooking,
         bookingPeriod: mockBookingPeriod,
+        customer: mockGuestCustomer,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({
@@ -166,8 +168,7 @@ describe("BookingApplicationService", () => {
       expect(bookingCreationService.createPendingBooking).toHaveBeenCalledWith(mockDto, undefined);
       expect(bookingPaymentService.createAndAttachPaymentIntent).toHaveBeenCalledWith(
         mockBooking,
-        undefined,
-        mockDto,
+        mockGuestCustomer,
         mockBookingPeriod,
       );
     });
@@ -189,6 +190,7 @@ describe("BookingApplicationService", () => {
       vi.mocked(bookingCreationService.createPendingBooking).mockResolvedValue({
         booking: mockDetailedBooking,
         bookingPeriod: mockBookingPeriod,
+        customer: mockUser,
       });
 
       vi.mocked(bookingPaymentService.createAndAttachPaymentIntent).mockResolvedValue({

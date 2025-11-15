@@ -39,12 +39,12 @@ describe("BookingPaymentService", () => {
   let mockBooking: Booking;
   let mockUser: User;
 
-  const mockDto = createCreateBookingDto();
+  const mockCreateBookingDto = createCreateBookingDto();
   const mockBookingPeriod = BookingPeriodFactory.create({
-    bookingType: mockDto.bookingType,
-    startDate: mockDto.from,
-    endDate: mockDto.to,
-    pickupTime: PickupTime.create(mockDto.pickupTime),
+    bookingType: mockCreateBookingDto.bookingType,
+    startDate: mockCreateBookingDto.from,
+    endDate: mockCreateBookingDto.to,
+    pickupTime: PickupTime.create(mockCreateBookingDto.pickupTime),
   });
 
   beforeEach(async () => {
@@ -125,6 +125,7 @@ describe("BookingPaymentService", () => {
       bookingReference: "BK-123",
       status: BookingStatus.pending(),
       paymentIntent: "pi-123",
+      carId: mockCreateBookingDto.carId,
     });
 
     mockUser = createUserEntity();
@@ -153,18 +154,13 @@ describe("BookingPaymentService", () => {
         paymentIntentId: "pi-123",
         checkoutUrl: "https://checkout.test.com",
       };
-      const expectedCustomerData = {
-        email: mockDto.email,
-        name: mockDto.name,
-        phoneNumber: mockDto.phoneNumber,
-      };
       const expectedPaymentIntentData = {
-        amount: mockBooking.getTotalAmount(),
+        amount: mockBooking.getTotalAmount() || 0,
         customer: mockPaymentCustomer.toPaymentService(),
         metadata: {
           booking_id: "booking-123",
           booking_reference: "BK-123",
-          car_id: mockDto.carId,
+          car_id: mockBooking.getCarId(),
           booking_type: mockBookingPeriod.getBookingType(),
           start_date: mockBookingPeriod.startDateTime.toISOString(),
           end_date: mockBookingPeriod.endDateTime.toISOString(),
@@ -186,14 +182,10 @@ describe("BookingPaymentService", () => {
       const result = await service.createAndAttachPaymentIntent(
         mockBooking,
         mockUser,
-        mockDto,
         mockBookingPeriod,
       );
 
-      expect(mockBookingCustomerResolver.resolvePaymentCustomer).toHaveBeenCalledWith(
-        mockUser,
-        expectedCustomerData,
-      );
+      expect(mockBookingCustomerResolver.resolvePaymentCustomer).toHaveBeenCalledWith(mockUser);
       expect(mockPaymentIntentService.createPaymentIntent).toHaveBeenCalledWith(
         expectedPaymentIntentData,
       );
@@ -216,12 +208,7 @@ describe("BookingPaymentService", () => {
       );
 
       await expect(
-        service.createAndAttachPaymentIntent(
-          bookingWithoutId,
-          mockUser,
-          mockDto,
-          mockBookingPeriod,
-        ),
+        service.createAndAttachPaymentIntent(bookingWithoutId, mockUser, mockBookingPeriod),
       ).rejects.toThrow(expectedError);
 
       expect(mockLogger.error).toHaveBeenCalledWith(expectedLogMessage);
@@ -242,7 +229,7 @@ describe("BookingPaymentService", () => {
       vi.mocked(mockPaymentIntentService.createPaymentIntent).mockResolvedValue(mockFailedResult);
 
       await expect(
-        service.createAndAttachPaymentIntent(mockBooking, mockUser, mockDto, mockBookingPeriod),
+        service.createAndAttachPaymentIntent(mockBooking, mockUser, mockBookingPeriod),
       ).rejects.toThrow(expectedError);
 
       expect(mockLogger.error).toHaveBeenCalledWith(expectedLogMessage);
