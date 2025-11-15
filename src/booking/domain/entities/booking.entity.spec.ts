@@ -495,7 +495,7 @@ describe("Booking Entity", () => {
       expect(activeBooking.isEligibleForCompletion()).toBeFalsy(); // Before end time
     });
 
-    it("should be eligible for cancellation at least12 hours before start time", () => {
+    it("should be eligible for cancellation at least 12 hours before start time", () => {
       const booking = createConfirmedBooking();
       const twelveHoursInMilliseconds = validDateRange.startDate.getTime() - 12 * 60 * 60 * 1000;
 

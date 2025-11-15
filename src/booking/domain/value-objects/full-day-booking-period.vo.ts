@@ -99,14 +99,14 @@ export class FullDayBookingPeriod extends BookingPeriod {
   }
 
   private static validateStartHour(startDateTime: Date): void {
-    const startHour = startDateTime.getUTCHours();
+    const startHour = startDateTime.getHours();
 
     if (
       startHour < FullDayBookingPeriod.MIN_START_HOUR ||
       startHour > FullDayBookingPeriod.MAX_START_HOUR
     ) {
       throw new InvalidBookingPeriodError(
-        `FULL_DAY bookings must start between 7:00 AM and 10:00 PM. Provided: ${startDateTime.toISOString()}`,
+        `FULL_DAY bookings must start between 7:00 AM and 10:00 PM (local time). Provided: ${startDateTime.toLocaleString()}`,
         "FULL_DAY",
         startDateTime,
         startDateTime,

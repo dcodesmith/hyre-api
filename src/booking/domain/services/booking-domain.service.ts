@@ -162,8 +162,8 @@ export class BookingDomainService {
       // Calculate leg start and end times using the provided hours
       const legStartTime = setHours(legDate, legPricingData.startHours);
       const legEndTime =
-        legPricingData.endHours < legPricingData.startHours
-          ? setHours(addDays(legDate, 1), legPricingData.endHours) // If end time is less than start time, it's on the next day
+        legPricingData.endHours <= legPricingData.startHours
+          ? setHours(addDays(legDate, 1), legPricingData.endHours) // If end time is less than or equal to start time, it's on the next day
           : setHours(legDate, legPricingData.endHours);
 
       // Create leg without any IDs - they will be set during persistence
