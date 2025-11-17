@@ -5,8 +5,6 @@ import { FleetModule } from "../../fleet/fleet.module";
 import { IamModule } from "../../iam/iam.module";
 import { PaymentModule } from "../../payment/payment.module";
 import { BookingCancellationOrchestrator } from "./booking-cancellation-orchestrator.handler";
-import { BookingCompletionOrchestrator } from "./booking-completion-orchestrator.handler";
-import { BookingNotificationOrchestrator } from "./booking-notification-orchestrator.handler";
 import {
   ChauffeurAssignmentOrchestrator,
   ChauffeurUnassignmentOrchestrator,
@@ -31,9 +29,7 @@ import { UserRegistrationOrchestrator } from "./user-registration-orchestrator.h
   imports: [BookingModule, IamModule, FleetModule, CommunicationModule, PaymentModule],
   providers: [
     // Cross-domain orchestration handlers
-    BookingNotificationOrchestrator, // Handles booking activation notifications
     PaymentConfirmationOrchestrator, // Handles payment confirmation workflows
-    BookingCompletionOrchestrator, // Handles booking completion with payouts
     UserRegistrationOrchestrator, // Handles user registration workflows
     ChauffeurAssignmentOrchestrator, // Handles chauffeur assignment notifications
     ChauffeurUnassignmentOrchestrator, // Handles chauffeur unassignment notifications

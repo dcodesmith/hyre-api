@@ -1,4 +1,7 @@
-import { BullModule } from "@nestjs/bull";
+import { BullBoardModule } from "@bull-board/nestjs";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { ExpressAdapter } from "@bull-board/express";
+import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CqrsModule } from "@nestjs/cqrs";
@@ -28,7 +31,7 @@ import { SharedModule } from "./shared/shared.module";
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        redis: {
+        connection: {
           host: configService.get("REDIS_HOST", "localhost"),
           port: configService.get("REDIS_PORT", 6379),
           password: configService.get("REDIS_PASSWORD"),
@@ -47,6 +50,24 @@ import { SharedModule } from "./shared/shared.module";
 
     // Health checks
     TerminusModule,
+
+    // Bull Board UI for queue monitoring
+    BullBoardModule.forRoot({
+      route: "/admin/queues",
+      adapter: ExpressAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: "reminder-emails",
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: "status-updates",
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: "processing-jobs",
+      adapter: BullMQAdapter,
+    }),
 
     // Application modules
     SharedModule,

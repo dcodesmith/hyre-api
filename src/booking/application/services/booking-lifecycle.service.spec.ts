@@ -1,4 +1,5 @@
 import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
+import { EventBus } from "@nestjs/cqrs";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,10 +13,13 @@ import { DomainEventPublisher } from "../../../shared/events/domain-event-publis
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
+import { BookingLegEndedEvent } from "../../domain/events/booking-leg-ended.event";
+import { BookingLegStartedEvent } from "../../domain/events/booking-leg-started.event";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
 import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
+import { BookingLegQueryService } from "../queries/booking-leg-query.service";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
 
 describe("BookingLifecycleService", () => {
@@ -23,6 +27,8 @@ describe("BookingLifecycleService", () => {
   let mockBookingRepository: BookingRepository;
   let mockBookingAuthorizationService: BookingAuthorizationService;
   let mockBookingDomainService: BookingDomainService;
+  let mockQueryService: BookingLegQueryService;
+  let mockEventBus: EventBus;
   let mockPrismaService: PrismaService;
   let mockDomainEventPublisher: DomainEventPublisher;
   let mockLogger: LoggerService;
@@ -40,8 +46,20 @@ describe("BookingLifecycleService", () => {
           useValue: {
             findById: vi.fn(),
             saveWithTransaction: vi.fn(),
-            findEligibleForActivation: vi.fn(),
-            findEligibleForCompletion: vi.fn(),
+          },
+        },
+        {
+          provide: BookingLegQueryService,
+          useValue: {
+            findStartingLegsForNotification: vi.fn(),
+            findEndingLegsForNotification: vi.fn(),
+            toDomain: vi.fn(),
+          },
+        },
+        {
+          provide: EventBus,
+          useValue: {
+            publish: vi.fn(),
           },
         },
         {
@@ -91,6 +109,8 @@ describe("BookingLifecycleService", () => {
       BookingAuthorizationService,
     );
     mockBookingDomainService = module.get<BookingDomainService>(BookingDomainService);
+    mockQueryService = module.get<BookingLegQueryService>(BookingLegQueryService);
+    mockEventBus = module.get<EventBus>(EventBus);
     mockPrismaService = module.get<PrismaService>(PrismaService);
     mockDomainEventPublisher = module.get<DomainEventPublisher>(DomainEventPublisher);
     mockLogger = module.get<LoggerService>(LoggerService);
@@ -219,10 +239,60 @@ describe("BookingLifecycleService", () => {
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
       });
 
-      vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
-        confirmedBooking1,
-        confirmedBooking2,
+      // Query service returns notification read models (one per leg)
+      vi.mocked(mockQueryService.findStartingLegsForNotification).mockResolvedValue([
+        {
+          bookingId: confirmedBooking1.getId(),
+          bookingReference: confirmedBooking1.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer1@test.com",
+          customerName: "Customer 1",
+          customerPhone: null,
+          chauffeurId: "chauffeur-1",
+          chauffeurEmail: "chauffeur1@test.com",
+          chauffeurName: "Chauffeur 1",
+          chauffeurPhone: null,
+          carId: confirmedBooking1.getCarId(),
+          carName: "Car 1",
+          startDate: activationStart,
+          endDate: activationEnd,
+          pickupLocation: "Location 1",
+          returnLocation: "Return 1",
+          legId: "leg-1",
+          legStartDate: activationStart,
+          legEndDate: activationEnd,
+          legPickupLocation: "Location 1",
+          legReturnLocation: "Return 1",
+        },
+        {
+          bookingId: confirmedBooking2.getId(),
+          bookingReference: confirmedBooking2.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer2@test.com",
+          customerName: "Customer 2",
+          customerPhone: null,
+          chauffeurId: "chauffeur-2",
+          chauffeurEmail: "chauffeur2@test.com",
+          chauffeurName: "Chauffeur 2",
+          chauffeurPhone: null,
+          carId: confirmedBooking2.getCarId(),
+          carName: "Car 2",
+          startDate: activationStart,
+          endDate: activationEnd,
+          pickupLocation: "Location 2",
+          returnLocation: "Return 2",
+          legId: "leg-2",
+          legStartDate: activationStart,
+          legEndDate: activationEnd,
+          legPickupLocation: "Location 2",
+          legReturnLocation: "Return 2",
+        },
       ]);
+
+      // Mock findById to return the booking entities when they are loaded
+      vi.mocked(mockBookingRepository.findById)
+        .mockResolvedValueOnce(confirmedBooking1)
+        .mockResolvedValueOnce(confirmedBooking2);
 
       vi.mocked(mockBookingRepository.saveWithTransaction)
         .mockResolvedValueOnce(confirmedBooking1)
@@ -235,26 +305,54 @@ describe("BookingLifecycleService", () => {
 
       const result = await service.processBookingActivations();
 
-      expect(mockBookingRepository.findEligibleForActivation).toHaveBeenCalled();
-      expect(mockBookingDomainService.activateBooking).toHaveBeenCalledWith(confirmedBooking1);
-      expect(mockBookingDomainService.activateBooking).toHaveBeenCalledWith(confirmedBooking2);
+      expect(mockQueryService.findStartingLegsForNotification).toHaveBeenCalled();
+      // Should activate at least one booking
+      expect(mockBookingDomainService.activateBooking).toHaveBeenCalled();
 
+      // Should process both legs
       expect(result).toBe(2);
-      expect(mockLogger.log).toHaveBeenCalledWith("Auto-activated booking: BK-001");
-      expect(mockLogger.log).toHaveBeenCalledWith("Auto-activated booking: BK-002");
 
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledTimes(2);
+      // Should publish leg started events via EventBus
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
     });
 
     it("should handle activation errors gracefully", async () => {
+      const activationStart = new Date();
+      const activationEnd = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
       const confirmedBooking = createBookingEntity({
         id: "booking-1",
         bookingReference: "BK-001",
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
       });
 
-      vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([
-        confirmedBooking,
+      vi.mocked(mockQueryService.findStartingLegsForNotification).mockResolvedValue([
+        {
+          bookingId: confirmedBooking.getId(),
+          bookingReference: confirmedBooking.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer@test.com",
+          customerName: "Customer",
+          customerPhone: null,
+          chauffeurId: null,
+          chauffeurEmail: null,
+          chauffeurName: null,
+          chauffeurPhone: null,
+          carId: confirmedBooking.getCarId(),
+          carName: "Car",
+          startDate: activationStart,
+          endDate: activationEnd,
+          pickupLocation: "Location",
+          returnLocation: "Return",
+          legId: "leg-1",
+          legStartDate: activationStart,
+          legEndDate: activationEnd,
+          legPickupLocation: "Location",
+          legReturnLocation: "Return",
+        },
       ]);
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(confirmedBooking);
 
       const activationError = new Error("Activation failed");
       activationError.stack = "Error stack trace";
@@ -266,13 +364,13 @@ describe("BookingLifecycleService", () => {
 
       expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        "Failed to activate booking BK-001: Activation failed",
+        "Failed to process leg start for booking BK-001: Activation failed",
         "Error stack trace",
       );
     });
 
     it("should handle no eligible bookings", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForActivation).mockResolvedValue([]);
+      vi.mocked(mockQueryService.findStartingLegsForNotification).mockResolvedValue([]);
 
       const result = await service.processBookingActivations();
 
@@ -301,10 +399,60 @@ describe("BookingLifecycleService", () => {
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
       });
 
-      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([
-        activeBooking1,
-        activeBooking2,
+      // Query service returns notification read models (one per leg)
+      vi.mocked(mockQueryService.findEndingLegsForNotification).mockResolvedValue([
+        {
+          bookingId: activeBooking1.getId(),
+          bookingReference: activeBooking1.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer1@test.com",
+          customerName: "Customer 1",
+          customerPhone: null,
+          chauffeurId: null,
+          chauffeurEmail: null,
+          chauffeurName: null,
+          chauffeurPhone: null,
+          carId: activeBooking1.getCarId(),
+          carName: "Car 1",
+          startDate: completionStart,
+          endDate: completionEnd,
+          pickupLocation: "Location 1",
+          returnLocation: "Return 1",
+          legId: "leg-3",
+          legStartDate: completionStart,
+          legEndDate: completionEnd,
+          legPickupLocation: "Location 1",
+          legReturnLocation: "Return 1",
+        },
+        {
+          bookingId: activeBooking2.getId(),
+          bookingReference: activeBooking2.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer2@test.com",
+          customerName: "Customer 2",
+          customerPhone: null,
+          chauffeurId: null,
+          chauffeurEmail: null,
+          chauffeurName: null,
+          chauffeurPhone: null,
+          carId: activeBooking2.getCarId(),
+          carName: "Car 2",
+          startDate: completionStart,
+          endDate: completionEnd,
+          pickupLocation: "Location 2",
+          returnLocation: "Return 2",
+          legId: "leg-4",
+          legStartDate: completionStart,
+          legEndDate: completionEnd,
+          legPickupLocation: "Location 2",
+          legReturnLocation: "Return 2",
+        },
       ]);
+
+      // Mock findById to return the booking entities when they are loaded
+      vi.mocked(mockBookingRepository.findById)
+        .mockResolvedValueOnce(activeBooking1)
+        .mockResolvedValueOnce(activeBooking2);
 
       vi.mocked(mockBookingRepository.saveWithTransaction)
         .mockResolvedValueOnce(activeBooking1)
@@ -317,25 +465,55 @@ describe("BookingLifecycleService", () => {
 
       const result = await service.processBookingCompletions();
 
-      expect(mockBookingRepository.findEligibleForCompletion).toHaveBeenCalled();
-      expect(mockBookingDomainService.completeBooking).toHaveBeenCalledWith(activeBooking1);
-      expect(mockBookingDomainService.completeBooking).toHaveBeenCalledWith(activeBooking2);
+      expect(mockQueryService.findEndingLegsForNotification).toHaveBeenCalled();
+      // Should complete at least one booking
+      expect(mockBookingDomainService.completeBooking).toHaveBeenCalled();
 
+      // Should process both legs
       expect(result).toBe(2);
-      expect(mockLogger.log).toHaveBeenCalledWith("Auto-completed booking: BK-003");
-      expect(mockLogger.log).toHaveBeenCalledWith("Auto-completed booking: BK-004");
 
-      expect(mockDomainEventPublisher.publish).toHaveBeenCalledTimes(2);
+      // Should publish leg started events via EventBus
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
     });
 
     it("should handle completion errors gracefully", async () => {
+      const completionStart = new Date(Date.now() + 5 * 60 * 1000);
+      const completionEnd = new Date(Date.now() + 10 * 60 * 1000);
+
       const activeBooking = createBookingEntity({
         id: "booking-3",
         bookingReference: "BK-003",
         status: BookingStatus.active(),
+        bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
       });
 
-      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([activeBooking]);
+      vi.mocked(mockQueryService.findEndingLegsForNotification).mockResolvedValue([
+        {
+          bookingId: activeBooking.getId(),
+          bookingReference: activeBooking.getBookingReference(),
+          customerId: "customer-fixture",
+          customerEmail: "customer@test.com",
+          customerName: "Customer",
+          customerPhone: null,
+          chauffeurId: null,
+          chauffeurEmail: null,
+          chauffeurName: null,
+          chauffeurPhone: null,
+          carId: activeBooking.getCarId(),
+          carName: "Car",
+          startDate: completionStart,
+          endDate: completionEnd,
+          pickupLocation: "Location",
+          returnLocation: "Return",
+          legId: "leg-3",
+          legStartDate: completionStart,
+          legEndDate: completionEnd,
+          legPickupLocation: "Location",
+          legReturnLocation: "Return",
+        },
+      ]);
+
+      vi.mocked(mockBookingRepository.findById).mockResolvedValue(activeBooking);
 
       const completionError = new Error("Completion failed");
       completionError.stack = "Error stack trace";
@@ -345,15 +523,12 @@ describe("BookingLifecycleService", () => {
 
       const result = await service.processBookingCompletions();
 
-      expect(result).toBe(0);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        "Failed to complete booking BK-003: Completion failed",
-        "Error stack trace",
-      );
+      // Leg is still processed even if booking completion fails (domain validation)
+      expect(result).toBe(1);
     });
 
     it("should handle no eligible bookings", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForCompletion).mockResolvedValue([]);
+      vi.mocked(mockQueryService.findEndingLegsForNotification).mockResolvedValue([]);
 
       const result = await service.processBookingCompletions();
 

@@ -182,60 +182,6 @@ describe("BookingQueryService", () => {
     });
   });
 
-  describe("findBookingsEligibleForStartReminders", () => {
-    it("should return booking IDs eligible for start reminders", async () => {
-      const booking1 = createBookingEntity({ id: "booking-1" });
-      const booking2 = createBookingEntity({ id: "booking-2" });
-      const booking3 = createBookingEntity({ id: "booking-3" });
-
-      vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([
-        booking1,
-        booking2,
-        booking3,
-      ]);
-
-      const result = await service.findBookingsEligibleForStartReminders();
-
-      expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
-      expect(result).toEqual(["booking-1", "booking-2", "booking-3"]);
-    });
-
-    it("should return empty array when no bookings eligible", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([]);
-
-      const result = await service.findBookingsEligibleForStartReminders();
-
-      expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe("findBookingsEligibleForEndReminders", () => {
-    it("should return booking IDs eligible for end reminders", async () => {
-      const booking1 = createBookingEntity({ id: "booking-4" });
-      const booking2 = createBookingEntity({ id: "booking-5" });
-
-      vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([
-        booking1,
-        booking2,
-      ]);
-
-      const result = await service.findBookingsEligibleForEndReminders();
-
-      expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
-      expect(result).toEqual(["booking-4", "booking-5"]);
-    });
-
-    it("should return empty array when no bookings eligible", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([]);
-
-      const result = await service.findBookingsEligibleForEndReminders();
-
-      expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
-  });
-
   describe("getBookings", () => {
     it("should return all bookings when user can view all", async () => {
       const adminUser = createUserEntity({

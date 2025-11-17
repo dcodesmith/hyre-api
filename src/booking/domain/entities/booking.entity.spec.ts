@@ -1,10 +1,8 @@
 import Decimal from "decimal.js";
 import { vi } from "vitest";
-import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-unassigned.event";
-import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
@@ -246,16 +244,16 @@ describe("Booking Entity", () => {
   });
 
   describe("Status: Activate", () => {
-    it("should activate a confirmed booking and add a domain event", () => {
+    it("should activate a confirmed booking (no event published - handled by lifecycle service)", () => {
       const booking = createConfirmedBooking();
       booking.activate();
 
       expect(booking.isActive()).toBeTruthy();
 
+      // NOTE: Events are NOT published by entity anymore
+      // BookingLifecycleService publishes BookingLegActivatedEvent with full DTO
       const events = booking.getUncommittedEvents();
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(BookingActivatedEvent);
+      expect(events).toHaveLength(0);
     });
 
     it("should throw an error when activating a non-confirmed booking", () => {
@@ -266,16 +264,16 @@ describe("Booking Entity", () => {
   });
 
   describe("Status: Complete", () => {
-    it("should complete an active booking and add a domain event", () => {
+    it("should complete an active booking (no event published - handled by lifecycle service)", () => {
       const booking = createActiveBooking();
       booking.complete();
 
       expect(booking.isCompleted()).toBeTruthy();
 
+      // NOTE: Events are NOT published by entity anymore
+      // BookingLifecycleService publishes BookingLegCompletedEvent with full DTO
       const events = booking.getUncommittedEvents();
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(BookingCompletedEvent);
+      expect(events).toHaveLength(0);
     });
 
     it("should throw an error when completing a non-active booking", () => {

@@ -1,6 +1,7 @@
 import { Entity } from "../../../shared/domain/entity";
 import { validateAmount } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
+import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 
 export interface BookingLegProps {
   id?: string; // Optional - DB will assign
@@ -11,6 +12,7 @@ export interface BookingLegProps {
   totalDailyPrice: number;
   itemsNetValueForLeg: number;
   fleetOwnerEarningForLeg: number;
+  status: BookingLegStatus;
   notes?: string;
 }
 
@@ -25,7 +27,7 @@ export interface CreateBookingLegParams {
 }
 
 export class BookingLeg extends Entity<string> {
-  private constructor(private readonly props: BookingLegProps) {
+  private constructor(private props: BookingLegProps) {
     // Use temporary ID for Entity base class, will be replaced by DB
     super(props.id || generateSecureRandomId());
   }
@@ -40,7 +42,8 @@ export class BookingLeg extends Entity<string> {
     validateAmount(params.itemsNetValueForLeg);
     validateAmount(params.fleetOwnerEarningForLeg);
 
-    return new BookingLeg({ ...params });
+    // All new legs start as PENDING
+    return new BookingLeg({ ...params, status: BookingLegStatus.pending() });
   }
 
   public static reconstitute(props: BookingLegProps): BookingLeg {
@@ -60,13 +63,32 @@ export class BookingLeg extends Entity<string> {
     return this.props.legStartTime > new Date();
   }
 
+  public activate(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.active())) {
+      throw new Error(`Cannot activate leg in ${this.props.status.value} status`);
+    }
+
+    this.props.status = BookingLegStatus.active();
+  }
+
+  public complete(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.completed())) {
+      throw new Error(`Cannot complete leg in ${this.props.status.value} status`);
+    }
+
+    this.props.status = BookingLegStatus.completed();
+  }
+
   public isActive(): boolean {
-    const now = new Date();
-    return now >= this.props.legStartTime && now <= this.props.legEndTime;
+    return this.props.status.isActive();
   }
 
   public isCompleted(): boolean {
-    return this.props.legEndTime < new Date();
+    return this.props.status.isCompleted();
+  }
+
+  public isPending(): boolean {
+    return this.props.status.isPending();
   }
 
   public isEligibleForStartReminder(): boolean {
@@ -82,6 +104,10 @@ export class BookingLeg extends Entity<string> {
   }
 
   // Getters
+  public getId(): string {
+    return this.id;
+  }
+
   public getBookingId(): string | undefined {
     return this.props.bookingId;
   }
@@ -112,5 +138,9 @@ export class BookingLeg extends Entity<string> {
 
   public getNotes(): string | undefined {
     return this.props.notes;
+  }
+
+  public getStatus(): BookingLegStatus {
+    return this.props.status;
   }
 }

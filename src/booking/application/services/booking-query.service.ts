@@ -8,9 +8,13 @@ import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 
 /**
- * Application service responsible for booking query operations
- * Following SRP - focused only on reading/querying booking data
- * Delegates authorization decisions to BookingAuthorizationService (domain layer)
+ * Application service responsible for user-facing booking query operations
+ *
+ * Focused on authorization-aware queries that return domain entities.
+ * Delegates authorization decisions to BookingAuthorizationService (domain layer).
+ *
+ * NOTE: System/background job queries (like reminders) are in BookingReminderQueryService
+ * to maintain single responsibility principle.
  */
 @Injectable()
 export class BookingQueryService {
@@ -60,16 +64,6 @@ export class BookingQueryService {
     this.logger.info("System fetching booking details", { bookingId });
 
     return booking;
-  }
-
-  async findBookingsEligibleForStartReminders(): Promise<string[]> {
-    const bookings = await this.bookingRepository.findEligibleForStartReminders();
-    return bookings.map((booking) => booking.getId());
-  }
-
-  async findBookingsEligibleForEndReminders(): Promise<string[]> {
-    const bookings = await this.bookingRepository.findEligibleForEndReminders();
-    return bookings.map((booking) => booking.getId());
   }
 
   async getBookings(currentUser: User): Promise<Booking[]> {

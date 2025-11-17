@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import {
   Prisma,
   BookingStatus as PrismaBookingStatus,
+  BookingLegStatus as PrismaBookingLegStatus,
   Status as PrismaCarStatus,
   PaymentStatus as PrismaPaymentStatus,
 } from "@prisma/client";
@@ -12,6 +13,10 @@ import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
+import {
+  BookingLegStatus,
+  BookingLegStatusEnum,
+} from "../../domain/value-objects/booking-leg-status.vo";
 import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
@@ -81,6 +86,7 @@ export class PrismaBookingRepository implements BookingRepository {
               totalDailyPrice: leg.getTotalDailyPrice(),
               itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
               fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+              status: leg.getStatus().value,
               notes: leg.getNotes(),
             },
           });
@@ -147,18 +153,30 @@ export class PrismaBookingRepository implements BookingRepository {
       // Save all legs with the booking ID within the same transaction
       const legs = booking.getLegs();
       for (const leg of legs) {
-        await tx.bookingLeg.create({
-          data: {
-            bookingId: savedBooking.id,
-            legDate: leg.getLegDate(),
-            legStartTime: leg.getLegStartTime(),
-            legEndTime: leg.getLegEndTime(),
-            totalDailyPrice: leg.getTotalDailyPrice(),
-            itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
-            fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
-            notes: leg.getNotes(),
-          },
-        });
+        // Check if leg already exists (has an ID) - update it, otherwise create
+        if (leg.getId()) {
+          await tx.bookingLeg.update({
+            where: { id: leg.getId() },
+            data: {
+              status: leg.getStatus().value,
+              notes: leg.getNotes(),
+            },
+          });
+        } else {
+          await tx.bookingLeg.create({
+            data: {
+              bookingId: savedBooking.id,
+              legDate: leg.getLegDate(),
+              legStartTime: leg.getLegStartTime(),
+              legEndTime: leg.getLegEndTime(),
+              totalDailyPrice: leg.getTotalDailyPrice(),
+              itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+              fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+              status: leg.getStatus().value,
+              notes: leg.getNotes(),
+            },
+          });
+        }
       }
 
       // Load the persisted legs from the database within the transaction
@@ -177,6 +195,7 @@ export class PrismaBookingRepository implements BookingRepository {
           totalDailyPrice: leg.totalDailyPrice.toNumber(),
           itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
           fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
+          status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
           notes: leg.notes,
         }),
       );
@@ -348,92 +367,6 @@ export class PrismaBookingRepository implements BookingRepository {
     return bookings.map((booking) => this.toDomain(booking));
   }
 
-  async findEligibleForActivation(): Promise<Booking[]> {
-    const now = new Date();
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        status: PrismaBookingStatus.CONFIRMED,
-        paymentStatus: PrismaPaymentStatus.PAID,
-        chauffeurId: { not: null },
-        startDate: { lte: now },
-        car: { status: PrismaCarStatus.BOOKED },
-      },
-      include: {
-        legs: {
-          include: { extensions: true },
-        },
-      },
-    });
-
-    return bookings.map((booking) => this.toDomain(booking));
-  }
-
-  async findEligibleForCompletion(): Promise<Booking[]> {
-    const now = new Date();
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        status: PrismaBookingStatus.ACTIVE,
-        paymentStatus: PrismaPaymentStatus.PAID,
-        endDate: { lte: now },
-        car: { status: PrismaCarStatus.BOOKED },
-      },
-      include: {
-        legs: {
-          include: { extensions: true },
-        },
-      },
-    });
-
-    return bookings.map((booking) => this.toDomain(booking));
-  }
-
-  async findEligibleForStartReminders(): Promise<Booking[]> {
-    const now = new Date();
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        status: PrismaBookingStatus.CONFIRMED,
-        paymentStatus: PrismaPaymentStatus.PAID,
-        chauffeurId: { not: null },
-        startDate: {
-          gte: now,
-          lte: oneHourFromNow,
-        },
-      },
-      include: {
-        legs: {
-          include: { extensions: true },
-        },
-      },
-    });
-
-    return bookings.map((booking) => this.toDomain(booking));
-  }
-
-  async findEligibleForEndReminders(): Promise<Booking[]> {
-    const now = new Date();
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        status: PrismaBookingStatus.ACTIVE,
-        paymentStatus: PrismaPaymentStatus.PAID,
-        endDate: {
-          gte: now,
-          lte: oneHourFromNow,
-        },
-      },
-      include: {
-        legs: {
-          include: { extensions: true },
-        },
-      },
-    });
-
-    return bookings.map((booking) => this.toDomain(booking));
-  }
-
   private toDomain(
     prismaBooking: Prisma.BookingGetPayload<{
       include: {
@@ -457,6 +390,7 @@ export class PrismaBookingRepository implements BookingRepository {
         totalDailyPrice: leg.totalDailyPrice.toNumber(),
         itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
         fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
+        status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
         notes: leg.notes,
       }),
     );

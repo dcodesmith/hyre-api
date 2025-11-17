@@ -9,6 +9,7 @@ import { BookingCreationService } from "./booking-creation.service";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
 import { BookingPaymentService, PaymentStatusResult } from "./booking-payment.service";
 import { BookingQueryService } from "./booking-query.service";
+import { BookingReminderService } from "./booking-reminder.service";
 
 /**
  * Main application service that orchestrates booking operations
@@ -22,6 +23,7 @@ export class BookingApplicationService {
     private readonly bookingPaymentService: BookingPaymentService,
     private readonly bookingLifecycleService: BookingLifecycleService,
     private readonly bookingQueryService: BookingQueryService,
+    private readonly bookingReminderService: BookingReminderService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -78,12 +80,20 @@ export class BookingApplicationService {
     return this.bookingLifecycleService.processBookingCompletions();
   }
 
-  async findBookingsEligibleForStartReminders(): Promise<string[]> {
-    return this.bookingQueryService.findBookingsEligibleForStartReminders();
+  /**
+   * Process leg start reminders - sent 1 HOUR before each leg starts
+   * All reminders are LEG-BASED to support multi-day bookings
+   */
+  async processBookingLegStartReminders(): Promise<number> {
+    return this.bookingReminderService.processBookingLegStartReminders();
   }
 
-  async findBookingsEligibleForEndReminders(): Promise<string[]> {
-    return this.bookingQueryService.findBookingsEligibleForEndReminders();
+  /**
+   * Process leg end reminders - sent 1 HOUR before each leg ends
+   * All reminders are LEG-BASED to support multi-day bookings
+   */
+  async processBookingLegEndReminders(): Promise<number> {
+    return this.bookingReminderService.processBookingLegEndReminders();
   }
 
   async getBookingById(bookingId: string, currentUser: User): Promise<Booking> {

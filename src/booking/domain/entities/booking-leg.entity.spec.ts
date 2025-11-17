@@ -4,6 +4,7 @@ import {
   type BookingLegProps,
   type CreateBookingLegParams,
 } from "./booking-leg.entity";
+import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 
 describe("BookingLeg Entity", () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -38,6 +39,7 @@ describe("BookingLeg Entity", () => {
       totalDailyPrice: 500,
       itemsNetValueForLeg: 400,
       fleetOwnerEarningForLeg: 360,
+      status: BookingLegStatus.pending(),
       notes: "Standard service",
     };
     return BookingLeg.reconstitute(defaultProps);
@@ -141,6 +143,7 @@ describe("BookingLeg Entity", () => {
         totalDailyPrice: 750,
         itemsNetValueForLeg: 600,
         fleetOwnerEarningForLeg: 540,
+        status: BookingLegStatus.pending(),
         notes: "VIP service",
       };
 
@@ -162,6 +165,7 @@ describe("BookingLeg Entity", () => {
         totalDailyPrice: 300,
         itemsNetValueForLeg: 240,
         fleetOwnerEarningForLeg: 216,
+        status: BookingLegStatus.pending(),
       };
 
       const leg = BookingLeg.reconstitute(props);
@@ -254,6 +258,9 @@ describe("BookingLeg Entity", () => {
           legEndTime: currentEndTime,
         });
 
+        // Activate the leg to change status from PENDING to ACTIVE
+        leg.activate();
+
         expect(leg.isActive()).toBe(true);
       });
 
@@ -293,6 +300,9 @@ describe("BookingLeg Entity", () => {
           legEndTime: endTime,
         });
 
+        // Activate the leg to change status from PENDING to ACTIVE
+        leg.activate();
+
         expect(leg.isActive()).toBe(true);
       });
 
@@ -308,6 +318,9 @@ describe("BookingLeg Entity", () => {
           legEndTime: now,
         });
 
+        // Activate the leg to change status from PENDING to ACTIVE
+        leg.activate();
+
         expect(leg.isActive()).toBe(true);
       });
     });
@@ -321,6 +334,10 @@ describe("BookingLeg Entity", () => {
           legStartTime: pastStartTime,
           legEndTime: pastEndTime,
         });
+
+        // Activate and complete the leg to change status from PENDING -> ACTIVE -> COMPLETED
+        leg.activate();
+        leg.complete();
 
         expect(leg.isCompleted()).toBe(true);
       });
@@ -478,6 +495,7 @@ describe("BookingLeg Entity", () => {
         totalDailyPrice: 300,
         itemsNetValueForLeg: 240,
         fleetOwnerEarningForLeg: 216,
+        status: BookingLegStatus.pending(),
       };
 
       const leg = BookingLeg.reconstitute(propsWithoutNotes);
@@ -550,7 +568,7 @@ describe("BookingLeg Entity", () => {
         legEndTime: endTime,
       });
 
-      // Test before start time
+      // Test before start time (PENDING status)
       vi.useFakeTimers();
       vi.setSystemTime(new Date(2024, 0, 1, 8, 0, 0)); // 8:00 AM
 
@@ -558,15 +576,17 @@ describe("BookingLeg Entity", () => {
       expect(leg.isActive()).toBe(false);
       expect(leg.isCompleted()).toBe(false);
 
-      // Test during active time
+      // Test during active time (activate the leg to ACTIVE status)
       vi.setSystemTime(new Date(2024, 0, 1, 12, 0, 0)); // 12:00 PM
+      leg.activate();
 
       expect(leg.isUpcoming()).toBe(false);
       expect(leg.isActive()).toBe(true);
       expect(leg.isCompleted()).toBe(false);
 
-      // Test after end time
+      // Test after end time (complete the leg to COMPLETED status)
       vi.setSystemTime(new Date(2024, 0, 1, 18, 0, 0)); // 6:00 PM
+      leg.complete();
 
       expect(leg.isUpcoming()).toBe(false);
       expect(leg.isActive()).toBe(false);

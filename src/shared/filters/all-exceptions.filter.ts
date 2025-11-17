@@ -107,6 +107,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   ): void {
     const contextSuffix = context ? ` - Context: ${context}` : "";
     const logMessage = `${request.method} ${request.url} - Status: ${status} - Type: ${errorType}${contextSuffix}`;
+    const logData = this.getLogData(exception);
 
     try {
       // Use injected logger service
@@ -114,14 +115,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // Server errors - full stack trace
         this.logger.error(
           logMessage,
-          exception instanceof Error ? exception.message : "Unknown error",
+          exception instanceof Error ? (exception.stack ?? exception.message) : "Unknown error",
         );
       } else if (status >= 400) {
         // Client errors - warning level
-        this.logger.warn(
-          logMessage,
-          exception instanceof Error ? exception.message : "Unknown error",
-        );
+        this.logger.warn(logMessage, logData);
       }
     } catch (loggerError) {
       // Fallback to internal logger if injected logger fails
@@ -223,5 +221,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   private getCorrelationId(request: Request): string | string[] | undefined {
     return request.headers["x-correlation-id"] || request.headers["x-request-id"];
+  }
+
+  private getLogData(exception: unknown): Record<string, unknown> | string {
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+
+      if (typeof response === "string") {
+        return { message: response };
+      }
+
+      if (response && typeof response === "object") {
+        return response as Record<string, unknown>;
+      }
+    }
+
+    if (exception instanceof Error) {
+      return {
+        message: exception.message,
+        ...(exception.stack ? { stack: exception.stack } : {}),
+      };
+    }
+
+    return "Unknown error";
   }
 }

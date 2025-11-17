@@ -4,11 +4,9 @@ import {
   validateAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
-import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-unassigned.event";
-import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingType } from "../interfaces/booking.interface";
@@ -151,6 +149,14 @@ export class Booking extends AggregateRoot {
     // Note: BookingPaymentConfirmedEvent removed - PaymentConfirmedEvent handles notifications directly
   }
 
+  /**
+   * Activate booking (CONFIRMED → ACTIVE)
+   *
+   * IMPORTANT: This method ONLY changes status - it does NOT publish events
+   * - BookingLifecycleService is responsible for publishing BookingLegActivatedEvent
+   * - Service has all the data needed for rich event (avoids N+1 queries)
+   * - Idempotent: safe to call multiple times if already ACTIVE
+   */
   public activate(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.active())) {
       throw new Error(`Cannot activate booking in ${this.props.status.value} status`);
@@ -159,16 +165,17 @@ export class Booking extends AggregateRoot {
     this.props.status = BookingStatus.active();
     this.props.updatedAt = new Date();
 
-    this.addDomainEvent(
-      new BookingActivatedEvent(
-        this.getId(),
-        this.props.bookingReference,
-        this.props.customerId,
-        this.props.chauffeurId,
-      ),
-    );
+    // Event publishing moved to BookingLifecycleService for consistency with leg-based architecture
   }
 
+  /**
+   * Complete booking (ACTIVE → COMPLETED)
+   *
+   * IMPORTANT: This method ONLY changes status - it does NOT publish events
+   * - BookingLifecycleService is responsible for publishing BookingLegCompletedEvent
+   * - Service has all the data needed for rich event (avoids N+1 queries)
+   * - Idempotent: safe to call multiple times if already COMPLETED
+   */
   public complete(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.completed())) {
       throw new Error(`Cannot complete booking in ${this.props.status.value} status`);
@@ -177,14 +184,7 @@ export class Booking extends AggregateRoot {
     this.props.status = BookingStatus.completed();
     this.props.updatedAt = new Date();
 
-    this.addDomainEvent(
-      new BookingCompletedEvent(
-        this.getId(),
-        this.props.bookingReference,
-        this.props.customerId,
-        this.props.chauffeurId,
-      ),
-    );
+    // Event publishing moved to BookingLifecycleService for consistency with leg-based architecture
   }
 
   public cancel(reason?: string): void {
