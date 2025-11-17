@@ -1,6 +1,6 @@
-# Hyre Worker API - Chauffeur Service Platform
+# Hyre API - Chauffeur-driven Car Rental Service Platform
 
-A complete Domain-Driven Design (DDD) implementation of a chauffeur service marketplace using NestJS, connecting fleet owners with customers seeking professional driver services.
+A complete Domain-Driven Design (DDD), event driven implementation of a chauffeur-driven car rental service marketplace using NestJS.
 
 ## Architecture Overview
 
@@ -21,10 +21,11 @@ This project follows Domain-Driven Design principles with clear bounded contexts
    - Fleet owner to chauffeur assignments
 
 3. **Booking Domain** (Core Domain)
-   - Complete booking lifecycle (pending → confirmed → active → completed)
+   - Complete booking lifecycle (pending → confirmed → active → completed → cancelled)
    - Chauffeur assignment to bookings with cross-domain validation
    - Payment integration with Flutterwave for booking payments
    - Cost calculation and financial breakdowns
+   - Booking cancellation with refund handling
 
 4. **Payment Domain**
    - Payout processing to fleet owners via Flutterwave
@@ -70,7 +71,7 @@ src/
 │   ├── domain/
 │   │   ├── entities/                 # User, BankDetails
 │   │   ├── value-objects/            # UserRole, PhoneNumber, ApprovalStatus
-│   │   ├── events/                   # UserRegistered, ChauffeurAdded, FleetOwnerApproved
+│   │   ├── events/                   # UserRegistered, OtpVerified, UserAuthenticated, UserApproved, UserRoleAssigned, ChauffeurAdded, FleetOwnerApproved
 │   │   ├── services/                 # JwtToken, OtpAuthentication, BankVerification
 │   │   └── repositories/             # User, BankDetails repository interfaces
 │   ├── application/
@@ -101,7 +102,7 @@ src/
 │   ├── domain/
 │   │   ├── entities/                 # Booking, BookingLeg
 │   │   ├── value-objects/            # BookingStatus, DateRange, BookingFinancials
-│   │   ├── events/                   # BookingCreated, ChauffeurAssigned, BookingCompleted
+│   │   ├── events/                   # BookingCreated, BookingConfirmed, BookingActivated, BookingCompleted, BookingCancelled, ChauffeurAssigned, ChauffeurUnassigned
 │   │   ├── services/                 # BookingEligibility, CostCalculator, TimeProcessor
 │   │   └── repositories/             # Booking, Car, PlatformFee repository interfaces
 │   ├── application/
@@ -117,7 +118,7 @@ src/
 │   ├── domain/
 │   │   ├── entities/                 # Payout
 │   │   ├── value-objects/            # PayoutStatus, BankAccount
-│   │   ├── events/                   # PayoutInitiated, PayoutCompleted, PayoutFailed
+│   │   ├── events/                   # PaymentConfirmed, PaymentVerificationCompleted, PayoutInitiated, PayoutProcessing, PayoutCompleted, PayoutFailed
 │   │   ├── services/                 # PayoutPolicy, PaymentGateway interface
 │   │   └── repositories/             # Payout repository interface
 │   ├── application/
@@ -297,6 +298,7 @@ PUT    /fleet/cars/:carId/reject            # Reject car with reason
 ```http
 # Booking Operations
 POST   /bookings                            # Create new booking
+GET    /bookings                            # Get all bookings for current user
 PUT    /bookings/:id/cancel                 # Cancel booking
 GET    /bookings/:id/payment-status         # Check payment status
 
@@ -443,6 +445,43 @@ pnpm db:migrate              # Create and apply migrations
 - **Testing**: Vitest for unit tests, Supertest + fishery for E2E tests
 - **File Storage**: AWS S3 for document and image storage
 - **External Services**: Resend (email), Twilio (SMS), Flutterwave (payments)
+
+## Domain Events Reference
+
+The application uses domain events for loose coupling between bounded contexts. Key events include:
+
+### IAM Domain Events
+- `UserRegisteredEvent` - New user account created
+- `OtpVerifiedEvent` - OTP successfully verified during authentication
+- `UserAuthenticatedEvent` - User completed authentication
+- `UserApprovedEvent` - User approved by admin/staff
+- `UserRoleAssignedEvent` - Role assigned to user
+- `ChauffeurAddedEvent` - Chauffeur added to fleet owner
+- `FleetOwnerApprovedEvent` - Fleet owner account approved
+
+### Fleet Domain Events
+- `FleetCreatedEvent` - New fleet registered
+- `FleetCarAddedEvent` - Car added to fleet
+- `CarCreatedEvent` - New car registration
+- `CarStatusChangedEvent` - Car availability updated
+- `CarApprovalStatusChangedEvent` - Admin approval workflow
+
+### Booking Domain Events
+- `BookingCreatedEvent` - New booking initiated
+- `BookingChauffeurAssignedEvent` - Chauffeur assigned to booking
+- `BookingChauffeurUnassignedEvent` - Chauffeur removed from booking
+- `BookingConfirmedEvent` - Booking confirmed and ready
+- `BookingActivatedEvent` - Booking started (trip in progress)
+- `BookingCompletedEvent` - Booking finished successfully
+- `BookingCancelledEvent` - Booking cancelled by user
+
+### Payment Domain Events
+- `PaymentConfirmedEvent` - Booking payment confirmed
+- `PaymentVerificationCompletedEvent` - Payment verification process completed
+- `PayoutInitiatedEvent` - Payout initiated for fleet owner
+- `PayoutProcessingEvent` - Payout moved to processing status
+- `PayoutCompletedEvent` - Payout successfully completed
+- `PayoutFailedEvent` - Payout failed with error details
 
 ## Benefits of This Architecture
 
