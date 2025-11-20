@@ -1,6 +1,6 @@
 import { addDays, differenceInHours } from "date-fns";
-import { BookingPeriod, type BookingPeriodProps } from "./booking-period.vo";
 import { InvalidBookingPeriodError } from "../errors/invalid-booking-period.error";
+import { BookingPeriod, type BookingPeriodProps } from "./booking-period.vo";
 
 interface NightBookingPeriodCreateParams {
   startDate: Date; // Calendar date for the night (e.g., Jan 15 for Jan 15 11pm - Jan 16 5am)
@@ -77,10 +77,7 @@ export class NightBookingPeriod extends BookingPeriod {
    * Used when reconstituting entities from the database.
    * @internal
    */
-  public static reconstitute(
-    startDateTime: Date,
-    endDateTime: Date,
-  ): NightBookingPeriod {
+  public static reconstitute(startDateTime: Date, endDateTime: Date): NightBookingPeriod {
     return new NightBookingPeriod({ startDateTime, endDateTime });
   }
 

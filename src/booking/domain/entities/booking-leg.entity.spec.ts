@@ -1,10 +1,10 @@
 import { vi } from "vitest";
+import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 import {
   BookingLeg,
   type BookingLegProps,
   type CreateBookingLegParams,
 } from "./booking-leg.entity";
-import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 
 describe("BookingLeg Entity", () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);

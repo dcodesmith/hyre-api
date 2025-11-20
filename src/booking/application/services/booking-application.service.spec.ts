@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";

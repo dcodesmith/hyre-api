@@ -65,6 +65,17 @@ export class BookingTimeConflictError extends BookingDomainError {
   }
 }
 
+export class BookingAmountMismatchError extends BookingDomainError {
+  readonly code = "BOOKING_AMOUNT_MISMATCH";
+
+  constructor(clientAmount: number, serverAmount: number) {
+    super(
+      `Amount verification failed. Client sent ₦${clientAmount.toFixed(2)}, but server calculated ₦${serverAmount.toFixed(2)}. Please refresh the page and try again.`,
+      { clientAmount, serverAmount },
+    );
+  }
+}
+
 export class BookingCannotBeConfirmedError extends BookingDomainError {
   readonly code = "BOOKING_CANNOT_BE_CONFIRMED";
   constructor(bookingId: string, currentStatus: string) {

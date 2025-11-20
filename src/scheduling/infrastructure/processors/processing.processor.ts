@@ -76,5 +76,4 @@ export class ProcessingProcessor extends WorkerHost {
       throw error;
     }
   }
-
 }

@@ -1,16 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import {
-  Prisma,
-  BookingStatus as PrismaBookingStatus,
-  BookingLegStatus as PrismaBookingLegStatus,
-  Status as PrismaCarStatus,
-  PaymentStatus as PrismaPaymentStatus,
-} from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { TransactionContext } from "../../../shared/database/transaction-context.type";
-import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { Booking } from "../../domain/entities/booking.entity";
+import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
 import {
@@ -31,82 +25,7 @@ export class PrismaBookingRepository implements BookingRepository {
     // Get security detail cost from booking financials (already calculated during booking creation)
     const securityDetailCost = booking.getIncludeSecurityDetail()
       ? booking.getSecurityDetailCost()
-      : undefined;
-
-    const data: Prisma.BookingUncheckedCreateInput = {
-      bookingReference: booking.getBookingReference(),
-      status: booking.getStatus(),
-      startDate: booking.getStartDateTime(),
-      endDate: booking.getEndDateTime(),
-      pickupLocation: booking.getPickupAddress(),
-      returnLocation: booking.getDropOffAddress(),
-      userId: booking.getCustomerId(),
-      carId: booking.getCarId(),
-      chauffeurId: booking.getChauffeurId(),
-      specialRequests: booking.getSpecialRequests(),
-      type: booking.getBookingType(),
-      paymentStatus: booking.getPaymentStatus(),
-      paymentIntent: booking.getPaymentIntent(),
-      paymentId: booking.getPaymentId(),
-      totalAmount: booking.getTotalAmount(),
-      netTotal: booking.getNetTotal(),
-      platformCustomerServiceFeeAmount: booking.getPlatformServiceFeeAmount(),
-      vatAmount: booking.getVatAmount(),
-      fleetOwnerPayoutAmountNet: booking.getFleetOwnerPayoutAmountNet(),
-      securityDetailCost: securityDetailCost,
-      cancelledAt: booking.getCancelledAt(),
-      cancellationReason: booking.getCancellationReason(),
-      updatedAt: new Date(),
-    };
-
-    if (bookingId) {
-      // Update existing booking using unchecked API to avoid relation conflicts
-      await this.prisma.booking.update({
-        where: { id: bookingId },
-        data: data,
-      });
-      return booking;
-    } else {
-      // Create new booking with legs in a single transaction
-      const savedBooking = await this.prisma.$transaction(async (tx) => {
-        // Save booking first using unchecked API
-        const savedBooking = await tx.booking.create({
-          data,
-        });
-
-        // Save all legs with the booking ID
-        const legs = booking.getLegs();
-        for (const leg of legs) {
-          await tx.bookingLeg.create({
-            data: {
-              bookingId: savedBooking.id,
-              legDate: leg.getLegDate(),
-              legStartTime: leg.getLegStartTime(),
-              legEndTime: leg.getLegEndTime(),
-              totalDailyPrice: leg.getTotalDailyPrice(),
-              itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
-              fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
-              status: leg.getStatus().value,
-              notes: leg.getNotes(),
-            },
-          });
-        }
-
-        return savedBooking;
-      });
-
-      // Return reconstituted booking with legs loaded from DB
-      return this.findById(savedBooking.id);
-    }
-  }
-
-  async saveWithTransaction(booking: Booking, tx: TransactionContext): Promise<Booking> {
-    const bookingId = booking.getId();
-
-    // Get security detail cost from booking financials (already calculated during booking creation)
-    const securityDetailCost = booking.getIncludeSecurityDetail()
-      ? booking.getSecurityDetailCost()
-      : undefined;
+      : null;
 
     const data = {
       bookingReference: booking.getBookingReference(),
@@ -131,7 +50,113 @@ export class PrismaBookingRepository implements BookingRepository {
       securityDetailCost: securityDetailCost,
       cancelledAt: booking.getCancelledAt(),
       cancellationReason: booking.getCancellationReason(),
-      updatedAt: new Date(),
+    };
+
+    if (bookingId) {
+      // Update existing booking and its legs
+      // Note: Not using $transaction here to avoid "Response from Engine was empty" errors
+      // in async event handler contexts. Each update is atomic anyway.
+      // Update booking
+      await this.prisma.booking.update({
+        where: { id: bookingId },
+        data,
+      });
+
+      // Update all legs
+      const legs = booking.getLegs();
+      for (const leg of legs) {
+        const legId = leg.getId();
+        if (legId) {
+          await this.prisma.bookingLeg.update({
+            where: { id: legId },
+            data: {
+              status: leg.getStatus().value,
+              notes: leg.getNotes(),
+            },
+          });
+        }
+      }
+
+      return booking;
+    } else {
+      // Create new booking with legs in a single transaction
+      const savedBooking = await this.prisma.$transaction(async (tx) => {
+        // Save booking first using unchecked API
+        const savedBooking = await tx.booking.create({
+          data: {
+            ...data,
+            legs: {
+              create: booking.getLegs().map((leg) => ({
+                legDate: leg.getLegDate(),
+                legStartTime: leg.getLegStartTime(),
+                legEndTime: leg.getLegEndTime(),
+                totalDailyPrice: leg.getTotalDailyPrice(),
+                itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+                fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+                status: leg.getStatus().value,
+                notes: leg.getNotes(),
+              })),
+            },
+          },
+        });
+
+        // Save all legs with the booking ID
+        // const legs = booking.getLegs();
+        // for (const leg of legs) {
+        //   await tx.bookingLeg.create({
+        //     data: {
+        //       bookingId: savedBooking.id,
+        //       legDate: leg.getLegDate(),
+        //       legStartTime: leg.getLegStartTime(),
+        //       legEndTime: leg.getLegEndTime(),
+        //       totalDailyPrice: leg.getTotalDailyPrice(),
+        //       itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+        //       fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+        //       status: leg.getStatus().value,
+        //       notes: leg.getNotes(),
+        //     },
+        //   });
+        // }
+
+        return savedBooking;
+      });
+
+      // Return reconstituted booking with legs loaded from DB
+      return this.findById(savedBooking.id);
+    }
+  }
+
+  async saveWithTransaction(booking: Booking, tx: TransactionContext): Promise<Booking> {
+    const bookingId = booking.getId();
+
+    // Get security detail cost from booking financials (already calculated during booking creation)
+    const securityDetailCost = booking.getIncludeSecurityDetail()
+      ? booking.getSecurityDetailCost()
+      : null;
+
+    const data = {
+      bookingReference: booking.getBookingReference(),
+      status: booking.getStatus(),
+      startDate: booking.getStartDateTime(),
+      endDate: booking.getEndDateTime(),
+      pickupLocation: booking.getPickupAddress(),
+      returnLocation: booking.getDropOffAddress(),
+      userId: booking.getCustomerId(),
+      carId: booking.getCarId(),
+      chauffeurId: booking.getChauffeurId() ?? null,
+      specialRequests: booking.getSpecialRequests(),
+      type: booking.getBookingType(),
+      paymentStatus: booking.getPaymentStatus(),
+      paymentIntent: booking.getPaymentIntent(),
+      paymentId: booking.getPaymentId(),
+      totalAmount: booking.getTotalAmount(),
+      netTotal: booking.getNetTotal(),
+      platformCustomerServiceFeeAmount: booking.getPlatformServiceFeeAmount(),
+      vatAmount: booking.getVatAmount(),
+      fleetOwnerPayoutAmountNet: booking.getFleetOwnerPayoutAmountNet(),
+      securityDetailCost: securityDetailCost,
+      cancelledAt: booking.getCancelledAt(),
+      cancellationReason: booking.getCancellationReason(),
     };
 
     if (bookingId) {
@@ -153,28 +178,33 @@ export class PrismaBookingRepository implements BookingRepository {
       // Save all legs with the booking ID within the same transaction
       const legs = booking.getLegs();
       for (const leg of legs) {
-        // Check if leg already exists (has an ID) - update it, otherwise create
-        if (leg.getId()) {
-          await tx.bookingLeg.update({
-            where: { id: leg.getId() },
-            data: {
+        const legData = {
+          bookingId: savedBooking.id,
+          legDate: leg.getLegDate(),
+          legStartTime: leg.getLegStartTime(),
+          legEndTime: leg.getLegEndTime(),
+          totalDailyPrice: leg.getTotalDailyPrice(),
+          itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
+          fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
+          status: leg.getStatus().value,
+          notes: leg.getNotes(),
+        };
+
+        const legId = leg.getId();
+        if (legId) {
+          // Update existing leg
+          await tx.bookingLeg.upsert({
+            where: { id: legId },
+            create: legData,
+            update: {
               status: leg.getStatus().value,
               notes: leg.getNotes(),
             },
           });
         } else {
+          // Create new leg
           await tx.bookingLeg.create({
-            data: {
-              bookingId: savedBooking.id,
-              legDate: leg.getLegDate(),
-              legStartTime: leg.getLegStartTime(),
-              legEndTime: leg.getLegEndTime(),
-              totalDailyPrice: leg.getTotalDailyPrice(),
-              itemsNetValueForLeg: leg.getItemsNetValueForLeg(),
-              fleetOwnerEarningForLeg: leg.getFleetOwnerEarningForLeg(),
-              status: leg.getStatus().value,
-              notes: leg.getNotes(),
-            },
+            data: legData,
           });
         }
       }

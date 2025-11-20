@@ -24,6 +24,7 @@ export const statusCodeMap: Record<string, number> = {
   GUEST_CUSTOMER_EMAIL_REGISTERED: HttpStatus.BAD_REQUEST,
   GUEST_CUSTOMER_ACCOUNT_EXPIRED: HttpStatus.BAD_REQUEST,
   PAYMENT_INTENT_CREATION: HttpStatus.BAD_REQUEST,
+  BOOKING_AMOUNT_MISMATCH: HttpStatus.BAD_REQUEST,
 
   // Car-related Booking Errors
   CAR_NOT_AVAILABLE: HttpStatus.CONFLICT,

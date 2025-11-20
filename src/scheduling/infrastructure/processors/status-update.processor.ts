@@ -74,5 +74,4 @@ export class StatusUpdateProcessor extends WorkerHost {
       throw error;
     }
   }
-
 }

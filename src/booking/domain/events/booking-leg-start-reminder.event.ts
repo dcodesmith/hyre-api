@@ -5,6 +5,6 @@ import { BookingReminderReadModel } from "../../application/dtos/booking-reminde
  *
  * Passes the full DTO object instead of 15 individual parameters for better maintainability.
  */
-export class BookingLegStartReminderNeededEvent {
+export class BookingLegStartReminderEvent {
   constructor(public readonly data: BookingReminderReadModel) {}
 }

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "@nestjs/cqrs";
 import { LoggerService } from "../../../shared/logging/logger.service";
-import { BookingLegEndReminderNeededEvent } from "../../domain/events/booking-leg-end-reminder-needed.event";
-import { BookingLegStartReminderNeededEvent } from "../../domain/events/booking-leg-start-reminder-needed.event";
+import { BookingLegEndReminderEvent } from "../../domain/events/booking-leg-end-reminder.event";
+import { BookingLegStartReminderEvent } from "../../domain/events/booking-leg-start-reminder.event";
 import { BookingLegQueryService } from "../queries/booking-leg-query.service";
 
 /**
@@ -47,20 +47,8 @@ export class BookingReminderService {
 
     for (const leg of legs) {
       try {
-        // Validate leg has required data before creating event
-        if (
-          !leg.legId ||
-          !leg.legStartDate ||
-          !leg.legEndDate ||
-          !leg.legPickupLocation ||
-          !leg.legReturnLocation
-        ) {
-          this.logger.error(`Leg ${leg.legId} missing required data for start reminder`);
-          continue;
-        }
-
         // Pass the entire DTO object instead of 15 individual parameters
-        this.eventBus.publish(new BookingLegStartReminderNeededEvent(leg));
+        this.eventBus.publish(new BookingLegStartReminderEvent(leg));
         published++;
       } catch (error) {
         this.logger.error(
@@ -84,20 +72,7 @@ export class BookingReminderService {
 
     for (const leg of legs) {
       try {
-        // Validate leg has required data before creating event
-        if (
-          !leg.legId ||
-          !leg.legStartDate ||
-          !leg.legEndDate ||
-          !leg.legPickupLocation ||
-          !leg.legReturnLocation
-        ) {
-          this.logger.error(`Leg ${leg.legId} missing required data for end reminder`);
-          continue;
-        }
-
-        // Pass the entire DTO object instead of 15 individual parameters
-        this.eventBus.publish(new BookingLegEndReminderNeededEvent(leg));
+        this.eventBus.publish(new BookingLegEndReminderEvent(leg));
         published++;
       } catch (error) {
         this.logger.error(

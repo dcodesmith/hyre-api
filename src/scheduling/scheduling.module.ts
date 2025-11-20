@@ -19,12 +19,7 @@ import { StatusUpdateProcessor } from "./infrastructure/processors/status-update
     PaymentModule,
     CommunicationModule,
   ],
-  providers: [
-    SchedulerService,
-    ReminderProcessor,
-    StatusUpdateProcessor,
-    ProcessingProcessor,
-  ],
+  providers: [SchedulerService, ReminderProcessor, StatusUpdateProcessor, ProcessingProcessor],
   exports: [SchedulerService],
 })
 export class SchedulingModule {}

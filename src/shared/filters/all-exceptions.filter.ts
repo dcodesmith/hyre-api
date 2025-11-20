@@ -38,7 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private handleValidationError(exception: BadRequestException): {
     status: number;
     message: string;
-    errors?: unknown[];
+    details?: Record<string, unknown>;
     errorCode?: string;
     errorType: string;
   } {
@@ -48,14 +48,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (typeof response === "object" && response !== null) {
       const responseObj = response as Record<string, unknown>;
 
-      // Our ZodValidationPipe format
-      if (responseObj.errors && Array.isArray(responseObj.errors)) {
+      // Our ZodValidationPipe format - now uses details.fields
+      if (responseObj.details && typeof responseObj.details === "object") {
         return {
           status: 400,
           message:
             typeof responseObj.message === "string" ? responseObj.message : "Validation failed",
-          errors: responseObj.errors,
-          errorCode: "VALIDATION_ERROR",
+          details: responseObj.details as Record<string, unknown>,
+          errorCode:
+            typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR",
           errorType: "Validation Error",
         };
       }
@@ -84,17 +85,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     status: number;
     message: string;
     errorCode: string;
-    context: string;
     details?: Record<string, unknown>;
   } {
     const status = statusCodeMap[exception.code] || HttpStatus.INTERNAL_SERVER_ERROR;
+
+    // Merge context into details for unified structure
+    const details: Record<string, unknown> = {
+      ...(exception.details || {}),
+      context: exception.context,
+    };
 
     return {
       status,
       message: exception.message,
       errorCode: exception.code,
-      context: exception.context,
-      details: exception.details,
+      details,
     };
   }
 
@@ -131,9 +136,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     status: number;
     message: string;
     errorCode?: string;
-    context?: string;
     details?: Record<string, unknown>;
-    errors?: unknown[];
     errorType: string;
   } {
     if (exception instanceof BaseDomainError) {
@@ -153,20 +156,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const message = exception.message;
       let details: Record<string, unknown> | undefined;
-      let errors: unknown[] | undefined;
 
       const exceptionResponse = exception.getResponse();
       if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
         const responseObj = exceptionResponse as Record<string, unknown>;
         details = (responseObj.details as Record<string, unknown>) || undefined;
-        errors = (responseObj.errors as unknown[]) || undefined;
       }
 
       return {
         status,
         message,
         details,
-        errors,
         errorType: "HTTP Exception",
       };
     }
@@ -184,9 +184,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status: number;
       message: string;
       errorCode?: string;
-      context?: string;
       details?: Record<string, unknown>;
-      errors?: unknown[];
     },
   ): Record<string, unknown> {
     const errorResponse: Record<string, unknown> = {
@@ -200,15 +198,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse.error = resolved.errorCode;
     }
 
-    if (resolved.context) {
-      errorResponse.context = resolved.context;
-    }
-
     if (resolved.details && Object.keys(resolved.details).length > 0) {
       errorResponse.details = resolved.details;
-    }
-    if (resolved.errors && resolved.errors.length > 0) {
-      errorResponse.errors = resolved.errors;
     }
 
     const correlationId = this.getCorrelationId(request);

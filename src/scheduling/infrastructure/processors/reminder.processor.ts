@@ -71,5 +71,4 @@ export class ReminderProcessor extends WorkerHost {
       throw error;
     }
   }
-
 }

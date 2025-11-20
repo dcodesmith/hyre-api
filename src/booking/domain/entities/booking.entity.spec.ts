@@ -6,8 +6,8 @@ import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-una
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
-import { BookingStatus } from "../value-objects/booking-status.vo";
 import { BookingPeriodFactory } from "../value-objects/booking-period.factory";
+import { BookingStatus } from "../value-objects/booking-status.vo";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
 import { PickupTime } from "../value-objects/pickup-time.vo";
 import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
@@ -606,22 +606,13 @@ describe("Booking Entity", () => {
   });
 
   describe("Booking Legs", () => {
-    it("should add a valid booking leg", () => {
+    it("should add a booking leg", () => {
       const booking = createBooking();
       const validLegDate = new Date(validDateRange.startDate.getTime() + 1000);
       const mockLeg = { getLegDate: () => validLegDate } as BookingLeg;
       booking.addLeg(mockLeg);
       expect(booking.getLegs()).toHaveLength(1);
       expect(booking.getLegs()[0]).toBe(mockLeg);
-    });
-
-    it("should throw an error when adding a leg outside the date range", () => {
-      const booking = createBooking();
-      const invalidLegDate = new Date(validDateRange.endDate.getTime() + 1000);
-      const mockLeg = { getLegDate: () => invalidLegDate } as BookingLeg;
-      expect(() => booking.addLeg(mockLeg)).toThrow(
-        "Booking leg date must be within booking period",
-      );
     });
   });
 

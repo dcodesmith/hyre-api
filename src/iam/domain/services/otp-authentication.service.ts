@@ -1,6 +1,6 @@
-import { generateOtpCode } from "@/shared/utils/generate-otp";
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { generateOtpCode } from "@/shared/utils/generate-otp";
 import { RedisService } from "../../../shared/redis/redis.service";
 
 export interface OtpGenerationResult {

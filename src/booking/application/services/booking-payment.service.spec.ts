@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import {
   createCreateBookingDto,
   createPaymentStatusQueryDto,
 } from "../../../../test/fixtures/booking-dto.fixture";
-import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
@@ -12,11 +12,11 @@ import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
-import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import {
   BookingCannotBeConfirmedError,
   BookingNotFoundError,
 } from "../../domain/errors/booking.errors";
+import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";

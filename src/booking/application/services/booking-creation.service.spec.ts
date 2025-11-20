@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createCarDto } from "../../../../test/fixtures/car.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
@@ -11,6 +11,12 @@ import { UserType } from "../../../iam/domain/value-objects/user-type.vo";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
+import {
+  BookingCustomerNotAuthorizedError,
+  GuestCustomerAccountExpiredError,
+  GuestCustomerDetailsRequiredError,
+  GuestCustomerEmailRegisteredError,
+} from "../../domain/errors/booking.errors";
 import { CarNotFoundError } from "../../domain/errors/car.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
@@ -18,12 +24,6 @@ import { BookingAmountVerifierService } from "../../domain/services/booking-amou
 import { BookingCostCalculatorService } from "../../domain/services/booking-cost-calculator.service";
 import { BookingDateService } from "../../domain/services/booking-date.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
-import {
-  BookingCustomerNotAuthorizedError,
-  GuestCustomerAccountExpiredError,
-  GuestCustomerDetailsRequiredError,
-  GuestCustomerEmailRegisteredError,
-} from "../../domain/errors/booking.errors";
 import { BookingCreationService } from "./booking-creation.service";
 
 /**
@@ -280,9 +280,7 @@ describe("BookingCreationService", () => {
       await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
         GuestCustomerAccountExpiredError,
       );
-      await expect(service.createPendingBooking(mockDto)).rejects.toThrow(
-        "Guest user account for",
-      );
+      await expect(service.createPendingBooking(mockDto)).rejects.toThrow("Guest user account for");
     });
 
     it("should throw error when email belongs to registered user", async () => {

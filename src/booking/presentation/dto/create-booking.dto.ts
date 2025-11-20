@@ -5,37 +5,24 @@ const timeFormatRegex = /^\d{1,2}:\d{2}\s?(AM|PM)$/i;
 
 export const CreateBookingSchema = z
   .object({
-    // Date/Time fields (migration guide format)
     from: z.coerce.date(),
     to: z.coerce.date(),
     pickupTime: z.string().regex(timeFormatRegex, {
-      message: "Pickup time must be in format like '8:00 AM' or '11:30 PM'",
+      message: "Pickup time must be in format like '8:00 AM' or '11:00 AM'",
     }),
-
-    // Location fields
     pickupAddress: z
       .string()
       .min(1, { message: "Pickup address is required" })
       .max(500, { message: "Pickup address too long" }),
-    dropOffAddress: z
-      .string()
-      .min(1, { message: "Drop-off address is required when sameLocation is false" })
-      .max(500, { message: "Drop-off address too long" }),
-
+    dropOffAddress: z.string().max(500, { message: "Drop-off address too long" }).optional(),
     sameLocation: z.boolean().default(false),
-
-    // Booking details
     carId: z.uuid({ message: "Car ID must be a valid UUID" }),
     bookingType: z.enum(["DAY", "NIGHT", "FULL_DAY"], {
       message: "Booking type must be either DAY, NIGHT or FULL_DAY",
     }),
     includeSecurityDetail: z.boolean().default(false),
     specialRequests: z.string().max(1000, { message: "Special requests too long" }).optional(),
-
-    // Amount verification (server will validate against calculated amount)
     totalAmount: z.number().positive({ message: "Total amount must be positive" }),
-
-    // Guest user fields (optional if user is authenticated)
     email: z.email({ message: "Invalid email format" }).optional(),
     name: z
       .string()
@@ -53,6 +40,12 @@ export const CreateBookingSchema = z
     (data) => {
       const fromDate = new Date(data.from);
       const toDate = new Date(data.to);
+      // For DAY and NIGHT bookings, from/to represent calendar dates and can be the same
+      // For FULL_DAY bookings, to must be after from
+      if (data.bookingType === "FULL_DAY") {
+        return toDate > fromDate;
+      }
+      // For DAY/NIGHT, allow same date or to >= from
       return toDate >= fromDate;
     },
     {
@@ -72,8 +65,11 @@ export const CreateBookingSchema = z
   )
   .refine(
     (data) => {
-      // If sameLocation is true, dropOffAddress should not be provided
-      return !data.sameLocation || !data.dropOffAddress;
+      // If sameLocation is true, dropOffAddress should not be provided (must be undefined or empty)
+      if (data.sameLocation) {
+        return !data.dropOffAddress || data.dropOffAddress.trim() === "";
+      }
+      return true;
     },
     {
       message: "Cannot specify dropOffAddress when sameLocation is true",
@@ -82,37 +78,15 @@ export const CreateBookingSchema = z
   )
   .refine(
     (data) => {
-      // If sameLocation is false, dropOffAddress is required
-      return data.sameLocation || data.dropOffAddress;
-    },
-    {
-      message: "Drop-off address is required when sameLocation is false",
-      path: ["dropOffAddress"],
-    },
-  )
-  .refine(
-    (data) => {
-      // Validate booking time restrictions for DAY bookings
-      if (data.bookingType === "DAY") {
-        const now = new Date();
-        const bookingDate = new Date(data.from);
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const bookingDay = new Date(
-          bookingDate.getFullYear(),
-          bookingDate.getMonth(),
-          bookingDate.getDate(),
-        );
-
-        // If booking is for today and it's after 12 PM, reject
-        if (bookingDay.getTime() === today.getTime() && now.getHours() >= 12) {
-          return false;
-        }
+      // If sameLocation is false, dropOffAddress is required and must be non-empty
+      if (!data.sameLocation) {
+        return data.dropOffAddress && data.dropOffAddress.trim().length > 0;
       }
       return true;
     },
     {
-      message: "Cannot make DAY bookings for today after 12:00 PM",
-      path: ["from"],
+      message: "dropOffAddress is required when sameLocation is false",
+      path: ["dropOffAddress"],
     },
   );
 

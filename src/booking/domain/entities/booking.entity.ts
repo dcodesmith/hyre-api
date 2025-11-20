@@ -294,14 +294,6 @@ export class Booking extends AggregateRoot {
   }
 
   public addLeg(leg: BookingLeg): void {
-    const legDate = leg.getLegDate();
-    if (
-      legDate < this.props.bookingPeriod.startDateTime ||
-      legDate > this.props.bookingPeriod.endDateTime
-    ) {
-      throw new Error("Booking leg date must be within booking period");
-    }
-
     this.props.legs.push(leg);
     this.props.updatedAt = new Date();
   }
@@ -440,7 +432,7 @@ export class Booking extends AggregateRoot {
     return this.props.carId;
   }
 
-  public getChauffeurId(): string | undefined {
+  public getChauffeurId(): string | null {
     return this.props.chauffeurId;
   }
 

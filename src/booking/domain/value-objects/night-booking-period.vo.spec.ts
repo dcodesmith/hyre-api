@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { NightBookingPeriod } from "./night-booking-period.vo";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvalidBookingPeriodError } from "../errors/invalid-booking-period.error";
+import { NightBookingPeriod } from "./night-booking-period.vo";
 
 describe("NightBookingPeriod", () => {
   beforeEach(() => {

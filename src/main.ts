@@ -10,7 +10,6 @@ import { LoggerService } from "./shared/logging/logger.service";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Global pipes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -22,13 +21,10 @@ async function bootstrap() {
     }),
   );
 
-  // Get logger service
   const loggerService = app.get(LoggerService);
 
-  // Global filters
   app.useGlobalFilters(new AllExceptionsFilter(loggerService));
 
-  // Global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor(loggerService));
 
   // Prisma shutdown hook (Prisma 5.0.0+ compatible)

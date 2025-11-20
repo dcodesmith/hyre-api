@@ -1,15 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
-import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { Booking } from "../../domain/entities/booking.entity";
+import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { BookingType } from "../../domain/interfaces/booking.interface";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
-import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import {
   BookingLegStatus,
   BookingLegStatusEnum,
 } from "../../domain/value-objects/booking-leg-status.vo";
+import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
 import { BookingLegNotificationReadModel } from "../dtos/booking-leg-notification-read-model.dto";
@@ -380,10 +380,13 @@ export class BookingLegQueryService {
     });
 
     // Map ALL legs to DTOs (no deduplication - one notification per leg)
-    return legs.map((leg: any) => ({
+    return legs.map((leg) => ({
       // Booking identifiers
       bookingId: leg.booking.id,
       bookingReference: leg.booking.bookingReference,
+      bookingStatus: leg.booking.status,
+      bookingStartDate: leg.booking.startDate,
+      bookingEndDate: leg.booking.endDate,
 
       // Customer data
       customerId: leg.booking.user?.id ?? leg.booking.userId,
@@ -477,10 +480,13 @@ export class BookingLegQueryService {
     });
 
     // Map ALL legs to DTOs (no deduplication - one notification per leg)
-    return legs.map((leg: any) => ({
+    return legs.map((leg) => ({
       // Booking identifiers
       bookingId: leg.booking.id,
       bookingReference: leg.booking.bookingReference,
+      bookingStatus: leg.booking.status,
+      bookingStartDate: leg.booking.startDate,
+      bookingEndDate: leg.booking.endDate,
 
       // Customer data
       customerId: leg.booking.user?.id ?? leg.booking.userId,

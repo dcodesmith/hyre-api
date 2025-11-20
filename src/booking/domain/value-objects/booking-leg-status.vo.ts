@@ -18,9 +18,10 @@ import { ValueObject } from "../../../shared/domain/value-object";
  * - Booking transitions happen based on business rules (first leg start, final endDate)
  */
 export enum BookingLegStatusEnum {
-  PENDING = "PENDING",
+  CONFIRMED = "CONFIRMED",
   ACTIVE = "ACTIVE",
   COMPLETED = "COMPLETED",
+  PENDING = "PENDING",
 }
 
 interface BookingLegStatusProps {
@@ -38,6 +39,10 @@ export class BookingLegStatus extends ValueObject<BookingLegStatusProps> {
 
   public static create(value: BookingLegStatusEnum): BookingLegStatus {
     return new BookingLegStatus({ value });
+  }
+
+  public static confirmed(): BookingLegStatus {
+    return new BookingLegStatus({ value: BookingLegStatusEnum.CONFIRMED });
   }
 
   public static pending(): BookingLegStatus {
@@ -73,7 +78,8 @@ export class BookingLegStatus extends ValueObject<BookingLegStatusProps> {
    */
   public canTransitionTo(newStatus: BookingLegStatus): boolean {
     const validTransitions: Record<BookingLegStatusEnum, BookingLegStatusEnum[]> = {
-      [BookingLegStatusEnum.PENDING]: [BookingLegStatusEnum.ACTIVE],
+      [BookingLegStatusEnum.PENDING]: [BookingLegStatusEnum.CONFIRMED],
+      [BookingLegStatusEnum.CONFIRMED]: [BookingLegStatusEnum.ACTIVE],
       [BookingLegStatusEnum.ACTIVE]: [BookingLegStatusEnum.COMPLETED],
       [BookingLegStatusEnum.COMPLETED]: [], // Terminal state
     };

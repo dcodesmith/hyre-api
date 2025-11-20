@@ -105,7 +105,13 @@ export class AuthenticationService {
 
     // Send OTP notification directly (synchronous) - fixes race condition in tests
     // Previously this was done via domain events which are fire-and-forget
-    await this.sendOtpNotification(request.email, otpResult.otpCode, otpResult.expiresAt, userId, otpType);
+    await this.sendOtpNotification(
+      request.email,
+      otpResult.otpCode,
+      otpResult.expiresAt,
+      userId,
+      otpType,
+    );
 
     this.logger.info("OTP notification sent successfully", {
       email: request.email,
@@ -171,7 +177,9 @@ export class AuthenticationService {
           role: request.role,
         });
 
-        throw new ForbiddenException(`${request.role} accounts must be created by authorized users`);
+        throw new ForbiddenException(
+          `${request.role} accounts must be created by authorized users`,
+        );
       }
 
       // Use a placeholder phone number that the user can update later

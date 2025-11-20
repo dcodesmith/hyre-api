@@ -9,15 +9,15 @@ import {
 import {
   BookingLegReminderData,
   BookingNotificationFactoryService,
-  BookingReminderData,
   BookingStatusUpdateData,
+  FleetOwnerBookingAlertData,
 } from "./booking-notification-factory.service";
 
 // Re-export interfaces for backward compatibility
 export {
-  BookingReminderData,
   BookingLegReminderData,
   BookingStatusUpdateData,
+  FleetOwnerBookingAlertData,
   OtpNotificationData,
   WelcomeNotificationData,
   LoginConfirmationData,
@@ -30,21 +30,20 @@ export class NotificationFactoryService {
     private readonly authNotificationFactory: AuthNotificationFactoryService,
   ) {}
 
-  // Booking-related notifications - delegate to BookingNotificationFactoryService
-  createBookingStartReminders(data: BookingReminderData): Notification[] {
-    return this.bookingNotificationFactory.createBookingStartReminders(data);
-  }
-
-  createBookingEndReminders(data: BookingReminderData): Notification[] {
-    return this.bookingNotificationFactory.createBookingEndReminders(data);
-  }
-
   createBookingLegStartReminders(data: BookingLegReminderData): Notification[] {
     return this.bookingNotificationFactory.createBookingLegStartReminders(data);
   }
 
+  createBookingLegEndReminders(data: BookingLegReminderData): Notification[] {
+    return this.bookingNotificationFactory.createBookingLegEndReminders(data);
+  }
+
   createBookingStatusUpdateNotification(data: BookingStatusUpdateData): Notification | null {
     return this.bookingNotificationFactory.createBookingStatusUpdateNotification(data);
+  }
+
+  createFleetOwnerBookingAlert(data: FleetOwnerBookingAlertData): Notification | null {
+    return this.bookingNotificationFactory.createFleetOwnerBookingAlert(data);
   }
 
   // Authentication-related notifications - delegate to AuthNotificationFactoryService

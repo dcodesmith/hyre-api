@@ -17,6 +17,9 @@ export class BookingLegNotificationReadModel {
   // Booking identifiers
   bookingId: string;
   bookingReference: string;
+  bookingStatus: string;
+  bookingStartDate: Date;
+  bookingEndDate: Date;
 
   // Customer data
   customerId: string;

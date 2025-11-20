@@ -41,7 +41,11 @@ export const BookingPeriodFactory = {
             endDate ?? startDate,
           );
         }
-        return DayBookingPeriod.create({ startDate, pickupTime });
+        return DayBookingPeriod.create({
+          startDate,
+          endDate: endDate ?? startDate, // Default to same day for single-day bookings
+          pickupTime,
+        });
 
       case "NIGHT":
         return NightBookingPeriod.create({ startDate });

@@ -6,6 +6,7 @@ import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
+import { BookingDto, BookingMapper } from "../mappers/booking.mapper";
 
 /**
  * Application service responsible for user-facing booking query operations
@@ -25,7 +26,11 @@ export class BookingQueryService {
     private readonly logger: LoggerService,
   ) {}
 
-  async getBookingById(bookingId: string, currentUser: User): Promise<Booking> {
+  /**
+   * Get booking entity with authorization check
+   * Use this for internal operations that need the full entity
+   */
+  async getBookingEntityById(bookingId: string, currentUser: User): Promise<Booking> {
     const booking = await this.bookingRepository.findById(bookingId);
 
     if (!booking) {
@@ -46,7 +51,7 @@ export class BookingQueryService {
       throw new BookingNotFoundError(bookingId);
     }
 
-    this.logger.info("User fetching booking details", {
+    this.logger.info("User fetching booking entity", {
       userId: currentUser.getId(),
       bookingId,
     });
@@ -54,10 +59,22 @@ export class BookingQueryService {
     return booking;
   }
 
+  /**
+   * Get booking as DTO for API responses
+   * Use this for GET endpoints that return data to the client
+   */
+  async getBookingById(bookingId: string, currentUser: User): Promise<BookingDto> {
+    const booking = await this.getBookingEntityById(bookingId, currentUser);
+
+    // Use mapper to convert entity to DTO
+    return BookingMapper.toDto(booking);
+  }
+
   async getBookingByIdInternal(bookingId: string): Promise<Booking> {
     const booking = await this.bookingRepository.findById(bookingId);
 
     if (!booking) {
+      console.error(`getBookingByIdInternal could not find booking`, { bookingId });
       throw new BookingNotFoundError(bookingId);
     }
 
@@ -66,24 +83,27 @@ export class BookingQueryService {
     return booking;
   }
 
-  async getBookings(currentUser: User): Promise<Booking[]> {
+  async getBookings(currentUser: User): Promise<BookingDto[]> {
     const { isAuthorized } = this.bookingAuthorizationService.canViewAllBookings(currentUser);
+
+    let bookings: Booking[];
 
     if (isAuthorized) {
       this.logger.info("Admin/Staff fetching all bookings", { userId: currentUser.getId() });
-      return this.bookingRepository.findAll();
-    }
-
-    // Fleet owners can see bookings for their cars
-    if (currentUser.isFleetOwner()) {
+      bookings = await this.bookingRepository.findAll();
+    } else if (currentUser.isFleetOwner()) {
+      // Fleet owners can see bookings for their cars
       this.logger.info("Fleet owner fetching bookings for their fleet", {
         userId: currentUser.getId(),
       });
-      return this.bookingRepository.findByFleetOwnerId(currentUser.getId());
+      bookings = await this.bookingRepository.findByFleetOwnerId(currentUser.getId());
+    } else {
+      // Regular users can only see their own bookings
+      this.logger.info("User fetching their bookings", { userId: currentUser.getId() });
+      bookings = await this.bookingRepository.findByCustomerId(currentUser.getId());
     }
 
-    // Regular users can only see their own bookings
-    this.logger.info("User fetching their bookings", { userId: currentUser.getId() });
-    return this.bookingRepository.findByCustomerId(currentUser.getId());
+    // Map all bookings to DTOs
+    return BookingMapper.toDtoList(bookings);
   }
 }

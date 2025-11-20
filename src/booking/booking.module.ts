@@ -13,7 +13,7 @@ import { BookingCancelledHandler } from "./application/event-handlers/booking-ca
 import { BookingChauffeurAssignedHandler } from "./application/event-handlers/booking-chauffeur-assigned.handler";
 import { BookingChauffeurUnassignedHandler } from "./application/event-handlers/booking-chauffeur-unassigned.handler";
 import { BookingCreatedHandler } from "./application/event-handlers/booking-created.handler";
-import { BookingPaymentConfirmedHandler } from "./application/event-handlers/booking-payment-confirmed.handler";
+// import { BookingPaymentConfirmedHandler } from "./application/event-handlers/booking-payment-confirmed.handler";
 import { PaymentVerificationCompletedHandler } from "./application/event-handlers/payment-verification-completed.handler";
 import { BookingLegQueryService } from "./application/queries/booking-leg-query.service";
 import { BookingApplicationService } from "./application/services/booking-application.service";
@@ -49,7 +49,7 @@ const EventHandlers = [
   BookingCreatedHandler,
   BookingChauffeurAssignedHandler,
   BookingChauffeurUnassignedHandler,
-  BookingPaymentConfirmedHandler,
+  // BookingPaymentConfirmedHandler,
   PaymentVerificationCompletedHandler,
 ];
 

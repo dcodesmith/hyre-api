@@ -1,6 +1,6 @@
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { BookingLegEndReminderNeededEvent } from "../../../booking/domain/events/booking-leg-end-reminder-needed.event";
-import { BookingLegStartReminderNeededEvent } from "../../../booking/domain/events/booking-leg-start-reminder-needed.event";
+import { BookingLegEndReminderEvent } from "../../../booking/domain/events/booking-leg-end-reminder.event";
+import { BookingLegStartReminderEvent } from "../../../booking/domain/events/booking-leg-start-reminder.event";
 import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
 import { BookingLegReminderData } from "../../domain/services/notification-factory.service";
 import { NotificationService } from "../services/notification.service";
@@ -12,10 +12,8 @@ import { NotificationService } from "../services/notification.service";
  * - This ensures customers/chauffeurs are reminded for EACH day's journey
  */
 
-@EventsHandler(BookingLegStartReminderNeededEvent)
-export class BookingLegStartReminderHandler
-  implements IEventHandler<BookingLegStartReminderNeededEvent>
-{
+@EventsHandler(BookingLegStartReminderEvent)
+export class BookingLegStartReminderHandler implements IEventHandler<BookingLegStartReminderEvent> {
   private readonly logger: Logger;
 
   constructor(
@@ -25,25 +23,26 @@ export class BookingLegStartReminderHandler
     this.logger = this.loggerService.createLogger(BookingLegStartReminderHandler.name);
   }
 
-  async handle(event: BookingLegStartReminderNeededEvent): Promise<void> {
+  async handle(event: BookingLegStartReminderEvent): Promise<void> {
     try {
       // Map DTO to notification data format
       const reminderData: BookingLegReminderData = {
         bookingId: event.data.bookingId,
-        bookingLegId: event.data.legId!,
+        bookingReference: event.data.bookingReference,
+        bookingLegId: event.data.legId,
         customerName: event.data.customerName,
         chauffeurName: event.data.chauffeurName ?? "Chauffeur",
         carName: event.data.carName,
-        legStartTime: event.data.legStartDate!.toISOString(),
-        legEndTime: event.data.legEndDate!.toISOString(),
-        pickupLocation: event.data.legPickupLocation!,
-        returnLocation: event.data.legReturnLocation!,
+        legStartTime: event.data.legStartDate.toISOString(),
+        legEndTime: event.data.legEndDate.toISOString(),
+        pickupLocation: event.data.legPickupLocation,
+        returnLocation: event.data.legReturnLocation,
         customerId: event.data.customerId,
         customerEmail: event.data.customerEmail,
-        customerPhone: event.data.customerPhone ?? undefined,
+        customerPhone: event.data.customerPhone,
         chauffeurId: event.data.chauffeurId,
-        chauffeurEmail: event.data.chauffeurEmail ?? undefined,
-        chauffeurPhone: event.data.chauffeurPhone ?? undefined,
+        chauffeurEmail: event.data.chauffeurEmail,
+        chauffeurPhone: event.data.chauffeurPhone,
       };
 
       await this.notificationService.sendBookingLegStartReminders(reminderData);
@@ -56,10 +55,8 @@ export class BookingLegStartReminderHandler
   }
 }
 
-@EventsHandler(BookingLegEndReminderNeededEvent)
-export class BookingLegEndReminderHandler
-  implements IEventHandler<BookingLegEndReminderNeededEvent>
-{
+@EventsHandler(BookingLegEndReminderEvent)
+export class BookingLegEndReminderHandler implements IEventHandler<BookingLegEndReminderEvent> {
   private readonly logger: Logger;
 
   constructor(
@@ -69,25 +66,25 @@ export class BookingLegEndReminderHandler
     this.logger = this.loggerService.createLogger(BookingLegEndReminderHandler.name);
   }
 
-  async handle(event: BookingLegEndReminderNeededEvent): Promise<void> {
+  async handle(event: BookingLegEndReminderEvent): Promise<void> {
     try {
-      // Map DTO to notification data format
       const reminderData: BookingLegReminderData = {
         bookingId: event.data.bookingId,
-        bookingLegId: event.data.legId!,
+        bookingReference: event.data.bookingReference,
+        bookingLegId: event.data.legId,
         customerName: event.data.customerName,
         chauffeurName: event.data.chauffeurName ?? "Chauffeur",
         carName: event.data.carName,
-        legStartTime: event.data.legStartDate!.toISOString(),
-        legEndTime: event.data.legEndDate!.toISOString(),
-        pickupLocation: event.data.legPickupLocation!,
-        returnLocation: event.data.legReturnLocation!,
+        legStartTime: event.data.legStartDate.toISOString(),
+        legEndTime: event.data.legEndDate.toISOString(),
+        pickupLocation: event.data.legPickupLocation,
+        returnLocation: event.data.legReturnLocation,
         customerId: event.data.customerId,
         customerEmail: event.data.customerEmail,
-        customerPhone: event.data.customerPhone ?? undefined,
+        customerPhone: event.data.customerPhone,
         chauffeurId: event.data.chauffeurId,
-        chauffeurEmail: event.data.chauffeurEmail ?? undefined,
-        chauffeurPhone: event.data.chauffeurPhone ?? undefined,
+        chauffeurEmail: event.data.chauffeurEmail,
+        chauffeurPhone: event.data.chauffeurPhone,
       };
 
       await this.notificationService.sendBookingLegStartReminders(reminderData);

@@ -1,8 +1,8 @@
-import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { EventBus } from "@nestjs/cqrs";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
@@ -13,8 +13,6 @@ import { DomainEventPublisher } from "../../../shared/events/domain-event-publis
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
-import { BookingLegEndedEvent } from "../../domain/events/booking-leg-ended.event";
-import { BookingLegStartedEvent } from "../../domain/events/booking-leg-started.event";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
@@ -131,9 +129,20 @@ describe("BookingLifecycleService", () => {
       registrationType: RegistrationType.adminCreated("system-admin"),
     });
 
-    // Default setup for transaction
+    // Default setup for transaction with proper mocked transaction client
+    const mockTxClient = {
+      bookingLeg: {
+        update: vi.fn().mockResolvedValue({}),
+        create: vi.fn().mockResolvedValue({}),
+      },
+      booking: {
+        update: vi.fn().mockResolvedValue({}),
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    } as unknown as Prisma.TransactionClient;
+
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(mockTxClient);
     });
     vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
   });
@@ -263,6 +272,9 @@ describe("BookingLifecycleService", () => {
           legEndDate: activationEnd,
           legPickupLocation: "Location 1",
           legReturnLocation: "Return 1",
+          bookingStatus: "CONFIRMED",
+          bookingStartDate: activationStart,
+          bookingEndDate: activationEnd,
         },
         {
           bookingId: confirmedBooking2.getId(),
@@ -286,34 +298,24 @@ describe("BookingLifecycleService", () => {
           legEndDate: activationEnd,
           legPickupLocation: "Location 2",
           legReturnLocation: "Return 2",
+          bookingStatus: "CONFIRMED",
+          bookingStartDate: activationStart,
+          bookingEndDate: activationEnd,
         },
       ]);
-
-      // Mock findById to return the booking entities when they are loaded
-      vi.mocked(mockBookingRepository.findById)
-        .mockResolvedValueOnce(confirmedBooking1)
-        .mockResolvedValueOnce(confirmedBooking2);
-
-      vi.mocked(mockBookingRepository.saveWithTransaction)
-        .mockResolvedValueOnce(confirmedBooking1)
-        .mockResolvedValueOnce(confirmedBooking2);
-
-      // Set up mock to actually call domain method to generate events
-      vi.mocked(mockBookingDomainService.activateBooking).mockImplementation((booking) =>
-        booking.activate(),
-      );
 
       const result = await service.processBookingActivations();
 
       expect(mockQueryService.findStartingLegsForNotification).toHaveBeenCalled();
-      // Should activate at least one booking
-      expect(mockBookingDomainService.activateBooking).toHaveBeenCalled();
 
       // Should process both legs
       expect(result).toBe(2);
 
-      // Should publish leg started events via EventBus
+      // Should publish leg started events via EventBus (one per leg)
       expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+
+      // Verify Prisma transaction was called
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it("should handle activation errors gracefully", async () => {
@@ -349,23 +351,23 @@ describe("BookingLifecycleService", () => {
           legEndDate: activationEnd,
           legPickupLocation: "Location",
           legReturnLocation: "Return",
+          bookingStatus: "CONFIRMED",
+          bookingStartDate: activationStart,
+          bookingEndDate: activationEnd,
         },
       ]);
 
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(confirmedBooking);
-
-      const activationError = new Error("Activation failed");
+      // Mock transaction to throw an error
+      const activationError = new Error("Database transaction failed");
       activationError.stack = "Error stack trace";
-      vi.mocked(mockBookingDomainService.activateBooking).mockImplementation(() => {
-        throw activationError;
-      });
+      vi.mocked(mockPrismaService.$transaction).mockRejectedValueOnce(activationError);
 
       const result = await service.processBookingActivations();
 
       expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        "Failed to process leg start for booking BK-001: Activation failed",
-        "Error stack trace",
+        expect.stringContaining("Failed to process leg start for booking BK-001"),
+        expect.stringContaining("Error stack trace"),
       );
     });
 
@@ -423,6 +425,9 @@ describe("BookingLifecycleService", () => {
           legEndDate: completionEnd,
           legPickupLocation: "Location 1",
           legReturnLocation: "Return 1",
+          bookingStatus: "ACTIVE",
+          bookingStartDate: completionStart,
+          bookingEndDate: completionEnd,
         },
         {
           bookingId: activeBooking2.getId(),
@@ -446,34 +451,24 @@ describe("BookingLifecycleService", () => {
           legEndDate: completionEnd,
           legPickupLocation: "Location 2",
           legReturnLocation: "Return 2",
+          bookingStatus: "ACTIVE",
+          bookingStartDate: completionStart,
+          bookingEndDate: completionEnd,
         },
       ]);
-
-      // Mock findById to return the booking entities when they are loaded
-      vi.mocked(mockBookingRepository.findById)
-        .mockResolvedValueOnce(activeBooking1)
-        .mockResolvedValueOnce(activeBooking2);
-
-      vi.mocked(mockBookingRepository.saveWithTransaction)
-        .mockResolvedValueOnce(activeBooking1)
-        .mockResolvedValueOnce(activeBooking2);
-
-      // Set up mock to actually call domain method to generate events
-      vi.mocked(mockBookingDomainService.completeBooking).mockImplementation((booking) =>
-        booking.complete(),
-      );
 
       const result = await service.processBookingCompletions();
 
       expect(mockQueryService.findEndingLegsForNotification).toHaveBeenCalled();
-      // Should complete at least one booking
-      expect(mockBookingDomainService.completeBooking).toHaveBeenCalled();
 
       // Should process both legs
       expect(result).toBe(2);
 
-      // Should publish leg started events via EventBus
+      // Should publish leg ended events via EventBus (one per leg)
       expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+
+      // Verify Prisma transaction was called
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it("should handle completion errors gracefully", async () => {
@@ -510,21 +505,25 @@ describe("BookingLifecycleService", () => {
           legEndDate: completionEnd,
           legPickupLocation: "Location",
           legReturnLocation: "Return",
+          bookingStatus: "ACTIVE",
+          bookingStartDate: completionStart,
+          bookingEndDate: completionEnd,
         },
       ]);
 
-      vi.mocked(mockBookingRepository.findById).mockResolvedValue(activeBooking);
-
-      const completionError = new Error("Completion failed");
+      // Mock transaction to throw an error
+      const completionError = new Error("Database transaction failed");
       completionError.stack = "Error stack trace";
-      vi.mocked(mockBookingDomainService.completeBooking).mockImplementation(() => {
-        throw completionError;
-      });
+      vi.mocked(mockPrismaService.$transaction).mockRejectedValueOnce(completionError);
 
       const result = await service.processBookingCompletions();
 
-      // Leg is still processed even if booking completion fails (domain validation)
-      expect(result).toBe(1);
+      // If transaction fails, leg is NOT processed
+      expect(result).toBe(0);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to process leg end for booking BK-003"),
+        expect.stringContaining("Error stack trace"),
+      );
     });
 
     it("should handle no eligible bookings", async () => {

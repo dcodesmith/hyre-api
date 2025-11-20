@@ -77,7 +77,19 @@ export class BookingDateService {
   /**
    * Calculates the actual service start time for a specific leg
    */
-  getActualServiceStartTimeOnLeg(legDate: Date, bookingStartDate: Date, isFirstLeg: boolean): Date {
+  getActualServiceStartTimeOnLeg(
+    legDate: Date,
+    bookingStartDate: Date,
+    isFirstLeg: boolean,
+    bookingType?: BookingType,
+  ): Date {
+    // For DAY bookings, each leg starts at the same pickup time
+    if (bookingType === "DAY") {
+      const result = new Date(legDate);
+      result.setHours(bookingStartDate.getHours(), bookingStartDate.getMinutes(), 0, 0);
+      return result;
+    }
+
     if (isFirstLeg) {
       return bookingStartDate;
     }
@@ -87,7 +99,19 @@ export class BookingDateService {
   /**
    * Calculates the actual service end time for a specific leg
    */
-  getActualServiceEndTimeOnLeg(legDate: Date, bookingEndDate: Date, isLastLeg: boolean): Date {
+  getActualServiceEndTimeOnLeg(
+    legDate: Date,
+    bookingEndDate: Date,
+    isLastLeg: boolean,
+    bookingType?: BookingType,
+  ): Date {
+    // For DAY bookings, each leg ends 12 hours after start (at the same end time each day)
+    if (bookingType === "DAY") {
+      const result = new Date(legDate);
+      result.setHours(bookingEndDate.getHours(), bookingEndDate.getMinutes(), 0, 0);
+      return result;
+    }
+
     if (isLastLeg) {
       return bookingEndDate;
     }

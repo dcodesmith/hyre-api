@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventBus } from "@nestjs/cqrs";
+import { isToday } from "date-fns";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
@@ -65,15 +66,6 @@ export class BookingLifecycleService {
     this.logger.log(`Cancelled booking ${booking.getBookingReference()} with reason: ${reason}`);
   }
 
-  async processBookingStatusUpdates(): Promise<string> {
-    const activatedCount = await this.processBookingActivations();
-    const completedCount = await this.processBookingCompletions();
-
-    const result = `Processed status updates: ${activatedCount} activated, ${completedCount} completed`;
-    this.logger.log(result);
-    return result;
-  }
-
   /**
    * Process leg starts and booking activations
    *
@@ -92,20 +84,32 @@ export class BookingLifecycleService {
     const startingLegs = await this.queryService.findStartingLegsForNotification();
     let processedCount = 0;
 
-    for (const legNotification of startingLegs) {
+    for (const leg of startingLegs) {
       try {
-        // active each leg and publish event. Need booking leg domain here, so I can do leg.activate() and save leg
-        await this.eventBus.publish(new BookingLegStartedEvent(legNotification));
-        this.logger.log(
-          `Published leg started event for booking ${legNotification.bookingReference}, leg ${legNotification.legId}`,
-        );
+        // Temporary solution till I can figure out a DDD/Clean code way to do this
+        await this.prisma.$transaction(async (tx) => {
+          await tx.bookingLeg.update({
+            where: { bookingId: leg.bookingId, id: leg.legId },
+            data: { status: "ACTIVE" },
+          });
 
-        // activate the booking itself here, publishing the BookingActivatedEvent here doesn't send any notifications
+          if (leg.bookingStatus === "CONFIRMED" && isToday(leg.bookingStartDate)) {
+            await tx.booking.update({
+              where: { id: leg.bookingId },
+              data: { status: "ACTIVE" },
+            });
+          }
+        });
+
+        await this.eventBus.publish(new BookingLegStartedEvent(leg));
+        this.logger.log(
+          `Published leg started event for booking ${leg.bookingReference}, leg ${leg.legId}`,
+        );
 
         processedCount++;
       } catch (error) {
         this.logger.error(
-          `Failed to process leg start for booking ${legNotification.bookingReference}: ${error.message}`,
+          `Failed to process leg start for booking ${leg.bookingReference}: ${error.message}`,
           error.stack,
         );
       }
@@ -132,22 +136,31 @@ export class BookingLifecycleService {
     const endingLegs = await this.queryService.findEndingLegsForNotification();
     let processedCount = 0;
 
-    for (const legNotification of endingLegs) {
+    for (const leg of endingLegs) {
       try {
-        // complete each leg and publish event. Need booking leg domain here, so I can do leg.complete() and save leg
+        await this.prisma.$transaction(async (tx) => {
+          await tx.bookingLeg.update({
+            where: { bookingId: leg.bookingId, id: leg.legId },
+            data: { status: "COMPLETED" },
+          });
 
-        await this.eventBus.publish(new BookingLegEndedEvent(legNotification));
+          if (leg.bookingStatus === "ACTIVE" && isToday(leg.bookingEndDate)) {
+            await tx.booking.update({
+              where: { id: leg.bookingId },
+              data: { status: "COMPLETED" },
+            });
+          }
+        });
+
+        await this.eventBus.publish(new BookingLegEndedEvent(leg));
         this.logger.log(
-          `Published leg ended event for booking ${legNotification.bookingReference}, leg ${legNotification.legId}`,
+          `Published leg ended event for booking ${leg.bookingReference}, leg ${leg.legId}`,
         );
-
-        // Handle booking completion (only once per booking, only if endDate is today)
-        // complete the booking itself here, publishing the BookingCompletedEvent here doesn't send any notifications
 
         processedCount++;
       } catch (error) {
         this.logger.error(
-          `Failed to process leg end for booking ${legNotification.bookingReference}: ${error.message}`,
+          `Failed to process leg end for booking ${leg.bookingReference}: ${error.message}`,
           error.stack,
         );
       }

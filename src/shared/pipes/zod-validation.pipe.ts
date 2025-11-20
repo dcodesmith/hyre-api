@@ -26,16 +26,17 @@ export class ZodValidationPipe<T> implements PipeTransform {
         throw new BadRequestException({
           message: "Validation failed",
           statusCode: 400,
-          error: "Validation Error",
-          errors: formattedErrors,
-          timestamp: new Date().toISOString(),
+          error: "VALIDATION_ERROR",
+          details: {
+            fields: formattedErrors,
+          },
         });
       }
 
       throw new BadRequestException({
         message: "Validation failed - unexpected error",
         statusCode: 400,
-        error: "Validation Error",
+        error: "VALIDATION_ERROR",
       });
     }
   }

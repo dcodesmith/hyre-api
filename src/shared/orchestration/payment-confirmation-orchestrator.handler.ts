@@ -30,7 +30,6 @@ export class PaymentConfirmationOrchestrator
 
   async handle(event: BookingPaymentConfirmedEvent): Promise<void> {
     const { bookingId, paymentId } = event;
-
     this.logger.info(`Orchestrating payment confirmation for booking ${bookingId}`);
 
     try {
@@ -44,8 +43,11 @@ export class PaymentConfirmationOrchestrator
 
       this.logger.info(`Payment confirmation orchestration completed for booking: ${bookingId}`);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Error orchestrating payment confirmation for booking ${bookingId}: ${error.message}`,
+        { error: errorStack },
+        `Error orchestrating payment confirmation for booking ${bookingId}: ${errorMessage}`,
       );
     }
   }
@@ -95,29 +97,30 @@ export class PaymentConfirmationOrchestrator
         this.logger.info(`Customer payment confirmation sent for booking: ${bookingId}`);
       }
 
-      // Send fleet owner notification if available
+      // Send fleet owner booking alert notification if available
       if (fleetOwnerData && carData) {
-        const fleetOwnerNotificationData: BookingStatusUpdateData = {
+        const fleetOwnerAlertData = {
           bookingId: bookingData.getId(),
           bookingReference: bookingData.getBookingReference(),
           customerName: customerData?.getName() || "Customer",
           carName: carData.displayName,
-          status: "CONFIRMED",
           startDate: bookingData.getStartDateTime().toISOString(),
           endDate: bookingData.getEndDateTime().toISOString(),
           pickupLocation: bookingData.getPickupAddress(),
           returnLocation: bookingData.getDropOffAddress(),
-          customerId: fleetOwnerData.getId(), // Fleet owner as recipient
-          customerEmail: fleetOwnerData.getEmail(),
-          customerPhone: fleetOwnerData.getPhoneNumber() || "",
+          fleetOwnerId: fleetOwnerData.getId(),
+          fleetOwnerName: fleetOwnerData.getName() || "Fleet Owner",
+          fleetOwnerEmail: fleetOwnerData.getEmail(),
+          fleetOwnerPhone: fleetOwnerData.getPhoneNumber() || undefined,
         };
 
-        await this.notificationService.sendBookingStatusUpdate(fleetOwnerNotificationData);
-        this.logger.info(`Fleet owner payment confirmation sent for booking: ${bookingId}`);
+        await this.notificationService.sendFleetOwnerBookingAlert(fleetOwnerAlertData);
+        this.logger.info(`Fleet owner booking alert sent for booking: ${bookingId}`);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Error sending payment confirmation notifications for booking ${bookingId}: ${error.message}`,
+        `Error sending payment confirmation notifications for booking ${bookingId}: ${errorMessage}`,
       );
     }
   }
@@ -135,9 +138,18 @@ export class PaymentConfirmationOrchestrator
   private async getCustomerData(bookingId: string) {
     try {
       const booking = await this.bookingApplicationService.getBookingByIdInternally(bookingId);
-      return await this.userProfileService.getUserById(booking.getCustomerId());
+      const customerId = booking.getCustomerId();
+
+      // Handle case where customer ID might not be set yet (shouldn't happen but defensive)
+      if (!customerId) {
+        this.logger.warn(`Booking ${bookingId} has no customer ID`);
+        return null;
+      }
+
+      return await this.userProfileService.getUserById(customerId);
     } catch (error) {
-      this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to fetch customer data for booking ${bookingId}: ${errorMessage}`);
       return null;
     }
   }
@@ -165,10 +177,17 @@ export class PaymentConfirmationOrchestrator
 
       if (!car) return null;
 
+      // Handle case where car owner ID might not be set (shouldn't happen but defensive)
+      if (!car.ownerId) {
+        this.logger.warn(`Car ${booking.getCarId()} for booking ${bookingId} has no owner ID`);
+        return null;
+      }
+
       return await this.userProfileService.getUserById(car.ownerId);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to fetch fleet owner data for booking ${bookingId}: ${error.message}`,
+        `Failed to fetch fleet owner data for booking ${bookingId}: ${errorMessage}`,
       );
       return null;
     }

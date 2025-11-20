@@ -49,7 +49,7 @@ export class CarUploadApplicationService {
 
     try {
       // Transform the validated data to application service format
-      const carData: CarUploadDto = {
+      const carData = {
         make: validatedData.make,
         model: validatedData.model,
         year: validatedData.year,

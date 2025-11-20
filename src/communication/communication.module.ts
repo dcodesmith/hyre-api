@@ -2,13 +2,13 @@ import { Module } from "@nestjs/common";
 import { CqrsModule } from "@nestjs/cqrs";
 import { OtpAuthenticationService } from "../iam/domain/services/otp-authentication.service";
 import {
-  BookingLegEndReminderHandler,
-  BookingLegStartReminderHandler,
-} from "./application/event-handlers/booking-reminder.handler";
-import {
   BookingLegEndedHandler,
   BookingLegStartedHandler,
 } from "./application/event-handlers/booking-leg-notification.handler";
+import {
+  BookingLegEndReminderHandler,
+  BookingLegStartReminderHandler,
+} from "./application/event-handlers/booking-leg-reminder.handler";
 import { OtpGeneratedHandler } from "./application/event-handlers/otp-generated.handler";
 import { NotificationService } from "./application/services/notification.service";
 import { NotificationRepository } from "./domain/repositories/notification.repository";

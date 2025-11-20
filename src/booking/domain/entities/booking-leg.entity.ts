@@ -63,6 +63,14 @@ export class BookingLeg extends Entity<string> {
     return this.props.legStartTime > new Date();
   }
 
+  public confirm(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.confirmed())) {
+      throw new Error(`Cannot confirm leg in ${this.props.status.value} status`);
+    }
+
+    this.props.status = BookingLegStatus.confirmed();
+  }
+
   public activate(): void {
     if (!this.props.status.canTransitionTo(BookingLegStatus.active())) {
       throw new Error(`Cannot activate leg in ${this.props.status.value} status`);

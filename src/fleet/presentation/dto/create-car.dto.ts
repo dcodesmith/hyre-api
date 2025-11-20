@@ -16,6 +16,7 @@ export const createCarSchema = z.object({
   dayRate: z.number().positive("Day rate must be positive"),
   nightRate: z.number().positive("Night rate must be positive"),
   hourlyRate: z.number().positive("Hourly rate must be positive"),
+  fullDayRate: z.number().positive("Full day rate must be positive"),
   currency: z.string().length(3, "Currency must be 3 characters").default("USD"),
 });
 

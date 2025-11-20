@@ -9,7 +9,7 @@ import { PrismaService } from "../../../src/shared/database/prisma.service";
 import { RedisService } from "../../../src/shared/redis/redis.service";
 import { MockNotificationService } from "../../mocks/mock-notification.service";
 import { TestConfigService } from "../../utils/test-config.service";
-import { createAssertOtpEmailSent, uniqueEmail } from "./helpers/authentication.helpers";
+import { createAssertOtpEmailSent, uniqueEmail } from "../helpers/authentication.helpers";
 
 /**
  * OTP Expiry E2E Tests

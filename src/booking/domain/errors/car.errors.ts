@@ -3,13 +3,6 @@ import { BaseDomainError } from "../../../shared/domain/errors/base-domain.error
 export abstract class CarDomainError extends BaseDomainError {
   readonly context = "Car";
   abstract readonly code: string;
-  constructor(
-    message: string,
-    public readonly details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = this.constructor.name;
-  }
 }
 
 export class CarNotFoundError extends CarDomainError {

@@ -6,6 +6,7 @@ export enum NotificationTypeEnum {
   BOOKING_STATUS_UPDATE = "BOOKING_STATUS_UPDATE",
   BOOKING_LEG_START_REMINDER = "BOOKING_LEG_START_REMINDER",
   BOOKING_LEG_END_REMINDER = "BOOKING_LEG_END_REMINDER",
+  FLEET_OWNER_BOOKING_ALERT = "FLEET_OWNER_BOOKING_ALERT",
   PAYOUT_COMPLETED = "PAYOUT_COMPLETED",
   PAYOUT_FAILED = "PAYOUT_FAILED",
   USER_REGISTERED = "USER_REGISTERED",
@@ -55,6 +56,10 @@ export class NotificationType extends ValueObject<NotificationTypeProps> {
 
   public static otpLogin(): NotificationType {
     return new NotificationType({ value: NotificationTypeEnum.OTP_LOGIN });
+  }
+
+  public static fleetOwnerBookingAlert(): NotificationType {
+    return new NotificationType({ value: NotificationTypeEnum.FLEET_OWNER_BOOKING_ALERT });
   }
 
   public isReminder(): boolean {

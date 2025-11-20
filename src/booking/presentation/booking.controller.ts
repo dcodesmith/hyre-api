@@ -89,7 +89,7 @@ export class BookingController {
 
   @Get(":id")
   @UseGuards(JwtAuthGuard)
-  async getBooking(@ZodParam(z.string()) bookingId: string, @CurrentUser() currentUser: User) {
+  async getBooking(@Param("id") bookingId: string, @CurrentUser() currentUser: User) {
     return this.bookingService.getBookingById(bookingId, currentUser);
   }
 
@@ -106,8 +106,8 @@ export class BookingController {
       assignedBy: currentUser.getId(),
     });
 
-    // Get the booking first (with authorization check)
-    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
+    // Get the booking entity first (with authorization check)
+    const booking = await this.bookingService.getBookingEntityById(bookingId, currentUser);
 
     // Assign chauffeur
     const result = await this.chauffeurAssignmentService.assignChauffeurToBooking(booking, {
@@ -141,8 +141,8 @@ export class BookingController {
       reason: dto.reason,
     });
 
-    // Get the booking first (with authorization check)
-    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
+    // Get the booking entity first (with authorization check)
+    const booking = await this.bookingService.getBookingEntityById(bookingId, currentUser);
 
     // Unassign chauffeur
     const result = await this.chauffeurAssignmentService.unassignChauffeurFromBooking(booking, {
@@ -220,8 +220,8 @@ export class BookingController {
       requestedBy: currentUser.getId(),
     });
 
-    // Get the booking to extract date range (with authorization check)
-    const booking = await this.bookingService.getBookingById(bookingId, currentUser);
+    // Get the booking entity to extract date range (with authorization check)
+    const booking = await this.bookingService.getBookingEntityById(bookingId, currentUser);
 
     // Check availability
     const availability = await this.chauffeurAssignmentService.checkChauffeurAvailability(

@@ -32,6 +32,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     this.$on("error", (logEvent) => {
+      console.error(logEvent, "Prisma error: ", logEvent);
       this.logger.error(`Prisma error: ${logEvent.message}`);
     });
   }
