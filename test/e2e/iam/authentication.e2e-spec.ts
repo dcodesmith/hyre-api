@@ -9,6 +9,7 @@ import { PrismaService } from "../../../src/shared/database/prisma.service";
 import { RedisService } from "../../../src/shared/redis/redis.service";
 import { MockNotificationService } from "../../mocks/mock-notification.service";
 import { createAssertOtpEmailSent, uniqueEmail } from "../helpers/authentication.helpers";
+import { resetE2EDatabase } from "../helpers/database.helpers";
 
 describe("Authentication E2E", () => {
   let app: INestApplication;
@@ -44,8 +45,7 @@ describe("Authentication E2E", () => {
     mockNotificationService.clearHistory();
 
     await redis.getClient().flushdb();
-    await prisma.role.deleteMany();
-    await prisma.user.deleteMany();
+    await resetE2EDatabase(prisma);
   });
 
   describe("Customer Registration Flow", () => {
@@ -270,14 +270,14 @@ describe("Authentication E2E", () => {
 
       const loginOtp = assertOtpEmailSent(existingEmail, "login");
 
-      const verifyResponse = await request(app.getHttpServer()).post("/auth/verify").send({
-        email: existingEmail,
-        otpCode: loginOtp,
-        role: "fleetOwner",
-      });
-      // .expect(HttpStatus.FORBIDDEN);
-      console.log(verifyResponse.body);
-      expect(verifyResponse.body.message).toMatch(/role|mismatch|invalid/i);
+      await request(app.getHttpServer())
+        .post("/auth/verify")
+        .send({
+          email: existingEmail,
+          otpCode: loginOtp,
+          role: "fleetOwner",
+        })
+        .expect(HttpStatus.FORBIDDEN);
     });
   });
 
@@ -292,15 +292,18 @@ describe("Authentication E2E", () => {
 
       const otpCode = assertOtpEmailSent(staffEmail, "registration");
 
-      const verifyResponse = await request(app.getHttpServer()).post("/auth/verify").send({
-        email: staffEmail,
-        otpCode,
-        role: "staff",
-      });
-      // .expect(HttpStatus.FORBIDDEN);
-      console.log(verifyResponse.body);
+      const verifyResponse = await request(app.getHttpServer())
+        .post("/auth/verify")
+        .send({
+          email: staffEmail,
+          otpCode,
+          role: "staff",
+        })
+        .expect(HttpStatus.FORBIDDEN);
 
-      expect(verifyResponse.body.message).toMatch(/staff.*authorized|created by/i);
+      expect(verifyResponse.body.message).toMatch(
+        "staff accounts must be created by authorized users",
+      );
     });
 
     it("should reject chauffeur registration via public endpoint", async () => {

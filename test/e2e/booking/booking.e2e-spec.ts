@@ -21,6 +21,7 @@ import {
   fn,
   uniqueEmail,
 } from "../helpers/authentication.helpers";
+import { resetE2EDatabase } from "../helpers/database.helpers";
 
 describe("Booking E2E", () => {
   let app: INestApplication;
@@ -77,13 +78,7 @@ describe("Booking E2E", () => {
     mockNotificationService.clearHistory();
 
     await redis.getClient().flushdb();
-    await prisma.bookingLeg.deleteMany();
-    await prisma.booking.deleteMany();
-    await prisma.car.deleteMany();
-    await prisma.role.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.platformFeeRate.deleteMany();
-    await prisma.taxRate.deleteMany();
+    await resetE2EDatabase(prisma);
 
     const now = new Date();
     await prisma.platformFeeRate.createMany({
@@ -519,8 +514,6 @@ describe("Booking E2E", () => {
       const dayAfterTomorrow = new Date(tomorrow);
       dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
       dayAfterTomorrow.setHours(0, 0, 0, 0);
-
-      console.log(tomorrow.toISOString(), dayAfterTomorrow.toISOString());
 
       const bookingData = {
         from: tomorrow.toISOString(),
