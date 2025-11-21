@@ -26,6 +26,26 @@ import { NotificationService } from "../services/notification.service";
  * - No orchestrator layer, no cross-domain queries
  */
 
+function buildBookingStatusUpdateData(
+  event: BookingLegStartedEvent | BookingLegEndedEvent,
+  status: "ACTIVE" | "COMPLETED",
+): BookingStatusUpdateData {
+  return {
+    bookingId: event.data.bookingId,
+    bookingReference: event.data.bookingReference,
+    customerName: event.data.customerName,
+    carName: event.data.carName,
+    status,
+    startDate: event.data.legStartDate.toISOString(),
+    endDate: event.data.legEndDate.toISOString(),
+    pickupLocation: event.data.legPickupLocation,
+    returnLocation: event.data.legReturnLocation,
+    customerId: event.data.customerId,
+    customerEmail: event.data.customerEmail,
+    customerPhone: event.data.customerPhone ?? "",
+  };
+}
+
 @EventsHandler(BookingLegStartedEvent)
 export class BookingLegStartedHandler implements IEventHandler<BookingLegStartedEvent> {
   private readonly logger: Logger;
@@ -39,21 +59,7 @@ export class BookingLegStartedHandler implements IEventHandler<BookingLegStarted
 
   async handle(event: BookingLegStartedEvent): Promise<void> {
     try {
-      // Send notification for this specific leg starting
-      const statusUpdateData: BookingStatusUpdateData = {
-        bookingId: event.data.bookingId,
-        bookingReference: event.data.bookingReference,
-        customerName: event.data.customerName,
-        carName: event.data.carName,
-        status: "ACTIVE", // Indicate the trip is starting (leg-level)
-        startDate: event.data.legStartDate.toISOString(), // Use leg dates for notification
-        endDate: event.data.legEndDate.toISOString(),
-        pickupLocation: event.data.legPickupLocation,
-        returnLocation: event.data.legReturnLocation,
-        customerId: event.data.customerId,
-        customerEmail: event.data.customerEmail,
-        customerPhone: event.data.customerPhone ?? "",
-      };
+      const statusUpdateData = buildBookingStatusUpdateData(event, "ACTIVE");
 
       await this.notificationService.sendBookingStatusUpdate(statusUpdateData);
       this.logger.info(
@@ -80,21 +86,7 @@ export class BookingLegEndedHandler implements IEventHandler<BookingLegEndedEven
 
   async handle(event: BookingLegEndedEvent): Promise<void> {
     try {
-      // Send notification for this specific leg ending
-      const statusUpdateData: BookingStatusUpdateData = {
-        bookingId: event.data.bookingId,
-        bookingReference: event.data.bookingReference,
-        customerName: event.data.customerName,
-        carName: event.data.carName,
-        status: "COMPLETED", // Indicate the trip is ending (leg-level)
-        startDate: event.data.legStartDate.toISOString(), // Use leg dates for notification
-        endDate: event.data.legEndDate.toISOString(),
-        pickupLocation: event.data.legPickupLocation,
-        returnLocation: event.data.legReturnLocation,
-        customerId: event.data.customerId,
-        customerEmail: event.data.customerEmail,
-        customerPhone: event.data.customerPhone ?? "",
-      };
+      const statusUpdateData = buildBookingStatusUpdateData(event, "COMPLETED");
 
       await this.notificationService.sendBookingStatusUpdate(statusUpdateData);
       this.logger.info(

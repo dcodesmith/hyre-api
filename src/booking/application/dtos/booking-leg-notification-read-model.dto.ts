@@ -11,7 +11,6 @@
  * - BookingLegEndedEvent: Published when ANY leg ends (sends notification)
  *
  * Contains all data needed for leg notifications without additional queries
- * ALSO includes full booking data to avoid redundant DB calls for entity updates
  */
 export class BookingLegNotificationReadModel {
   // Booking identifiers
@@ -49,7 +48,4 @@ export class BookingLegNotificationReadModel {
   legEndDate: Date;
   legPickupLocation: string;
   legReturnLocation: string;
-
-  // Full booking data for domain entity reconstitution (avoids second DB call)
-  bookingData?: any; // Prisma booking with all legs included (optional for tests)
 }

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
@@ -15,62 +16,96 @@ import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
 import { BookingLegNotificationReadModel } from "../dtos/booking-leg-notification-read-model.dto";
 import { BookingReminderReadModel } from "../dtos/booking-reminder-read-model.dto";
 
-/**
- * Booking Leg Query Service
- *
- * WHY THIS EXISTS AS A SEPARATE SERVICE:
- *
- * 1. SINGLE RESPONSIBILITY PRINCIPLE:
- *    - BookingQueryService handles user-facing queries with authorization
- *    - This service handles system-facing LEG-BASED queries for background jobs
- *    - Different consumers, different concerns, different services
- *
- * 2. CLEAR SEPARATION OF CONCERNS:
- *    - User queries (BookingQueryService): Return domain entities, require authorization
- *    - System queries (This service): Return read models/DTOs or booking IDs, no authorization needed
- *    - Mixing these in one service violates SRP and creates confusion
- *
- * 3. DEPENDENCY MANAGEMENT:
- *    - BookingQueryService needs: BookingRepository, CarRepository, BookingAuthorizationService
- *    - This service needs: PrismaService only
- *    - Each service has minimal, focused dependencies
- *
- * 4. CQRS PATTERN:
- *    - Domain repositories (BookingRepository) work with domain entities for write operations
- *    - Query services (this) work with read models (DTOs) optimized for specific views
- *    - Separates command models from query models at the service level
- *
- * 5. PERFORMANCE OPTIMIZATION:
- *    - These queries are optimized for leg-based operations (reminders + status changes)
- *    - Single query with all relations included (no N+1 problem)
- *    - Returns denormalized data (DTOs) or booking IDs ready for use
- *
- * 6. TESTABILITY:
- *    - Can test leg-based queries independently from user queries
- *    - Can mock this service in application service tests
- *    - Clear, focused unit of testing
- *
- * SCOPE: This service handles ALL leg-based queries for background jobs:
- * - Reminder notifications (1 hour before leg start/end)
- * - Status changes (minute-precision at leg start/end)
- */
+// Prisma payload type for leg queries with booking relations
+type LegWithBookingRelations = Prisma.BookingLegGetPayload<{
+  include: {
+    booking: {
+      include: {
+        user: true;
+        chauffeur: true;
+        car: true;
+      };
+    };
+  };
+}>;
+
 @Injectable()
 export class BookingLegQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Find booking legs eligible for start reminders with all notification data
-   *
-   * IMPORTANT: Reminders are LEG-BASED, not booking-based
-   * - Each booking can have multiple legs (multi-day bookings)
-   * - Reminders are sent 1 HOUR before each leg starts
-   * - This ensures customers/chauffeurs are reminded for each day's journey
-   *
-   * Note: BookingLeg doesn't have its own location/status fields,
-   * so we use the parent booking's data combined with leg timing.
-   *
-   * Performance: 1 query with nested includes instead of N+1 queries
+   * Map leg with booking relations to read model
+   * Shared mapper for both reminder and notification DTOs
    */
+  private mapLegToReadModel(leg: LegWithBookingRelations) {
+    return {
+      bookingId: leg.booking.id,
+      bookingReference: leg.booking.bookingReference,
+      startDate: leg.booking.startDate,
+      endDate: leg.booking.endDate,
+      pickupLocation: leg.booking.pickupLocation ?? "",
+      returnLocation: leg.booking.returnLocation,
+      customerId: leg.booking.user?.id ?? leg.booking.userId ?? "",
+      customerEmail: leg.booking.user?.email ?? "",
+      customerName: leg.booking.user?.name ?? "Customer",
+      customerPhone: leg.booking.user?.phoneNumber ?? null,
+      chauffeurId: leg.booking.chauffeur?.id ?? null,
+      chauffeurEmail: leg.booking.chauffeur?.email ?? null,
+      chauffeurName: leg.booking.chauffeur?.name ?? null,
+      chauffeurPhone: leg.booking.chauffeur?.phoneNumber ?? null,
+      carId: leg.booking.car.id,
+      carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
+      legId: leg.id,
+      legStartDate: leg.legStartTime,
+      legEndDate: leg.legEndTime,
+      legPickupLocation: leg.booking.pickupLocation ?? "",
+      legReturnLocation: leg.booking.returnLocation,
+    };
+  }
+
+  private mapToReminderReadModel(leg: LegWithBookingRelations): BookingReminderReadModel {
+    return this.mapLegToReadModel(leg);
+  }
+
+  private mapToNotificationReadModel(
+    leg: LegWithBookingRelations,
+  ): BookingLegNotificationReadModel {
+    const base = this.mapLegToReadModel(leg);
+    return {
+      ...base,
+      bookingStatus: leg.booking.status,
+      bookingStartDate: leg.booking.startDate,
+      bookingEndDate: leg.booking.endDate,
+    };
+  }
+
+  /**
+   * Create minute-precision time window for queries
+   */
+  private createMinuteWindow(): { start: Date; end: Date } {
+    const now = new Date();
+    return {
+      start: new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+        0,
+        0,
+      ),
+      end: new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+        59,
+        999,
+      ),
+    };
+  }
+
   async findEligibleLegsForStartRemindersWithData(): Promise<BookingReminderReadModel[]> {
     const now = new Date();
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
@@ -96,49 +131,9 @@ export class BookingLegQueryService {
       },
     });
 
-    return legs.map((leg) => ({
-      // Booking core data
-      bookingId: leg.booking.id,
-      bookingReference: leg.booking.bookingReference,
-      startDate: leg.booking.startDate,
-      endDate: leg.booking.endDate,
-      pickupLocation: leg.booking.pickupLocation,
-      returnLocation: leg.booking.returnLocation,
-
-      // Customer data
-      customerId: leg.booking.user?.id ?? leg.booking.userId ?? "",
-      customerEmail: leg.booking.user?.email ?? "",
-      customerName: leg.booking.user?.name ?? "Customer",
-      customerPhone: leg.booking.user?.phoneNumber ?? null,
-
-      // Chauffeur data
-      chauffeurId: leg.booking.chauffeur?.id ?? null,
-      chauffeurEmail: leg.booking.chauffeur?.email ?? null,
-      chauffeurName: leg.booking.chauffeur?.name ?? null,
-      chauffeurPhone: leg.booking.chauffeur?.phoneNumber ?? null,
-
-      // Car data
-      carId: leg.booking.car.id,
-      carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
-
-      // Leg-specific data (timing from leg, location from booking)
-      legId: leg.id,
-      legStartDate: leg.legStartTime,
-      legEndDate: leg.legEndTime,
-      legPickupLocation: leg.booking.pickupLocation,
-      legReturnLocation: leg.booking.returnLocation,
-    }));
+    return legs.map((leg) => this.mapToReminderReadModel(leg));
   }
 
-  /**
-   * Find booking legs eligible for end reminders with all notification data
-   *
-   * IMPORTANT: Reminders are LEG-BASED, not booking-based
-   * - Reminders are sent 1 HOUR before each leg ends
-   * - This allows customers/chauffeurs to prepare for leg completion
-   *
-   * Performance: 1 query with nested includes instead of N+1 queries
-   */
   async findEligibleLegsForEndRemindersWithData(): Promise<BookingReminderReadModel[]> {
     const now = new Date();
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
@@ -164,38 +159,7 @@ export class BookingLegQueryService {
       },
     });
 
-    return legs.map((leg) => ({
-      // Booking core data
-      bookingId: leg.booking.id,
-      bookingReference: leg.booking.bookingReference,
-      startDate: leg.booking.startDate,
-      endDate: leg.booking.endDate,
-      pickupLocation: leg.booking.pickupLocation,
-      returnLocation: leg.booking.returnLocation,
-
-      // Customer data
-      customerId: leg.booking.user?.id ?? leg.booking.userId ?? "",
-      customerEmail: leg.booking.user?.email ?? "",
-      customerName: leg.booking.user?.name ?? "Customer",
-      customerPhone: leg.booking.user?.phoneNumber ?? null,
-
-      // Chauffeur data
-      chauffeurId: leg.booking.chauffeur?.id ?? null,
-      chauffeurEmail: leg.booking.chauffeur?.email ?? null,
-      chauffeurName: leg.booking.chauffeur?.name ?? null,
-      chauffeurPhone: leg.booking.chauffeur?.phoneNumber ?? null,
-
-      // Car data
-      carId: leg.booking.car.id,
-      carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
-
-      // Leg-specific data (timing from leg, location from booking)
-      legId: leg.id,
-      legStartDate: leg.legStartTime,
-      legEndDate: leg.legEndTime,
-      legPickupLocation: leg.booking.pickupLocation,
-      legReturnLocation: leg.booking.returnLocation,
-    }));
+    return legs.map((leg) => this.mapToReminderReadModel(leg));
   }
 
   /**
@@ -321,41 +285,12 @@ export class BookingLegQueryService {
     });
   }
 
-  /**
-   * Find booking legs that are starting (for sending notifications)
-   *
-   * IMPORTANT: Returns ALL legs that start, not just unique bookings
-   * - Each leg start sends a notification (multi-day bookings get multiple notifications)
-   * - Queries legs where legStartTime falls within current minute
-   * - Includes user, chauffeur, and car data in single query (no N+1)
-   * - Returns one DTO per leg (NOT deduplicated)
-   * - DTO contains ALL data needed for leg start notifications
-   */
   async findStartingLegsForNotification(): Promise<BookingLegNotificationReadModel[]> {
-    const now = new Date();
-    // Create minute-precision window: 09:00:00.000 to 09:00:59.999
-    const minuteStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      0,
-      0,
-    );
-    const minuteEnd = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      59,
-      999,
-    );
+    const { start: minuteStart, end: minuteEnd } = this.createMinuteWindow();
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
-        status: "PENDING", // Only pending legs that need activation
+        status: "CONFIRMED", // Only confirmed legs that need activation
         legStartTime: {
           gte: minuteStart,
           lte: minuteEnd,
@@ -380,79 +315,11 @@ export class BookingLegQueryService {
     });
 
     // Map ALL legs to DTOs (no deduplication - one notification per leg)
-    return legs.map((leg) => ({
-      // Booking identifiers
-      bookingId: leg.booking.id,
-      bookingReference: leg.booking.bookingReference,
-      bookingStatus: leg.booking.status,
-      bookingStartDate: leg.booking.startDate,
-      bookingEndDate: leg.booking.endDate,
-
-      // Customer data
-      customerId: leg.booking.user?.id ?? leg.booking.userId,
-      customerEmail: leg.booking.user?.email ?? "",
-      customerName: leg.booking.user?.name ?? "Customer",
-      customerPhone: leg.booking.user?.phoneNumber ?? null,
-
-      // Chauffeur data
-      chauffeurId: leg.booking.chauffeur?.id ?? null,
-      chauffeurEmail: leg.booking.chauffeur?.email ?? null,
-      chauffeurName: leg.booking.chauffeur?.name ?? null,
-      chauffeurPhone: leg.booking.chauffeur?.phoneNumber ?? null,
-
-      // Car data
-      carId: leg.booking.car.id,
-      carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
-
-      // Booking details
-      startDate: leg.booking.startDate,
-      endDate: leg.booking.endDate,
-      pickupLocation: leg.booking.pickupLocation ?? "",
-      returnLocation: leg.booking.returnLocation,
-
-      // Leg-specific details (the specific leg that started)
-      legId: leg.id,
-      legStartDate: leg.legStartTime,
-      legEndDate: leg.legEndTime,
-      legPickupLocation: leg.booking.pickupLocation ?? "",
-      legReturnLocation: leg.booking.returnLocation,
-
-      // Full booking data for reconstitution (avoid second DB call)
-      bookingData: leg.booking,
-    }));
+    return legs.map((leg) => this.mapToNotificationReadModel(leg));
   }
 
-  /**
-   * Find booking legs that are ending (for sending notifications)
-   *
-   * IMPORTANT: Returns ALL legs that end, not just unique bookings
-   * - Each leg end sends a notification (multi-day bookings get multiple notifications)
-   * - Queries legs where legEndTime falls within current minute
-   * - Includes user, chauffeur, and car data in single query (no N+1)
-   * - Returns one DTO per leg (NOT deduplicated)
-   * - DTO contains ALL data needed for leg end notifications
-   */
   async findEndingLegsForNotification(): Promise<BookingLegNotificationReadModel[]> {
-    const now = new Date();
-    // Create minute-precision window: 18:00:00.000 to 18:00:59.999
-    const minuteStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      0,
-      0,
-    );
-    const minuteEnd = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      59,
-      999,
-    );
+    const { start: minuteStart, end: minuteEnd } = this.createMinuteWindow();
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
@@ -479,46 +346,6 @@ export class BookingLegQueryService {
       },
     });
 
-    // Map ALL legs to DTOs (no deduplication - one notification per leg)
-    return legs.map((leg) => ({
-      // Booking identifiers
-      bookingId: leg.booking.id,
-      bookingReference: leg.booking.bookingReference,
-      bookingStatus: leg.booking.status,
-      bookingStartDate: leg.booking.startDate,
-      bookingEndDate: leg.booking.endDate,
-
-      // Customer data
-      customerId: leg.booking.user?.id ?? leg.booking.userId,
-      customerEmail: leg.booking.user?.email ?? "",
-      customerName: leg.booking.user?.name ?? "Customer",
-      customerPhone: leg.booking.user?.phoneNumber ?? null,
-
-      // Chauffeur data
-      chauffeurId: leg.booking.chauffeur?.id ?? null,
-      chauffeurEmail: leg.booking.chauffeur?.email ?? null,
-      chauffeurName: leg.booking.chauffeur?.name ?? null,
-      chauffeurPhone: leg.booking.chauffeur?.phoneNumber ?? null,
-
-      // Car data
-      carId: leg.booking.car.id,
-      carName: `${leg.booking.car.make} ${leg.booking.car.model}`,
-
-      // Booking details
-      startDate: leg.booking.startDate,
-      endDate: leg.booking.endDate,
-      pickupLocation: leg.booking.pickupLocation ?? "",
-      returnLocation: leg.booking.returnLocation,
-
-      // Leg-specific details (the specific leg that ended)
-      legId: leg.id,
-      legStartDate: leg.legStartTime,
-      legEndDate: leg.legEndTime,
-      legPickupLocation: leg.booking.pickupLocation ?? "",
-      legReturnLocation: leg.booking.returnLocation,
-
-      // Full booking data for reconstitution (avoid second DB call)
-      bookingData: leg.booking,
-    }));
+    return legs.map((leg) => this.mapToNotificationReadModel(leg));
   }
 }
