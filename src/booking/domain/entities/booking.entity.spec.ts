@@ -405,7 +405,7 @@ describe("Booking Entity", () => {
 
       booking.unassignChauffeur("fleet-owner-789", "admin-123", "Chauffeur unavailable");
 
-      expect(booking.getChauffeurId()).toBeUndefined();
+      expect(booking.getChauffeurId()).toBeNull();
       expect(booking.hasChauffeurAssigned()).toBe(false);
 
       const events = booking.getUncommittedEvents();
