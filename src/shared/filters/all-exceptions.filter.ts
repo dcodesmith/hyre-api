@@ -44,37 +44,49 @@ export class AllExceptionsFilter implements ExceptionFilter {
   } {
     const response = exception.getResponse();
 
-    // Check if it's our structured Zod validation error
-    if (typeof response === "object" && response !== null) {
-      const responseObj = response as Record<string, unknown>;
+    // Early return for non-object responses
+    if (typeof response !== "object" || response === null) {
+      return this.createBadRequestResponse(exception.message);
+    }
 
-      // Our ZodValidationPipe format - now uses details.fields
-      if (responseObj.details && typeof responseObj.details === "object") {
-        return {
-          status: 400,
-          message:
-            typeof responseObj.message === "string" ? responseObj.message : "Validation failed",
-          details: responseObj.details as Record<string, unknown>,
-          errorCode: typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR",
-          errorType: "Validation Error",
-        };
-      }
+    const responseObj = response as Record<string, unknown>;
 
-      // Other structured BadRequestException
-      if (responseObj.message) {
-        return {
-          status: 400,
-          message: typeof responseObj.message === "string" ? responseObj.message : "Bad Request",
-          errorCode: "BAD_REQUEST",
-          errorType: "Bad Request",
-        };
-      }
+    // Our ZodValidationPipe format - now uses details.fields
+    if (responseObj.details && typeof responseObj.details === "object") {
+      const message =
+        typeof responseObj.message === "string" ? responseObj.message : "Validation failed";
+      const errorCode =
+        typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR";
+
+      return {
+        status: 400,
+        message,
+        details: responseObj.details as Record<string, unknown>,
+        errorCode,
+        errorType: "Validation Error",
+      };
+    }
+
+    // Other structured BadRequestException
+    if (responseObj.message) {
+      const message =
+        typeof responseObj.message === "string" ? responseObj.message : "Bad Request";
+      return this.createBadRequestResponse(message);
     }
 
     // Fallback for simple BadRequestException
+    return this.createBadRequestResponse(exception.message);
+  }
+
+  private createBadRequestResponse(message?: string): {
+    status: number;
+    message: string;
+    errorCode: string;
+    errorType: string;
+  } {
     return {
       status: 400,
-      message: exception.message || "Bad Request",
+      message: message || "Bad Request",
       errorCode: "BAD_REQUEST",
       errorType: "Bad Request",
     };
@@ -90,7 +102,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Merge context into details for unified structure
     const details: Record<string, unknown> = {
-      ...(exception.details || {}),
+      ...exception.details,
       context: exception.context,
     };
 

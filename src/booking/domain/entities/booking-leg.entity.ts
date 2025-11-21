@@ -27,7 +27,7 @@ export interface CreateBookingLegParams {
 }
 
 export class BookingLeg extends Entity<string> {
-  private constructor(private props: BookingLegProps) {
+  private constructor(private readonly props: BookingLegProps) {
     // Use temporary ID for Entity base class, will be replaced by DB
     super(props.id || generateSecureRandomId());
   }

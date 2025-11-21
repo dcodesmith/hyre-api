@@ -1,6 +1,4 @@
 import { Booking } from "../entities/booking.entity";
-import { BookingStatus } from "../value-objects/booking-status.vo";
-import { PaymentStatus } from "../value-objects/payment-status.vo";
 
 export interface CreateBookingRequest {
   customerId: string;
