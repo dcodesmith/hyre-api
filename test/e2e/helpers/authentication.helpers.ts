@@ -12,7 +12,8 @@ export const uniqueEmail = (prefix: string): string => {
 export const createAssertOtpEmailSent = (mockNotificationService: MockNotificationService) => {
   return (email: string, expectedType: "registration" | "login" = "registration"): string => {
     const emailNotifications = mockNotificationService.getEmailHistory();
-    const otpEmail = emailNotifications.find((e) => e.to === email);
+    // Use reverse to get the most recent email (handles multiple emails per user)
+    const otpEmail = [...emailNotifications].reverse().find((e) => e.to === email);
 
     expect(otpEmail, `No email sent to ${email}`).toBeDefined();
 
@@ -35,7 +36,8 @@ export const createAssertOtpEmailSent = (mockNotificationService: MockNotificati
 export const createAssertEmailSent = (mockNotificationService: MockNotificationService) => {
   return (email: string, expectedSubject: string) => {
     const emailNotifications = mockNotificationService.getEmailHistory();
-    const emailNotification = emailNotifications.find((e) => e.to === email);
+    // Use reverse to get the most recent email (handles multiple emails per user)
+    const emailNotification = [...emailNotifications].reverse().find((e) => e.to === email);
     expect(emailNotification?.subject).toContain(expectedSubject);
   };
 };
@@ -43,9 +45,8 @@ export const createAssertEmailSent = (mockNotificationService: MockNotificationS
 export const fn = (
   app: INestApplication,
   assertOtpEmailSent: ReturnType<typeof createAssertOtpEmailSent>,
+  prisma: PrismaClient,
 ) => {
-  const prisma = new PrismaClient();
-
   return {
     completeRegistrationFlow: async (
       role: "customer" | "fleetOwner" | "admin",
@@ -75,8 +76,11 @@ export const fn = (
     createAdminUser: async (): Promise<{ token: string; userId: string; email: string }> => {
       const email = uniqueEmail("admin");
 
-      const adminRole = await prisma.role.create({
-        data: {
+      // Use upsert to make admin role creation idempotent across tests
+      const adminRole = await prisma.role.upsert({
+        where: { name: "admin" },
+        update: {},
+        create: {
           name: "admin",
           description: "System administrator",
         },

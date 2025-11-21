@@ -19,9 +19,9 @@ import { BookingLegQueryService } from "../queries/booking-leg-query.service";
  * - Publish domain events for cross-context communication
  * - Handle errors and logging
  *
- * Why we use BookingReminderQueryService instead of BookingRepository:
+ * Why we use BookingLegQueryService instead of BookingRepository:
  * - BookingRepository returns domain entities (Booking) for write operations
- * - BookingReminderQueryService returns read models (DTOs) optimized for reminder queries
+ * - BookingLegQueryService returns read models (DTOs) optimized for reminder queries
  * - This follows CQRS: separate models for commands (writes) and queries (reads)
  * - Query service fetches all related data in one query (no N+1 problem)
  * - Domain entities don't need to know about cross-aggregate data projection
@@ -47,13 +47,19 @@ export class BookingReminderService {
 
     for (const leg of legs) {
       try {
-        // Pass the entire DTO object instead of 15 individual parameters
         this.eventBus.publish(new BookingLegStartReminderEvent(leg));
         published++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking leg start reminder for ${leg.legId}: ${error.message}`,
-        );
+        if (error instanceof Error) {
+          this.logger.error(
+            `Failed to process booking leg start reminder for ${leg.legId}: ${error.message}`,
+            error.stack,
+          );
+        } else {
+          this.logger.error(
+            `Failed to process booking leg start reminder for ${leg.legId}: ${String(error)}`,
+          );
+        }
       }
     }
 
@@ -75,9 +81,16 @@ export class BookingReminderService {
         this.eventBus.publish(new BookingLegEndReminderEvent(leg));
         published++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process booking leg end reminder for ${leg.legId}: ${error.message}`,
-        );
+        if (error instanceof Error) {
+          this.logger.error(
+            `Failed to process booking leg end reminder for ${leg.legId}: ${error.message}`,
+            error.stack,
+          );
+        } else {
+          this.logger.error(
+            `Failed to process booking leg end reminder for ${leg.legId}: ${String(error)}`,
+          );
+        }
       }
     }
 

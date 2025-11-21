@@ -1,7 +1,7 @@
 import { EventBus } from "@nestjs/cqrs";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
@@ -36,7 +36,7 @@ describe("BookingLifecycleService", () => {
   let mockBooking: Booking;
   let mockCustomer: User;
   let mockAdmin: User;
-  let mockTransactionClient: Prisma.TransactionClient;
+  let mockTransactionClient: Partial<Prisma.TransactionClient>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -135,6 +135,8 @@ describe("BookingLifecycleService", () => {
     });
 
     // Default setup for transaction with proper mocked transaction client
+    // Note: Using partial mock with only the methods used by BookingLifecycleService
+    // Cast is necessary because we're only mocking used methods, not the full interface
     mockTransactionClient = {
       bookingLeg: {
         update: vi.fn().mockResolvedValue({}),
@@ -144,12 +146,17 @@ describe("BookingLifecycleService", () => {
         update: vi.fn().mockResolvedValue({}),
         findUnique: vi.fn().mockResolvedValue(null),
       },
-    } as unknown as Prisma.TransactionClient;
+    } as unknown as Partial<Prisma.TransactionClient>;
 
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
-      return await fn(mockTransactionClient);
+      return await fn(mockTransactionClient as Prisma.TransactionClient);
     });
     vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
+  });
+
+  afterEach(() => {
+    // Restore real timers after each test to prevent fake timers from affecting other tests
+    vi.useRealTimers();
   });
 
   describe("#cancelBooking", () => {
@@ -239,8 +246,13 @@ describe("BookingLifecycleService", () => {
 
   describe("#processBookingActivations", () => {
     it("should process activations successfully", async () => {
-      const activationStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in the future
-      const activationEnd = new Date(Date.now() + 65 * 60 * 1000); // 65 minutes in the future
+      // Use fixed timestamp for deterministic tests (avoids flakiness around midnight/DST)
+      const fixedNow = new Date("2025-01-15T10:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(fixedNow);
+
+      const activationStart = new Date("2025-01-15T10:05:00Z"); // 5 minutes after fixedNow
+      const activationEnd = new Date("2025-01-15T11:05:00Z"); // 65 minutes after fixedNow
 
       // Create legs for the bookings
       const leg1 = BookingLeg.reconstitute({
@@ -366,8 +378,13 @@ describe("BookingLifecycleService", () => {
     });
 
     it("should handle activation errors gracefully", async () => {
-      const activationStart = new Date();
-      const activationEnd = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      // Use fixed timestamp for deterministic tests
+      const fixedNow = new Date("2025-01-15T10:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(fixedNow);
+
+      const activationStart = new Date("2025-01-15T10:00:00Z");
+      const activationEnd = new Date("2025-01-16T10:00:00Z"); // 24 hours later
 
       const confirmedBooking = createBookingEntity({
         id: "booking-1",
@@ -429,10 +446,15 @@ describe("BookingLifecycleService", () => {
 
   describe("#processBookingCompletions", () => {
     it("should process completions successfully", async () => {
+      // Use fixed timestamp for deterministic tests (avoids flakiness around midnight/DST)
+      const fixedNow = new Date("2025-01-15T10:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(fixedNow);
+
       // For completion tests, we need dates slightly in the future but close to now
       // These bookings are ACTIVE and will be eligible for auto-completion
-      const completionStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in future
-      const completionEnd = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in future
+      const completionStart = new Date("2025-01-15T10:05:00Z"); // 5 minutes after fixedNow
+      const completionEnd = new Date("2025-01-15T10:10:00Z"); // 10 minutes after fixedNow
 
       // Create legs for the bookings (active status for completion)
       const leg3 = BookingLeg.reconstitute({
@@ -558,8 +580,13 @@ describe("BookingLifecycleService", () => {
     });
 
     it("should handle completion errors gracefully", async () => {
-      const completionStart = new Date(Date.now() + 5 * 60 * 1000);
-      const completionEnd = new Date(Date.now() + 10 * 60 * 1000);
+      // Use fixed timestamp for deterministic tests
+      const fixedNow = new Date("2025-01-15T10:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(fixedNow);
+
+      const completionStart = new Date("2025-01-15T10:05:00Z");
+      const completionEnd = new Date("2025-01-15T10:10:00Z");
 
       const activeBooking = createBookingEntity({
         id: "booking-3",

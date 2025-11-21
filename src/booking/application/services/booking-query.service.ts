@@ -11,11 +11,12 @@ import { BookingDto, BookingMapper } from "../mappers/booking.mapper";
 /**
  * Application service responsible for user-facing booking query operations
  *
- * Focused on authorization-aware queries that return domain entities.
+ * Focused on authorization-aware queries that return DTOs for API responses.
  * Delegates authorization decisions to BookingAuthorizationService (domain layer).
  *
- * NOTE: System/background job queries (like reminders) are in BookingReminderQueryService
- * to maintain single responsibility principle.
+ * NOTE: System/background job queries are handled by:
+ * - BookingLegQueryService: leg-based queries for reminders and status transitions
+ * - BookingReminderService: reminder processing and notification coordination
  */
 @Injectable()
 export class BookingQueryService {

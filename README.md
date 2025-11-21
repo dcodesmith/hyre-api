@@ -1,6 +1,6 @@
 # Hyre API - Chauffeur-driven Car Rental Service Platform
 
-A complete Domain-Driven Design (DDD), event driven implementation of a chauffeur-driven car rental service marketplace using NestJS.
+A complete Domain-Driven Design (DDD), event-driven implementation of a chauffeur-driven car rental service marketplace using NestJS.
 
 ## Architecture Overview
 

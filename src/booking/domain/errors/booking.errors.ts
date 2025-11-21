@@ -146,3 +146,31 @@ export class CarOwnerIdRequiredForFleetOwnerVerificationError extends BookingDom
     );
   }
 }
+
+export class InvalidBookingLegStatusTransitionError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_LEG_STATUS_TRANSITION";
+  constructor(
+    legId: string,
+    currentStatus: string,
+    targetStatus: string,
+  ) {
+    super(
+      `Cannot transition leg ${legId} from ${currentStatus} to ${targetStatus}`,
+      { legId, currentStatus, targetStatus },
+    );
+  }
+}
+
+export class InvalidBookingStatusTransitionError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_STATUS_TRANSITION";
+  constructor(
+    bookingId: string,
+    currentStatus: string,
+    targetStatus: string,
+  ) {
+    super(
+      `Cannot transition booking ${bookingId} from ${currentStatus} to ${targetStatus}`,
+      { bookingId, currentStatus, targetStatus },
+    );
+  }
+}

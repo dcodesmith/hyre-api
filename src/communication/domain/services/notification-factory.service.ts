@@ -2,19 +2,19 @@ import { Injectable } from "@nestjs/common";
 import { Notification } from "../entities/notification.entity";
 import {
   AuthNotificationFactoryService,
-  LoginConfirmationData,
-  OtpNotificationData,
-  WelcomeNotificationData,
+  type LoginConfirmationData,
+  type OtpNotificationData,
+  type WelcomeNotificationData,
 } from "./auth-notification-factory.service";
 import {
-  BookingLegReminderData,
+  type BookingLegReminderData,
   BookingNotificationFactoryService,
-  BookingStatusUpdateData,
-  FleetOwnerBookingAlertData,
+  type BookingStatusUpdateData,
+  type FleetOwnerBookingAlertData,
 } from "./booking-notification-factory.service";
 
-// Re-export interfaces for backward compatibility
-export {
+// Re-export types for backward compatibility
+export type {
   BookingLegReminderData,
   BookingStatusUpdateData,
   FleetOwnerBookingAlertData,

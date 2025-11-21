@@ -29,7 +29,7 @@ export const CarFactory = Factory.define<CreateCarDto>(({ sequence }) => {
   return {
     make,
     model: faker.vehicle.model(),
-    year: currentYear - faker.number.int({ min: 0, max: 5 }), // Within last 5 years
+    year: currentYear - faker.number.int({ min: 0, max: 5 }),
     color: faker.color.human(),
     registrationNumber: `ABC${String(sequence).padStart(3, "0")}XY`, // Format: ABC001XY, ABC002XY, etc.
     dayRate: faker.number.int({ min: 150, max: 400 }),

@@ -6,14 +6,15 @@ import { ValueObject } from "../../../shared/domain/value-object";
  * Represents the status of an individual booking leg (one day of a multi-day booking)
  *
  * STATUS LIFECYCLE:
- * PENDING → ACTIVE → COMPLETED
+ * PENDING → CONFIRMED → ACTIVE → COMPLETED
  *
- * - PENDING: Leg is scheduled but hasn't started yet
+ * - PENDING: Leg is scheduled but booking hasn't been confirmed yet
+ * - CONFIRMED: Booking has been confirmed, leg is awaiting its start time
  * - ACTIVE: Leg is currently in progress (between legStartTime and legEndTime)
  * - COMPLETED: Leg has finished (past legEndTime)
  *
  * IMPORTANT: Leg status is independent of booking status
- * - A booking can be ACTIVE with some legs PENDING and others COMPLETED
+ * - A booking can be ACTIVE with some legs CONFIRMED and others COMPLETED
  * - Leg transitions happen based on time (legStartTime/legEndTime)
  * - Booking transitions happen based on business rules (first leg start, final endDate)
  */
@@ -61,6 +62,10 @@ export class BookingLegStatus extends ValueObject<BookingLegStatusProps> {
     return this.props.value === BookingLegStatusEnum.PENDING;
   }
 
+  public isConfirmed(): boolean {
+    return this.props.value === BookingLegStatusEnum.CONFIRMED;
+  }
+
   public isActive(): boolean {
     return this.props.value === BookingLegStatusEnum.ACTIVE;
   }
@@ -73,7 +78,8 @@ export class BookingLegStatus extends ValueObject<BookingLegStatusProps> {
    * Validate if the status can transition to a new status
    *
    * Valid transitions:
-   * - PENDING → ACTIVE (when leg starts)
+   * - PENDING → CONFIRMED (when booking is confirmed)
+   * - CONFIRMED → ACTIVE (when leg starts)
    * - ACTIVE → COMPLETED (when leg ends)
    */
   public canTransitionTo(newStatus: BookingLegStatus): boolean {

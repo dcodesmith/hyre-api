@@ -252,6 +252,20 @@ describe("BookingCreationService", () => {
       expect(logger.log).toHaveBeenCalledWith(expect.stringContaining("Created new guest user"));
     });
 
+    it("should not emit UserRegisteredEvent when creating guest user", () => {
+      // Guest users are not registered - they're just providing details to make a booking
+      // This guards against regressions that might add registration events for guests
+
+      // Use real User.createGuest to verify event behavior
+      const guestEmail = "guest@example.com";
+      const guestName = "Guest User";
+      const guestPhone = "+2348012345678";
+      const realGuestUser = User.createGuest(guestEmail, guestName, guestPhone);
+
+      // Verify guest user has no domain events (no UserRegisteredEvent)
+      expect(realGuestUser.getUncommittedEvents()).toHaveLength(0);
+    });
+
     it("should use existing guest user when not expired", async () => {
       const existingGuestUser = createUserEntity({
         id: "existing-guest-123",

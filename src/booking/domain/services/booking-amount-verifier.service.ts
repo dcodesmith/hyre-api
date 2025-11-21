@@ -16,11 +16,4 @@ export class BookingAmountVerifierService {
       throw new BookingAmountMismatchError(clientAmount, serverCalculatedAmount);
     }
   }
-
-  /**
-   * Formats amount for logging and error messages
-   */
-  formatAmount(amount: number): string {
-    return `₦${amount.toFixed(2)}`;
-  }
 }

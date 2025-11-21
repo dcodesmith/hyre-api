@@ -9,7 +9,6 @@ import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
-import { BookingMapper } from "../mappers/booking.mapper";
 import { BookingQueryService } from "./booking-query.service";
 
 describe("BookingQueryService", () => {
@@ -105,7 +104,9 @@ describe("BookingQueryService", () => {
         userId: "user-123",
         bookingId,
       });
-      expect(result).toEqual(BookingMapper.toDto(booking));
+      // Verify correct booking is returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result.id).toBe(bookingId);
+      expect(result.bookingReference).toBe("BK-123");
     });
 
     it("should throw error when booking not found", async () => {
@@ -204,7 +205,9 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("Admin/Staff fetching all bookings", {
         userId: "admin-123",
       });
-      expect(result).toEqual(BookingMapper.toDtoList(allBookings));
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("booking-admin-1");
     });
 
     it("should return fleet owner bookings when user is fleet owner", async () => {
@@ -229,7 +232,9 @@ describe("BookingQueryService", () => {
           userId: "fleet-123",
         },
       );
-      expect(result).toEqual(BookingMapper.toDtoList(fleetBookings));
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("fleet-booking-1");
     });
 
     it("should return customer bookings when user is regular customer", async () => {
@@ -250,7 +255,9 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("User fetching their bookings", {
         userId: "customer-123",
       });
-      expect(result).toEqual(BookingMapper.toDtoList(customerBookings));
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("customer-booking-1");
     });
   });
 });

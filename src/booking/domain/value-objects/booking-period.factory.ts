@@ -9,7 +9,7 @@ import type { PickupTime } from "./pickup-time.vo";
 export interface CreateBookingPeriodParams {
   bookingType: BookingType;
   startDate: Date;
-  endDate?: Date; // Only required for FULL_DAY bookings
+  endDate?: Date;
   pickupTime?: PickupTime;
 }
 

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, PaymentStatus as PrismaPaymentStatus } from "@prisma/client";
 import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
@@ -327,7 +327,7 @@ export class BookingLegQueryService {
         },
         booking: {
           status: { in: [BookingStatusEnum.CONFIRMED, BookingStatusEnum.ACTIVE] }, // Allow both - subsequent legs are ACTIVE
-          paymentStatus: "PAID",
+          paymentStatus: PrismaPaymentStatus.PAID,
           chauffeurId: { not: null },
           car: { status: "BOOKED" },
         },
@@ -360,7 +360,7 @@ export class BookingLegQueryService {
         },
         booking: {
           status: { in: [BookingStatusEnum.ACTIVE, BookingStatusEnum.COMPLETED] }, // Allow both - booking may complete before all leg notifications sent
-          paymentStatus: "PAID",
+          paymentStatus: PrismaPaymentStatus.PAID,
           car: { status: "BOOKED" },
         },
       },

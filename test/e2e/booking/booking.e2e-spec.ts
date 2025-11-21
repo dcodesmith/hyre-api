@@ -112,6 +112,7 @@ describe("Booking E2E", () => {
       const { completeRegistrationFlow, createAdminUser, carCreationFlow, carApprovalFlow } = fn(
         app,
         assertOtpEmailSent,
+        prisma,
       );
 
       const customer = await completeRegistrationFlow("customer", "booking-customer");
@@ -153,12 +154,12 @@ describe("Booking E2E", () => {
           bookingReference: expect.stringMatching(/^BK-/),
           checkoutUrl: expect.any(String),
           paymentIntentId: expect.any(String),
-          totalAmount: expect.any(Number),
+          totalAmount: bookingData.totalAmount,
           breakdown: {
-            netTotal: expect.any(Number),
-            platformServiceFee: expect.any(Number),
-            vat: expect.any(Number),
-            totalAmount: expect.any(Number),
+            netTotal: 50000, // dayRate
+            platformServiceFee: 7500, // 15% of netTotal
+            vat: 4312.5, // 7.5% of (netTotal + platformServiceFee)
+            totalAmount: bookingData.totalAmount,
           },
           booking: {
             startDate: expect.any(String),
@@ -230,6 +231,7 @@ describe("Booking E2E", () => {
       const { completeRegistrationFlow, createAdminUser, carCreationFlow, carApprovalFlow } = fn(
         app,
         assertOtpEmailSent,
+        prisma,
       );
 
       const fleetOwner = await completeRegistrationFlow("fleetOwner", "guest-fleet-owner");
@@ -271,11 +273,11 @@ describe("Booking E2E", () => {
           bookingReference: expect.stringMatching(/^BK-/),
           checkoutUrl: expect.any(String),
           paymentIntentId: expect.any(String),
-          totalAmount: expect.any(Number),
+          totalAmount: bookingData.totalAmount,
           breakdown: {
-            netTotal: expect.any(Number),
-            platformServiceFee: expect.any(Number),
-            vat: expect.any(Number),
+            netTotal: 50000, // dayRate
+            platformServiceFee: 7500, // 15% of netTotal
+            vat: 4312.5, // 7.5% of (netTotal + platformServiceFee)
             totalAmount: bookingData.totalAmount,
           },
           booking: {
@@ -339,10 +341,24 @@ describe("Booking E2E", () => {
   });
 
   describe("Booking Validation", () => {
+    // Helper to safely extract field error message with clear failure output
+    const getFieldError = (
+      fields: Array<{ field: string; message: string }>,
+      fieldName: string,
+    ): string => {
+      const fieldError = fields.find(({ field }) => field === fieldName);
+      expect(fieldError).toBeDefined();
+      if (!fieldError) {
+        throw new Error(`Expected field '${fieldName}' not found in validation errors`);
+      }
+      return fieldError.message;
+    };
+
     beforeEach(async () => {
       const { completeRegistrationFlow, createAdminUser, carCreationFlow, carApprovalFlow } = fn(
         app,
         assertOtpEmailSent,
+        prisma,
       );
 
       const customer = await completeRegistrationFlow("customer", "validation-customer");
@@ -377,10 +393,9 @@ describe("Booking E2E", () => {
         .send(bookingData)
         .expect(HttpStatus.BAD_REQUEST);
 
-      expect(
-        response.body.details.fields.find(({ field }: { field: string }) => field === "from")
-          .message,
-      ).toEqual("Start date must be in the future");
+      expect(getFieldError(response.body.details.fields, "from")).toEqual(
+        "Start date must be in the future",
+      );
     });
 
     it("should reject booking with invalid car ID", async () => {
@@ -433,9 +448,9 @@ describe("Booking E2E", () => {
         .send(bookingData)
         .expect(HttpStatus.BAD_REQUEST);
 
-      expect(
-        response.body.details.fields.find(({ field }: { field: string }) => field === "to").message,
-      ).toEqual("End date must be after or equal to start date");
+      expect(getFieldError(response.body.details.fields, "to")).toEqual(
+        "End date must be after or equal to start date",
+      );
     });
 
     it("should reject booking when sameLocation is true but dropOffAddress is provided", async () => {
@@ -460,11 +475,9 @@ describe("Booking E2E", () => {
         .send(bookingData)
         .expect(HttpStatus.BAD_REQUEST);
 
-      expect(
-        response.body.details.fields.find(
-          ({ field }: { field: string }) => field === "dropOffAddress",
-        ).message,
-      ).toEqual("Cannot specify dropOffAddress when sameLocation is true");
+      expect(getFieldError(response.body.details.fields, "dropOffAddress")).toEqual(
+        "Cannot specify dropOffAddress when sameLocation is true",
+      );
     });
 
     it("should reject invalid pickup time format", async () => {
@@ -488,10 +501,9 @@ describe("Booking E2E", () => {
         .send(bookingData)
         .expect(HttpStatus.BAD_REQUEST);
 
-      expect(
-        response.body.details.fields.find(({ field }: { field: string }) => field === "pickupTime")
-          .message,
-      ).toEqual("Pickup time must be in format like '8:00 AM' or '11:00 AM'");
+      expect(getFieldError(response.body.details.fields, "pickupTime")).toEqual(
+        "Pickup time must be in format like '8:00 AM' or '11:00 AM'",
+      );
     });
   });
 
@@ -500,6 +512,7 @@ describe("Booking E2E", () => {
       const { completeRegistrationFlow, createAdminUser, carCreationFlow, carApprovalFlow } = fn(
         app,
         assertOtpEmailSent,
+        prisma,
       );
       const customer = await completeRegistrationFlow("customer", "multiday-customer");
       const fleetOwner = await completeRegistrationFlow("fleetOwner", "multiday-fleet-owner");
@@ -622,6 +635,7 @@ describe("Booking E2E", () => {
       const { completeRegistrationFlow, createAdminUser, carCreationFlow, carApprovalFlow } = fn(
         app,
         assertOtpEmailSent,
+        prisma,
       );
       const customer = await completeRegistrationFlow("customer", "security-customer");
       const fleetOwner = await completeRegistrationFlow("fleetOwner", "security-fleet-owner");

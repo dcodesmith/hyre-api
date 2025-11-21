@@ -3,64 +3,14 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { generateSecureRandomId } from "../../../shared/utils/secure-random";
 
 export const SYSTEM_CURRENCY = "NGN";
-
-// ================================
-// ID Validation Functions
-// ================================
-
-/**
- * Validates that a booking ID is not empty or null
- */
-export function validateBookingId(id: string): string {
-  if (!id || id.trim().length === 0) {
-    throw new Error("Booking ID cannot be empty");
-  }
-  return id;
-}
-
-/**
- * Generates a unique booking ID
- */
-export function generateBookingId(): string {
-  return randomUUID();
-}
-
-/**
- * Validates that a fleet ID is not empty or null
- */
-export function validateFleetId(id: string): string {
-  if (!id || id.trim().length === 0) {
-    throw new Error("Fleet ID cannot be empty");
-  }
-  return id;
-}
 
 /**
  * Generates a unique fleet ID
  */
 export function generateFleetId(): string {
   return randomUUID();
-}
-
-/**
- * Validates that a user ID is not empty or null
- */
-export function validateUserId(id: string): string {
-  if (!id || id.trim().length === 0) {
-    throw new Error("User ID cannot be empty");
-  }
-  return id;
-}
-
-/**
- * Generates a unique user ID with custom format
- */
-export function generateUserId(): string {
-  const random = generateSecureRandomId();
-  return `usr_${random}`;
 }
 
 // ================================

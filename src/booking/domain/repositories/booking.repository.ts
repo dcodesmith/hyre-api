@@ -26,7 +26,12 @@ export interface BookingRepository {
    * Used for efficient aggregate-level batch processing.
    *
    * @param ids - Array of booking IDs to load
-   * @returns Array of Booking entities (empty if none found)
+   * @returns Array of Booking entities found (may be fewer than requested if some IDs don't exist)
+   *
+   * @remarks
+   * - Order is NOT guaranteed to match input order; callers should build a Map if order matters
+   * - Missing IDs are silently skipped (no error thrown, no nulls returned)
+   * - Duplicate IDs in input will return the booking once (deduplicated)
    */
   findByIds(ids: string[]): Promise<Booking[]>;
 

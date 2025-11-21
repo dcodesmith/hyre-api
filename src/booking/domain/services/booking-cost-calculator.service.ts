@@ -83,12 +83,12 @@ export class BookingCostCalculatorService {
 
     const legPrices: number[] = [];
 
-    for (const legDate of bookingDates) {
-      const dailyPrice = this.calculateBookingLegPrice(
-        car,
-        { startDate, endDate, type: bookingType },
-        legDate,
-      );
+    for (const _ of bookingDates) {
+      const dailyPrice = this.calculateBookingLegPrice(car, {
+        startDate,
+        endDate,
+        type: bookingType,
+      });
       legPrices.push(dailyPrice);
     }
 
@@ -166,29 +166,23 @@ export class BookingCostCalculatorService {
   private calculateBookingLegPrice(
     car: CarRates,
     booking: { startDate: Date; endDate: Date; type: BookingType },
-    _legDate: Date,
   ): number {
     const { dayRate, nightRate, fullDayRate } = car;
     const { type } = booking;
 
-    // Ensure rates are positive, default to 0 if not
-    const validDayRate = Math.max(0, dayRate);
-    const validNightRate = Math.max(0, nightRate);
-    const validFullDayRate = Math.max(0, fullDayRate);
-
     if (type === "NIGHT") {
-      return validNightRate;
+      return nightRate;
     }
 
     // FULL_DAY: flat rate per 24-hour period
     // Each FULL_DAY leg is exactly 24 hours, so we charge the fullDayRate
     if (type === "FULL_DAY") {
-      return validFullDayRate;
+      return fullDayRate;
     }
 
     // BookingType.DAY calculations
     // Each DAY leg is exactly 12 hours at the same pickup time
     // Therefore, each leg is charged the full dayRate
-    return validDayRate;
+    return dayRate;
   }
 }

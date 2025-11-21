@@ -35,15 +35,13 @@ export class ProcessingProcessor extends WorkerHost {
   }
 
   async process(job: Job<ProcessingJobData>): Promise<any> {
-    switch (job.name) {
-      case "process-pending-payouts":
-      case "manual-pending-payouts":
+    switch (job.data.type) {
+      case "pending-payouts":
         return this.handlePendingPayouts(job);
-      case "process-pending-notifications":
-      case "manual-pending-notifications":
+      case "pending-notifications":
         return this.handlePendingNotifications(job);
       default:
-        throw new Error(`Unknown job type: ${job.name}`);
+        throw new Error(`Unknown job type: ${job.data.type}`);
     }
   }
 

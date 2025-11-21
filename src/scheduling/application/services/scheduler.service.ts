@@ -24,9 +24,9 @@ export class SchedulerService {
   private readonly logger: Logger;
 
   constructor(
-    @InjectQueue("reminder-emails") private readonly reminderQueue: Queue,
-    @InjectQueue("status-updates") private readonly statusQueue: Queue,
-    @InjectQueue("processing-jobs") private readonly processingQueue: Queue,
+    @InjectQueue("reminder-emails") private readonly reminderQueue: Queue<ReminderJobData>,
+    @InjectQueue("status-updates") private readonly statusQueue: Queue<StatusUpdateJobData>,
+    @InjectQueue("processing-jobs") private readonly processingQueue: Queue<ProcessingJobData>,
     private readonly loggerService: LoggerService,
   ) {
     this.logger = this.loggerService.createLogger(SchedulerService.name);
@@ -108,7 +108,6 @@ export class SchedulerService {
     this.logger.info("Scheduled booking end reminder job");
   }
 
-  // Status updates: confirmed to active - hourly from 7 AM to 12 PM and at 11 PM
   @Cron("0 * * * *")
   async scheduleConfirmedToActiveUpdates() {
     const jobData: StatusUpdateJobData = {
@@ -128,7 +127,6 @@ export class SchedulerService {
     this.logger.info("Scheduled confirmed to active status update job");
   }
 
-  // Status updates: active to completed - at midnight, 5 AM, and hourly from 7-11 PM
   @Cron("0 * * * *")
   async scheduleActiveToCompletedUpdates() {
     const jobData: StatusUpdateJobData = {

@@ -5,6 +5,7 @@ import {
   validateAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
+import { InvalidBookingStatusTransitionError } from "../errors/booking.errors";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-unassigned.event";
@@ -121,7 +122,11 @@ export class Booking extends AggregateRoot {
 
   public confirm(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.confirmed())) {
-      throw new Error(`Cannot confirm booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CONFIRMED",
+      );
     }
 
     this.props.status = BookingStatus.confirmed();
@@ -139,7 +144,11 @@ export class Booking extends AggregateRoot {
 
   public confirmWithPayment(paymentId: string): void {
     if (!this.props.status.canTransitionTo(BookingStatus.confirmed())) {
-      throw new Error(`Cannot confirm booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CONFIRMED",
+      );
     }
 
     this.props.status = BookingStatus.confirmed();
@@ -160,7 +169,11 @@ export class Booking extends AggregateRoot {
    */
   public activate(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.active())) {
-      throw new Error(`Cannot activate booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "ACTIVE",
+      );
     }
 
     this.props.status = BookingStatus.active();
@@ -179,7 +192,11 @@ export class Booking extends AggregateRoot {
    */
   public complete(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.completed())) {
-      throw new Error(`Cannot complete booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "COMPLETED",
+      );
     }
 
     this.props.status = BookingStatus.completed();
@@ -190,7 +207,11 @@ export class Booking extends AggregateRoot {
 
   public cancel(reason?: string): void {
     if (!this.props.status.canTransitionTo(BookingStatus.cancelled())) {
-      throw new Error(`Cannot cancel booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CANCELLED",
+      );
     }
 
     this.props.status = BookingStatus.cancelled();
@@ -295,6 +316,26 @@ export class Booking extends AggregateRoot {
   }
 
   public addLeg(leg: BookingLeg): void {
+    const legDate = leg.getLegDate();
+    const startDate = this.props.bookingPeriod.startDateTime;
+    const endDate = this.props.bookingPeriod.endDateTime;
+
+    // Normalize to date-only comparison (ignore time component)
+    const legDateOnly = new Date(legDate.getFullYear(), legDate.getMonth(), legDate.getDate());
+    const startDateOnly = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    );
+    const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+    if (legDateOnly < startDateOnly || legDateOnly > endDateOnly) {
+      throw new Error(
+        `Leg date ${legDate.toISOString()} is outside booking period ` +
+          `(${startDate.toISOString()} to ${endDate.toISOString()})`,
+      );
+    }
+
     this.props.legs.push(leg);
     this.props.updatedAt = new Date();
   }
@@ -503,7 +544,7 @@ export class Booking extends AggregateRoot {
   }
 
   public getChauffeurId(): string | null {
-    return this.props.chauffeurId;
+    return this.props.chauffeurId ?? null;
   }
 
   public getSpecialRequests(): string | undefined {

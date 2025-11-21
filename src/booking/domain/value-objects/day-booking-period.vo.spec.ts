@@ -10,6 +10,10 @@ describe("DayBookingPeriod", () => {
     vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("create", () => {
     describe("single-day bookings", () => {
       it("should create a valid single-day DAY booking (9am-9pm)", () => {

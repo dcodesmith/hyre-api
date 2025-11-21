@@ -1,6 +1,7 @@
 import { Entity } from "../../../shared/domain/entity";
 import { validateAmount } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
+import { InvalidBookingLegStatusTransitionError } from "../errors/booking.errors";
 import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 
 export interface BookingLegProps {
@@ -37,12 +38,6 @@ export class BookingLeg extends Entity<string> {
       throw new Error("Leg start time must be before end time");
     }
 
-    // Validate amounts
-    validateAmount(params.totalDailyPrice);
-    validateAmount(params.itemsNetValueForLeg);
-    validateAmount(params.fleetOwnerEarningForLeg);
-
-    // All new legs start as PENDING
     return new BookingLeg({ ...params, status: BookingLegStatus.pending() });
   }
 
@@ -65,7 +60,11 @@ export class BookingLeg extends Entity<string> {
 
   public confirm(): void {
     if (!this.props.status.canTransitionTo(BookingLegStatus.confirmed())) {
-      throw new Error(`Cannot confirm leg in ${this.props.status.value} status`);
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "CONFIRMED",
+      );
     }
 
     this.props.status = BookingLegStatus.confirmed();
@@ -73,7 +72,11 @@ export class BookingLeg extends Entity<string> {
 
   public activate(): void {
     if (!this.props.status.canTransitionTo(BookingLegStatus.active())) {
-      throw new Error(`Cannot activate leg in ${this.props.status.value} status`);
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "ACTIVE",
+      );
     }
 
     this.props.status = BookingLegStatus.active();
@@ -81,7 +84,11 @@ export class BookingLeg extends Entity<string> {
 
   public complete(): void {
     if (!this.props.status.canTransitionTo(BookingLegStatus.completed())) {
-      throw new Error(`Cannot complete leg in ${this.props.status.value} status`);
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "COMPLETED",
+      );
     }
 
     this.props.status = BookingLegStatus.completed();

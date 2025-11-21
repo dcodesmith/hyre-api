@@ -80,7 +80,7 @@ export class BookingMapper {
       dropOffAddress: booking.getDropOffAddress(),
       customerId: booking.getCustomerId(),
       carId: booking.getCarId(),
-      chauffeurId: booking.getChauffeurId(),
+      chauffeurId: booking.getChauffeurId() ?? undefined,
       specialRequests: booking.getSpecialRequests(),
       paymentStatus: booking.getPaymentStatus(), // Already returns string
       paymentIntent: booking.getPaymentIntent(),
