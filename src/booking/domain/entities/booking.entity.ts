@@ -1,3 +1,4 @@
+import { isToday } from "date-fns";
 import { AggregateRoot } from "../../../shared/domain/aggregate-root";
 import {
   isZeroAmount,
@@ -295,6 +296,75 @@ export class Booking extends AggregateRoot {
 
   public addLeg(leg: BookingLeg): void {
     this.props.legs.push(leg);
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Activate a leg and potentially the booking itself.
+   * Called when a leg's start time arrives.
+   *
+   * IMPORTANT: This method handles domain logic only - no events are published here.
+   * The calling service (BookingLifecycleService) is responsible for publishing events
+   * with all the notification data needed (avoids N+1 queries).
+   *
+   * @param legId - The ID of the leg to activate
+   * @throws Error if leg is not found or cannot be activated
+   */
+  public activateLeg(legId: string): void {
+    const leg = this.props.legs.find((l) => l.getId() === legId);
+    if (!leg) {
+      throw new Error(`Leg ${legId} not found in booking ${this.props.id}`);
+    }
+
+    // Domain validation - this throws if transition is invalid
+    leg.activate();
+
+    // Activate booking if it's confirmed and today is the booking start date
+    if (this.props.status.isConfirmed() && isToday(this.props.bookingPeriod.startDateTime)) {
+      this.activate();
+    }
+
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Complete a leg and potentially the booking itself.
+   * Called when a leg's end time arrives.
+   *
+   * IMPORTANT: This method handles domain logic only - no events are published here.
+   * The calling service (BookingLifecycleService) is responsible for publishing events
+   * with all the notification data needed (avoids N+1 queries).
+   *
+   * @param legId - The ID of the leg to complete
+   * @throws Error if leg is not found or cannot be completed
+   */
+  public completeLeg(legId: string): void {
+    const leg = this.props.legs.find((l) => l.getId() === legId);
+    if (!leg) {
+      throw new Error(`Leg ${legId} not found in booking ${this.props.id}`);
+    }
+
+    // Domain validation - this throws if transition is invalid
+    leg.complete();
+
+    // Complete booking if it's active and today is the booking end date
+    if (this.props.status.isActive() && isToday(this.props.bookingPeriod.endDateTime)) {
+      this.complete();
+    }
+
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Confirm all legs when the booking is confirmed.
+   * Called after payment is confirmed.
+   */
+  public confirmAllLegs(): void {
+    for (const leg of this.props.legs) {
+      if (leg.isPending()) {
+        leg.confirm();
+      }
+    }
     this.props.updatedAt = new Date();
   }
 

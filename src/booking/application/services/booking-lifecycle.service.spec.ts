@@ -12,7 +12,9 @@ import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
+import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { BookingNotFoundError } from "../../domain/errors/booking.errors";
+import { BookingLegStatus } from "../../domain/value-objects/booking-leg-status.vo";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
@@ -44,7 +46,9 @@ describe("BookingLifecycleService", () => {
           provide: "BookingRepository",
           useValue: {
             findById: vi.fn(),
+            findByIds: vi.fn(),
             saveWithTransaction: vi.fn(),
+            saveAll: vi.fn(),
           },
         },
         {
@@ -238,11 +242,37 @@ describe("BookingLifecycleService", () => {
       const activationStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in the future
       const activationEnd = new Date(Date.now() + 65 * 60 * 1000); // 65 minutes in the future
 
+      // Create legs for the bookings
+      const leg1 = BookingLeg.reconstitute({
+        id: "leg-1",
+        bookingId: "booking-1",
+        legDate: activationStart,
+        legStartTime: activationStart,
+        legEndTime: activationEnd,
+        totalDailyPrice: 100,
+        itemsNetValueForLeg: 80,
+        fleetOwnerEarningForLeg: 70,
+        status: BookingLegStatus.confirmed(),
+      });
+
+      const leg2 = BookingLeg.reconstitute({
+        id: "leg-2",
+        bookingId: "booking-2",
+        legDate: activationStart,
+        legStartTime: activationStart,
+        legEndTime: activationEnd,
+        totalDailyPrice: 100,
+        itemsNetValueForLeg: 80,
+        fleetOwnerEarningForLeg: 70,
+        status: BookingLegStatus.confirmed(),
+      });
+
       const confirmedBooking1 = createBookingEntity({
         id: "booking-1",
         bookingReference: "BK-001",
         chauffeurId: "chauffeur-1",
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
+        legs: [leg1],
       });
 
       const confirmedBooking2 = createBookingEntity({
@@ -250,6 +280,7 @@ describe("BookingLifecycleService", () => {
         bookingReference: "BK-002",
         chauffeurId: "chauffeur-2",
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", activationStart, activationEnd),
+        legs: [leg2],
       });
 
       // Query service returns notification read models (one per leg)
@@ -308,6 +339,15 @@ describe("BookingLifecycleService", () => {
         },
       ]);
 
+      // Mock findByIds to return the booking entities
+      vi.mocked(mockBookingRepository.findByIds).mockResolvedValue([
+        confirmedBooking1,
+        confirmedBooking2,
+      ]);
+
+      // Mock saveAll
+      vi.mocked(mockBookingRepository.saveAll).mockResolvedValue();
+
       const result = await service.processBookingActivations();
 
       expect(mockQueryService.findStartingLegsForNotification).toHaveBeenCalled();
@@ -315,11 +355,14 @@ describe("BookingLifecycleService", () => {
       // Should process both legs
       expect(result).toBe(2);
 
+      // Should load booking aggregates
+      expect(mockBookingRepository.findByIds).toHaveBeenCalledWith(["booking-1", "booking-2"]);
+
+      // Should save modified aggregates
+      expect(mockBookingRepository.saveAll).toHaveBeenCalled();
+
       // Should publish leg started events via EventBus (one per leg)
       expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
-
-      // Verify Prisma transaction was called
-      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it("should handle activation errors gracefully", async () => {
@@ -361,17 +404,17 @@ describe("BookingLifecycleService", () => {
         },
       ]);
 
-      // Mock transaction to throw an error
-      const activationError = new Error("Database transaction failed");
-      activationError.stack = "Error stack trace";
-      vi.mocked(mockPrismaService.$transaction).mockRejectedValueOnce(activationError);
+      // Mock findByIds to return empty array (booking not found)
+      vi.mocked(mockBookingRepository.findByIds).mockResolvedValue([]);
+
+      // Mock saveAll
+      vi.mocked(mockBookingRepository.saveAll).mockResolvedValue();
 
       const result = await service.processBookingActivations();
 
       expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to process leg start for booking BK-001"),
-        expect.stringContaining("Error stack trace"),
+        expect.stringContaining("Booking booking-1 not found for leg leg-1"),
       );
     });
 
@@ -391,11 +434,37 @@ describe("BookingLifecycleService", () => {
       const completionStart = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes in future
       const completionEnd = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in future
 
+      // Create legs for the bookings (active status for completion)
+      const leg3 = BookingLeg.reconstitute({
+        id: "leg-3",
+        bookingId: "booking-3",
+        legDate: completionStart,
+        legStartTime: completionStart,
+        legEndTime: completionEnd,
+        totalDailyPrice: 100,
+        itemsNetValueForLeg: 80,
+        fleetOwnerEarningForLeg: 70,
+        status: BookingLegStatus.active(),
+      });
+
+      const leg4 = BookingLeg.reconstitute({
+        id: "leg-4",
+        bookingId: "booking-4",
+        legDate: completionStart,
+        legStartTime: completionStart,
+        legEndTime: completionEnd,
+        totalDailyPrice: 100,
+        itemsNetValueForLeg: 80,
+        fleetOwnerEarningForLeg: 70,
+        status: BookingLegStatus.active(),
+      });
+
       const activeBooking1 = createBookingEntity({
         id: "booking-3",
         bookingReference: "BK-003",
         status: BookingStatus.active(),
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
+        legs: [leg3],
       });
 
       const activeBooking2 = createBookingEntity({
@@ -403,6 +472,7 @@ describe("BookingLifecycleService", () => {
         bookingReference: "BK-004",
         status: BookingStatus.active(),
         bookingPeriod: BookingPeriodFactory.reconstitute("DAY", completionStart, completionEnd),
+        legs: [leg4],
       });
 
       // Query service returns notification read models (one per leg)
@@ -461,6 +531,15 @@ describe("BookingLifecycleService", () => {
         },
       ]);
 
+      // Mock findByIds to return the booking entities
+      vi.mocked(mockBookingRepository.findByIds).mockResolvedValue([
+        activeBooking1,
+        activeBooking2,
+      ]);
+
+      // Mock saveAll
+      vi.mocked(mockBookingRepository.saveAll).mockResolvedValue();
+
       const result = await service.processBookingCompletions();
 
       expect(mockQueryService.findEndingLegsForNotification).toHaveBeenCalled();
@@ -468,11 +547,14 @@ describe("BookingLifecycleService", () => {
       // Should process both legs
       expect(result).toBe(2);
 
+      // Should load booking aggregates
+      expect(mockBookingRepository.findByIds).toHaveBeenCalledWith(["booking-3", "booking-4"]);
+
+      // Should save modified aggregates
+      expect(mockBookingRepository.saveAll).toHaveBeenCalled();
+
       // Should publish leg ended events via EventBus (one per leg)
       expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
-
-      // Verify Prisma transaction was called
-      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it("should handle completion errors gracefully", async () => {
@@ -515,18 +597,18 @@ describe("BookingLifecycleService", () => {
         },
       ]);
 
-      // Mock transaction to throw an error
-      const completionError = new Error("Database transaction failed");
-      completionError.stack = "Error stack trace";
-      vi.mocked(mockPrismaService.$transaction).mockRejectedValueOnce(completionError);
+      // Mock findByIds to return empty array (booking not found)
+      vi.mocked(mockBookingRepository.findByIds).mockResolvedValue([]);
+
+      // Mock saveAll
+      vi.mocked(mockBookingRepository.saveAll).mockResolvedValue();
 
       const result = await service.processBookingCompletions();
 
-      // If transaction fails, leg is NOT processed
+      // If booking not found, leg is NOT processed
       expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to process leg end for booking BK-003"),
-        expect.stringContaining("Error stack trace"),
+        expect.stringContaining("Booking booking-3 not found for leg leg-3"),
       );
     });
 

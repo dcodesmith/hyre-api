@@ -412,6 +412,35 @@ export class PrismaBookingRepository implements BookingRepository {
     return bookings.map((booking) => this.toDomain(booking));
   }
 
+  async findByIds(ids: string[]): Promise<Booking[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const bookings = await this.prisma.booking.findMany({
+      where: { id: { in: ids } },
+      include: {
+        legs: {
+          include: { extensions: true },
+        },
+      },
+    });
+
+    return bookings.map((booking) => this.toDomain(booking));
+  }
+
+  async saveAll(bookings: Booking[]): Promise<void> {
+    if (bookings.length === 0) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const booking of bookings) {
+        await this.saveWithTransaction(booking, tx);
+      }
+    });
+  }
+
   async findByStatusAndDateRange(
     status: BookingStatus,
     startDate: Date,

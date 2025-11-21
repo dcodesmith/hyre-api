@@ -106,18 +106,49 @@ export class BookingLegQueryService {
     };
   }
 
-  async findEligibleLegsForStartRemindersWithData(): Promise<BookingReminderReadModel[]> {
+  /**
+   * Create minute-precision window for reminder queries (1 hour from now)
+   *
+   * Example: If called at 9:00 AM, returns window for 10:00:00.000 - 10:00:59.999
+   * This ensures each leg is only picked up once for reminders.
+   */
+  private createReminderWindow(): { start: Date; end: Date } {
     const now = new Date();
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+    return {
+      start: new Date(
+        oneHourFromNow.getFullYear(),
+        oneHourFromNow.getMonth(),
+        oneHourFromNow.getDate(),
+        oneHourFromNow.getHours(),
+        oneHourFromNow.getMinutes(),
+        0,
+        0,
+      ),
+      end: new Date(
+        oneHourFromNow.getFullYear(),
+        oneHourFromNow.getMonth(),
+        oneHourFromNow.getDate(),
+        oneHourFromNow.getHours(),
+        oneHourFromNow.getMinutes(),
+        59,
+        999,
+      ),
+    };
+  }
+
+  async findEligibleLegsForStartRemindersWithData(): Promise<BookingReminderReadModel[]> {
+    const { start, end } = this.createReminderWindow();
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
         legStartTime: {
-          gte: now,
-          lte: oneHourFromNow,
+          gte: start,
+          lte: end,
         },
         booking: {
-          status: "CONFIRMED",
+          status: BookingStatusEnum.CONFIRMED,
         },
       },
       include: {
@@ -135,17 +166,16 @@ export class BookingLegQueryService {
   }
 
   async findEligibleLegsForEndRemindersWithData(): Promise<BookingReminderReadModel[]> {
-    const now = new Date();
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+    const { start, end } = this.createReminderWindow();
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
         legEndTime: {
-          gte: now,
-          lte: oneHourFromNow,
+          gte: start,
+          lte: end,
         },
         booking: {
-          status: "ACTIVE",
+          status: BookingStatusEnum.ACTIVE,
         },
       },
       include: {
@@ -296,7 +326,7 @@ export class BookingLegQueryService {
           lte: minuteEnd,
         },
         booking: {
-          status: { in: ["CONFIRMED", "ACTIVE"] }, // Allow both - subsequent legs are ACTIVE
+          status: { in: [BookingStatusEnum.CONFIRMED, BookingStatusEnum.ACTIVE] }, // Allow both - subsequent legs are ACTIVE
           paymentStatus: "PAID",
           chauffeurId: { not: null },
           car: { status: "BOOKED" },
@@ -329,7 +359,7 @@ export class BookingLegQueryService {
           lte: minuteEnd,
         },
         booking: {
-          status: { in: ["ACTIVE", "COMPLETED"] }, // Allow both - booking may complete before all leg notifications sent
+          status: { in: [BookingStatusEnum.ACTIVE, BookingStatusEnum.COMPLETED] }, // Allow both - booking may complete before all leg notifications sent
           paymentStatus: "PAID",
           car: { status: "BOOKED" },
         },

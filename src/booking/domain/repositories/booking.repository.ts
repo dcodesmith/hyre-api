@@ -20,4 +20,21 @@ export interface BookingRepository {
   findByCarId(carId: string): Promise<Booking[]>;
   findByChauffeurId(chauffeurId: string): Promise<Booking[]>;
   findByStatus(status: BookingStatus): Promise<Booking[]>;
+
+  /**
+   * Batch load multiple bookings by their IDs.
+   * Used for efficient aggregate-level batch processing.
+   *
+   * @param ids - Array of booking IDs to load
+   * @returns Array of Booking entities (empty if none found)
+   */
+  findByIds(ids: string[]): Promise<Booking[]>;
+
+  /**
+   * Save multiple bookings in a single transaction.
+   * Used for atomic batch updates after domain operations.
+   *
+   * @param bookings - Array of Booking entities to save
+   */
+  saveAll(bookings: Booking[]): Promise<void>;
 }

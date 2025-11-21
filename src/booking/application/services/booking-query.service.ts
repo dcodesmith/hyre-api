@@ -74,7 +74,6 @@ export class BookingQueryService {
     const booking = await this.bookingRepository.findById(bookingId);
 
     if (!booking) {
-      console.error(`getBookingByIdInternal could not find booking`, { bookingId });
       throw new BookingNotFoundError(bookingId);
     }
 

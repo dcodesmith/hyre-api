@@ -1,6 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventBus } from "@nestjs/cqrs";
-import { isToday } from "date-fns";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
@@ -12,6 +11,7 @@ import { BookingLegStartedEvent } from "../../domain/events/booking-leg-started.
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
 import { BookingDomainService } from "../../domain/services/booking-domain.service";
+import { BookingLegNotificationReadModel } from "../dtos/booking-leg-notification-read-model.dto";
 import { BookingLegQueryService } from "../queries/booking-leg-query.service";
 
 /**
@@ -70,49 +70,64 @@ export class BookingLifecycleService {
    * Process leg starts and booking activations
    *
    * IMPORTANT: Three separate concerns handled together:
-   * 1. LEG STATUS: Activate individual leg (PENDING → ACTIVE)
+   * 1. LEG STATUS: Activate individual leg (CONFIRMED → ACTIVE)
    * 2. LEG NOTIFICATIONS: Send notification for EVERY leg that starts
    * 3. BOOKING ACTIVATION: Activate booking when FIRST leg starts (CONFIRMED → ACTIVE)
    *
-   * - Queries ALL legs where legStartTime falls within current minute
-   * - For each leg: Activate leg status, publish BookingLegStartedEvent (notification)
-   * - For bookings: Check if CONFIRMED and activate (idempotent - only first leg activates)
-   * - Query returns DTOs with ALL notification data (no N+1 queries)
-   * - Fat event pattern - handlers receive all data needed
+   * Implementation follows DDD principles:
+   * - Query returns DTOs with notification data (CQRS read side)
+   * - Load booking aggregates for domain operations (write side)
+   * - Domain entity validates state transitions
+   * - Batch save all modified aggregates in single transaction
+   * - Publish events with notification data after successful save
    */
   async processBookingActivations(): Promise<number> {
-    const startingLegs = await this.queryService.findStartingLegsForNotification();
+    // Step 1: Get legs with notification data (for events)
+    const startingLegDTOs = await this.queryService.findStartingLegsForNotification();
+
+    if (startingLegDTOs.length === 0) {
+      return 0;
+    }
+
+    // Step 2: Load booking aggregates (batch load)
+    const bookingIds = [...new Set(startingLegDTOs.map((leg) => leg.bookingId))];
+    const bookings = await this.bookingRepository.findByIds(bookingIds);
+    const bookingMap = new Map(bookings.map((booking) => [booking.getId(), booking]));
+
     let processedCount = 0;
+    const processedLegs: BookingLegNotificationReadModel[] = [];
+    const modifiedBookingIds = new Set<string>();
 
-    for (const leg of startingLegs) {
+    // Step 3: Process each leg through its booking aggregate
+    for (const legDTO of startingLegDTOs) {
       try {
-        // Temporary solution till I can figure out a DDD/Clean code way to do this
-        await this.prisma.$transaction(async (tx) => {
-          await tx.bookingLeg.update({
-            where: { bookingId: leg.bookingId, id: leg.legId },
-            data: { status: "ACTIVE" },
-          });
+        const booking = bookingMap.get(legDTO.bookingId);
+        if (!booking) {
+          this.logger.error(`Booking ${legDTO.bookingId} not found for leg ${legDTO.legId}`);
+          continue;
+        }
 
-          if (leg.bookingStatus === "CONFIRMED" && isToday(leg.bookingStartDate)) {
-            await tx.booking.update({
-              where: { id: leg.bookingId },
-              data: { status: "ACTIVE" },
-            });
-          }
-        });
+        // Domain operation with validation
+        booking.activateLeg(legDTO.legId);
 
-        await this.eventBus.publish(new BookingLegStartedEvent(leg));
-        this.logger.log(
-          `Published leg started event for booking ${leg.bookingReference}, leg ${leg.legId}`,
-        );
-
+        processedLegs.push(legDTO);
+        modifiedBookingIds.add(legDTO.bookingId);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process leg start for booking ${leg.bookingReference}: ${error.message}`,
-          error.stack,
-        );
+        this.logger.error(`Failed to activate leg ${legDTO.legId}: ${error.message}`, error.stack);
       }
+    }
+
+    // Step 4: Save all modified aggregates in single transaction
+    const modifiedBookings = bookings.filter((b) => modifiedBookingIds.has(b.getId()));
+    await this.bookingRepository.saveAll(modifiedBookings);
+
+    // Step 5: Publish events for successfully processed legs
+    for (const legDTO of processedLegs) {
+      await this.eventBus.publish(new BookingLegStartedEvent(legDTO));
+      this.logger.log(
+        `Published leg started event for booking ${legDTO.bookingReference}, leg ${legDTO.legId}`,
+      );
     }
 
     return processedCount;
@@ -126,44 +141,60 @@ export class BookingLifecycleService {
    * 2. LEG NOTIFICATIONS: Send notification for EVERY leg that ends
    * 3. BOOKING COMPLETION: Complete booking ONLY when booking ends TODAY (ACTIVE → COMPLETED)
    *
-   * - Queries ALL legs where legEndTime falls within current minute
-   * - For each leg: Complete leg status, publish BookingLegEndedEvent (notification)
-   * - For bookings: Check if endDate is today and complete (domain validates this)
-   * - Query returns DTOs with ALL notification data (no N+1 queries)
-   * - Fat event pattern - handlers receive all data needed
+   * Implementation follows DDD principles:
+   * - Query returns DTOs with notification data (CQRS read side)
+   * - Load booking aggregates for domain operations (write side)
+   * - Domain entity validates state transitions
+   * - Batch save all modified aggregates in single transaction
+   * - Publish events with notification data after successful save
    */
   async processBookingCompletions(): Promise<number> {
-    const endingLegs = await this.queryService.findEndingLegsForNotification();
+    // Step 1: Get legs with notification data (for events)
+    const endingLegDTOs = await this.queryService.findEndingLegsForNotification();
+
+    if (endingLegDTOs.length === 0) {
+      return 0;
+    }
+
+    // Step 2: Load booking aggregates (batch load)
+    const bookingIds = [...new Set(endingLegDTOs.map((leg) => leg.bookingId))];
+    const bookings = await this.bookingRepository.findByIds(bookingIds);
+    const bookingMap = new Map(bookings.map((booking) => [booking.getId(), booking]));
+
     let processedCount = 0;
+    const processedLegs: BookingLegNotificationReadModel[] = [];
+    const modifiedBookingIds = new Set<string>();
 
-    for (const leg of endingLegs) {
+    // Step 3: Process each leg through its booking aggregate
+    for (const legDTO of endingLegDTOs) {
       try {
-        await this.prisma.$transaction(async (tx) => {
-          await tx.bookingLeg.update({
-            where: { bookingId: leg.bookingId, id: leg.legId },
-            data: { status: "COMPLETED" },
-          });
+        const booking = bookingMap.get(legDTO.bookingId);
+        if (!booking) {
+          this.logger.error(`Booking ${legDTO.bookingId} not found for leg ${legDTO.legId}`);
+          continue;
+        }
 
-          if (leg.bookingStatus === "ACTIVE" && isToday(leg.bookingEndDate)) {
-            await tx.booking.update({
-              where: { id: leg.bookingId },
-              data: { status: "COMPLETED" },
-            });
-          }
-        });
+        // Domain operation with validation
+        booking.completeLeg(legDTO.legId);
 
-        await this.eventBus.publish(new BookingLegEndedEvent(leg));
-        this.logger.log(
-          `Published leg ended event for booking ${leg.bookingReference}, leg ${leg.legId}`,
-        );
-
+        processedLegs.push(legDTO);
+        modifiedBookingIds.add(legDTO.bookingId);
         processedCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to process leg end for booking ${leg.bookingReference}: ${error.message}`,
-          error.stack,
-        );
+        this.logger.error(`Failed to complete leg ${legDTO.legId}: ${error.message}`, error.stack);
       }
+    }
+
+    // Step 4: Save all modified aggregates in single transaction
+    const modifiedBookings = bookings.filter((booking) => modifiedBookingIds.has(booking.getId()));
+    await this.bookingRepository.saveAll(modifiedBookings);
+
+    // Step 5: Publish events for successfully processed legs
+    for (const legDTO of processedLegs) {
+      await this.eventBus.publish(new BookingLegEndedEvent(legDTO));
+      this.logger.log(
+        `Published leg ended event for booking ${legDTO.bookingReference}, leg ${legDTO.legId}`,
+      );
     }
 
     return processedCount;
