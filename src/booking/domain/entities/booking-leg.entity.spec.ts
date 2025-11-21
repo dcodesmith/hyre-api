@@ -71,7 +71,6 @@ describe("BookingLeg Entity", () => {
         totalDailyPrice: 300,
         itemsNetValueForLeg: 250,
         fleetOwnerEarningForLeg: 225,
-        // notes is omitted - should be undefined
       };
 
       const leg = BookingLeg.create(minimalParams);
