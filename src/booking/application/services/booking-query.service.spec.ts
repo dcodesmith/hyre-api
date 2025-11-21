@@ -9,6 +9,7 @@ import { BookingNotFoundError } from "../../domain/errors/booking.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAuthorizationService } from "../../domain/services/booking-authorization.service";
+import { BookingMapper } from "../mappers/booking.mapper";
 import { BookingQueryService } from "./booking-query.service";
 
 describe("BookingQueryService", () => {
@@ -100,11 +101,11 @@ describe("BookingQueryService", () => {
         booking,
         mockCar.ownerId,
       );
-      expect(mockLogger.info).toHaveBeenCalledWith("User fetching booking details", {
+      expect(mockLogger.info).toHaveBeenCalledWith("User fetching booking entity", {
         userId: "user-123",
         bookingId,
       });
-      expect(result).toBe(booking);
+      expect(result).toEqual(BookingMapper.toDto(booking));
     });
 
     it("should throw error when booking not found", async () => {
@@ -203,7 +204,7 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("Admin/Staff fetching all bookings", {
         userId: "admin-123",
       });
-      expect(result).toBe(allBookings);
+      expect(result).toEqual(BookingMapper.toDtoList(allBookings));
     });
 
     it("should return fleet owner bookings when user is fleet owner", async () => {
@@ -228,7 +229,7 @@ describe("BookingQueryService", () => {
           userId: "fleet-123",
         },
       );
-      expect(result).toBe(fleetBookings);
+      expect(result).toEqual(BookingMapper.toDtoList(fleetBookings));
     });
 
     it("should return customer bookings when user is regular customer", async () => {
@@ -249,7 +250,7 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("User fetching their bookings", {
         userId: "customer-123",
       });
-      expect(result).toBe(customerBookings);
+      expect(result).toEqual(BookingMapper.toDtoList(customerBookings));
     });
   });
 });

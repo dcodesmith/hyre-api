@@ -238,6 +238,7 @@ describe("BookingCreationService", () => {
         userType: UserType.guest(),
       });
       vi.spyOn(User, "createGuest").mockReturnValue(mockGuestUser);
+      vi.mocked(userRepository.save).mockResolvedValue(mockGuestUser);
 
       await service.createPendingBooking(mockDto);
 

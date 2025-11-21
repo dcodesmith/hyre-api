@@ -258,9 +258,7 @@ describe("BookingLeg Entity", () => {
           legEndTime: currentEndTime,
         });
 
-        // Activate the leg to change status from PENDING to ACTIVE
-        leg.activate();
-
+        // isActive() is time-aware, so it should return true even without explicit activation
         expect(leg.isActive()).toBe(true);
       });
 
@@ -300,9 +298,7 @@ describe("BookingLeg Entity", () => {
           legEndTime: endTime,
         });
 
-        // Activate the leg to change status from PENDING to ACTIVE
-        leg.activate();
-
+        // isActive() is time-aware, so it should return true at exact start time
         expect(leg.isActive()).toBe(true);
       });
 
@@ -318,9 +314,7 @@ describe("BookingLeg Entity", () => {
           legEndTime: now,
         });
 
-        // Activate the leg to change status from PENDING to ACTIVE
-        leg.activate();
-
+        // isActive() is time-aware, so it should return true at exact end time (inclusive)
         expect(leg.isActive()).toBe(true);
       });
     });
@@ -335,10 +329,7 @@ describe("BookingLeg Entity", () => {
           legEndTime: pastEndTime,
         });
 
-        // Activate and complete the leg to change status from PENDING -> ACTIVE -> COMPLETED
-        leg.activate();
-        leg.complete();
-
+        // isCompleted() is time-aware, so it should return true for legs past their end time
         expect(leg.isCompleted()).toBe(true);
       });
 
@@ -573,24 +564,32 @@ describe("BookingLeg Entity", () => {
       vi.setSystemTime(new Date(2024, 0, 1, 8, 0, 0)); // 8:00 AM
 
       expect(leg.isUpcoming()).toBe(true);
-      expect(leg.isActive()).toBe(false);
+      expect(leg.isActive()).toBe(false); // Time-based: before start time
       expect(leg.isCompleted()).toBe(false);
 
-      // Test during active time (activate the leg to ACTIVE status)
+      // Test during active time - isActive() is time-aware, so it should return true
       vi.setSystemTime(new Date(2024, 0, 1, 12, 0, 0)); // 12:00 PM
-      leg.activate();
-
       expect(leg.isUpcoming()).toBe(false);
-      expect(leg.isActive()).toBe(true);
+      expect(leg.isActive()).toBe(true); // Time-based: within time window
       expect(leg.isCompleted()).toBe(false);
 
-      // Test after end time (complete the leg to COMPLETED status)
-      vi.setSystemTime(new Date(2024, 0, 1, 18, 0, 0)); // 6:00 PM
-      leg.complete();
+      // Also test explicit status transitions work correctly
+      leg.confirm();
+      leg.activate();
+      expect(leg.isActive()).toBe(true); // Still true after explicit activation
 
+      // Test after end time - isCompleted() is time-aware, so it should return true
+      vi.setSystemTime(new Date(2024, 0, 1, 18, 0, 0)); // 6:00 PM
       expect(leg.isUpcoming()).toBe(false);
-      expect(leg.isActive()).toBe(false);
-      expect(leg.isCompleted()).toBe(true);
+      expect(leg.isActive()).toBe(false); // Time-based: past end time
+      // Note: isCompleted() returns true based on time, but stored status is still ACTIVE
+      expect(leg.isCompleted()).toBe(true); // Time-based: past end time
+
+      leg.complete(); // Transitions stored status from ACTIVE → COMPLETED
+      expect(leg.isCompleted()).toBe(true); // Still true (now both time-based AND status-based)
+
+      // Verify that COMPLETED is a terminal state - can't complete again
+      expect(() => leg.complete()).toThrow("Cannot complete leg in COMPLETED status");
     });
   });
 });

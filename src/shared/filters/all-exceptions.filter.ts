@@ -26,7 +26,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const resolved = this.resolveException(exception);
 
     // Log the error with appropriate level
-    this.logError(request, resolved.status, exception, resolved.errorType, resolved.context);
+    this.logError(request, resolved.status, exception, resolved.errorType);
 
     // Build standardized error response
     const errorResponse = this.buildErrorResponse(request, resolved);
@@ -55,8 +55,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message:
             typeof responseObj.message === "string" ? responseObj.message : "Validation failed",
           details: responseObj.details as Record<string, unknown>,
-          errorCode:
-            typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR",
+          errorCode: typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR",
           errorType: "Validation Error",
         };
       }

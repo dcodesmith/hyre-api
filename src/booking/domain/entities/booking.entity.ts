@@ -13,7 +13,7 @@ import { BookingType } from "../interfaces/booking.interface";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingStatus, BookingStatusEnum } from "../value-objects/booking-status.vo";
-import { PaymentStatus, PaymentStatusType } from "../value-objects/payment-status.vo";
+import { PaymentStatus } from "../value-objects/payment-status.vo";
 import { BookingLeg } from "./booking-leg.entity";
 
 export interface BookingCreateParams {
@@ -444,7 +444,7 @@ export class Booking extends AggregateRoot {
     return [...this.props.legs];
   }
 
-  public getPaymentStatus(): PaymentStatusType {
+  public getPaymentStatus(): string {
     return this.props.paymentStatus.toString();
   }
 

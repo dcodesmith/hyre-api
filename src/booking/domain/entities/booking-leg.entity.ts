@@ -88,10 +88,37 @@ export class BookingLeg extends Entity<string> {
   }
 
   public isActive(): boolean {
+    // A leg is active if the current time is between legStartTime and legEndTime
+    // Time-based check takes precedence over stored status to reflect reality
+    const now = new Date();
+    const isInTimeWindow = now >= this.props.legStartTime && now <= this.props.legEndTime;
+
+    // If we're in the time window, leg is active (regardless of stored status)
+    if (isInTimeWindow) {
+      return true;
+    }
+
+    // If we're past the end time, leg is not active (even if stored status says ACTIVE)
+    if (now > this.props.legEndTime) {
+      return false;
+    }
+
+    // Before start time, check stored status (should be PENDING or CONFIRMED)
     return this.props.status.isActive();
   }
 
   public isCompleted(): boolean {
+    // A leg is completed if the current time is past legEndTime
+    // Time-based check takes precedence over stored status to reflect reality
+    const now = new Date();
+    const isPastEndTime = now > this.props.legEndTime;
+
+    // If we're past the end time, leg is completed (regardless of stored status)
+    if (isPastEndTime) {
+      return true;
+    }
+
+    // If we're before or during the time window, check stored status
     return this.props.status.isCompleted();
   }
 

@@ -34,6 +34,7 @@ describe("BookingLifecycleService", () => {
   let mockBooking: Booking;
   let mockCustomer: User;
   let mockAdmin: User;
+  let mockTransactionClient: Prisma.TransactionClient;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -130,7 +131,7 @@ describe("BookingLifecycleService", () => {
     });
 
     // Default setup for transaction with proper mocked transaction client
-    const mockTxClient = {
+    mockTransactionClient = {
       bookingLeg: {
         update: vi.fn().mockResolvedValue({}),
         create: vi.fn().mockResolvedValue({}),
@@ -142,7 +143,7 @@ describe("BookingLifecycleService", () => {
     } as unknown as Prisma.TransactionClient;
 
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
-      return await fn(mockTxClient);
+      return await fn(mockTransactionClient);
     });
     vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
   });
@@ -175,7 +176,10 @@ describe("BookingLifecycleService", () => {
         booking,
       );
       expect(mockBookingDomainService.cancelBooking).toHaveBeenCalledWith(booking, reason);
-      expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(booking, {});
+      expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(
+        booking,
+        mockTransactionClient,
+      );
       expect(mockDomainEventPublisher.publish).toHaveBeenCalledWith(booking);
       expect(mockLogger.log).toHaveBeenCalledWith(
         "Cancelled booking BK-123 with reason: User requested cancellation",
