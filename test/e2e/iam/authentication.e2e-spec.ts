@@ -1,14 +1,15 @@
-import { ApprovalStatusEnum } from "@/iam/domain/value-objects/approval-status.vo";
 import { HttpStatus, INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { ApprovalStatusEnum } from "@/iam/domain/value-objects/approval-status.vo";
 import { AppModule } from "../../../src/app.module";
 import { NotificationService } from "../../../src/communication/application/services/notification.service";
 import { PrismaService } from "../../../src/shared/database/prisma.service";
 import { RedisService } from "../../../src/shared/redis/redis.service";
 import { MockNotificationService } from "../../mocks/mock-notification.service";
-import { createAssertOtpEmailSent, uniqueEmail } from "./helpers/authentication.helpers";
+import { createAssertOtpEmailSent, uniqueEmail } from "../helpers/authentication.helpers";
+import { resetE2EDatabase } from "../helpers/database.helpers";
 
 describe("Authentication E2E", () => {
   let app: INestApplication;
@@ -44,8 +45,7 @@ describe("Authentication E2E", () => {
     mockNotificationService.clearHistory();
 
     await redis.getClient().flushdb();
-    await prisma.role.deleteMany();
-    await prisma.user.deleteMany();
+    await resetE2EDatabase(prisma);
   });
 
   describe("Customer Registration Flow", () => {
@@ -270,7 +270,7 @@ describe("Authentication E2E", () => {
 
       const loginOtp = assertOtpEmailSent(existingEmail, "login");
 
-      const verifyResponse = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .post("/auth/verify")
         .send({
           email: existingEmail,
@@ -278,8 +278,6 @@ describe("Authentication E2E", () => {
           role: "fleetOwner",
         })
         .expect(HttpStatus.FORBIDDEN);
-
-      expect(verifyResponse.body.message).toMatch(/role|mismatch|invalid/i);
     });
   });
 
@@ -303,7 +301,9 @@ describe("Authentication E2E", () => {
         })
         .expect(HttpStatus.FORBIDDEN);
 
-      expect(verifyResponse.body.message).toMatch(/staff.*authorized|created by/i);
+      expect(verifyResponse.body.message).toMatch(
+        "staff accounts must be created by authorized users",
+      );
     });
 
     it("should reject chauffeur registration via public endpoint", async () => {

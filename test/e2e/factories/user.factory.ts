@@ -22,18 +22,20 @@ export const UserFactory = Factory.define<RegisterCustomerDto>(({ sequence, para
 }));
 
 export const CarFactory = Factory.define<CreateCarDto>(({ sequence }) => {
-  const makes = ["BMW", "Mercedes-Benz", "Audi", "Jaguar", "Bentley"];
+  const makes = ["BMW", "Mercedes", "Audi", "Jaguar", "Bentley"];
   const make = faker.helpers.arrayElement(makes);
+  const currentYear = new Date().getFullYear();
 
   return {
     make,
     model: faker.vehicle.model(),
-    year: new Date().getFullYear(),
+    year: currentYear - faker.number.int({ min: 0, max: 5 }),
     color: faker.color.human(),
-    registrationNumber: `ABC${sequence}XY`,
+    registrationNumber: `ABC${String(sequence).padStart(3, "0")}XY`, // Format: ABC001XY, ABC002XY, etc.
     dayRate: faker.number.int({ min: 150, max: 400 }),
     nightRate: faker.number.int({ min: 100, max: 300 }),
     hourlyRate: faker.number.int({ min: 20, max: 50 }),
+    fullDayRate: faker.number.int({ min: 500, max: 1000 }),
     currency: "NGN",
   };
 });

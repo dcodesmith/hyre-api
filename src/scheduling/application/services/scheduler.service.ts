@@ -1,7 +1,7 @@
-import { InjectQueue } from "@nestjs/bull";
+import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { Queue } from "bull";
+import { Queue } from "bullmq";
 import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
 
 export interface ReminderJobData {
@@ -24,16 +24,15 @@ export class SchedulerService {
   private readonly logger: Logger;
 
   constructor(
-    @InjectQueue("reminder-emails") private readonly reminderQueue: Queue,
-    @InjectQueue("status-updates") private readonly statusQueue: Queue,
-    @InjectQueue("processing-jobs") private readonly processingQueue: Queue,
+    @InjectQueue("reminder-emails") private readonly reminderQueue: Queue<ReminderJobData>,
+    @InjectQueue("status-updates") private readonly statusQueue: Queue<StatusUpdateJobData>,
+    @InjectQueue("processing-jobs") private readonly processingQueue: Queue<ProcessingJobData>,
     private readonly loggerService: LoggerService,
   ) {
     this.logger = this.loggerService.createLogger(SchedulerService.name);
   }
 
-  // Booking leg start reminders - every hour from 6-11 AM and at 10 PM
-  @Cron("0 6-11,22 * * *")
+  @Cron("0 * * * *")
   async scheduleBookingLegStartReminders() {
     const jobData: ReminderJobData = {
       type: "leg-start",
@@ -52,8 +51,7 @@ export class SchedulerService {
     this.logger.info("Scheduled booking leg start reminder job");
   }
 
-  // Booking leg end reminders - at 4 AM and hourly from 6-11 PM
-  @Cron("0 4,18-23 * * *")
+  @Cron("0 * * * *")
   async scheduleBookingLegEndReminders() {
     const jobData: ReminderJobData = {
       type: "leg-end",
@@ -72,8 +70,7 @@ export class SchedulerService {
     this.logger.info("Scheduled booking leg end reminder job");
   }
 
-  // Booking start reminders - every hour from 6-11 AM and at 10 PM
-  @Cron("0 6-11,22 * * *")
+  @Cron("0 * * * *")
   async scheduleBookingStartReminders() {
     const jobData: ReminderJobData = {
       type: "trip-start",
@@ -92,8 +89,7 @@ export class SchedulerService {
     this.logger.info("Scheduled booking start reminder job");
   }
 
-  // Booking end reminders - at 4 AM and hourly from 6-11 PM
-  @Cron("0 4,18-23 * * *")
+  @Cron("0 * * * *")
   async scheduleBookingEndReminders() {
     const jobData: ReminderJobData = {
       type: "trip-end",
@@ -112,8 +108,7 @@ export class SchedulerService {
     this.logger.info("Scheduled booking end reminder job");
   }
 
-  // Status updates: confirmed to active - hourly from 7 AM to 12 PM and at 11 PM
-  @Cron("0 7-12,23 * * *")
+  @Cron("0 * * * *")
   async scheduleConfirmedToActiveUpdates() {
     const jobData: StatusUpdateJobData = {
       type: "confirmed-to-active",
@@ -132,8 +127,7 @@ export class SchedulerService {
     this.logger.info("Scheduled confirmed to active status update job");
   }
 
-  // Status updates: active to completed - at midnight, 5 AM, and hourly from 7-11 PM
-  @Cron("0 0,5,19-23 * * *")
+  @Cron("0 * * * *")
   async scheduleActiveToCompletedUpdates() {
     const jobData: StatusUpdateJobData = {
       type: "active-to-completed",
@@ -153,7 +147,7 @@ export class SchedulerService {
   }
 
   // Process pending payouts - every 30 minutes during business hours
-  @Cron("*/30 6-18 * * 1-5")
+  @Cron("*/15 6-18 * * 1-5")
   async schedulePendingPayoutProcessing() {
     const jobData: ProcessingJobData = {
       type: "pending-payouts",
@@ -237,41 +231,5 @@ export class SchedulerService {
     });
 
     this.logger.info(`Manually triggered ${type} processing job`);
-  }
-
-  // Queue statistics
-  async getQueueStats() {
-    const [reminderStats, statusStats, processingStats] = await Promise.all([
-      this.getQueueStatistics(this.reminderQueue),
-      this.getQueueStatistics(this.statusQueue),
-      this.getQueueStatistics(this.processingQueue),
-    ]);
-
-    return {
-      timestamp: new Date().toISOString(),
-      queues: {
-        "reminder-emails": reminderStats,
-        "status-updates": statusStats,
-        "processing-jobs": processingStats,
-      },
-    };
-  }
-
-  private async getQueueStatistics(queue: Queue) {
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      queue.getWaiting(),
-      queue.getActive(),
-      queue.getCompleted(),
-      queue.getFailed(),
-      queue.getDelayed(),
-    ]);
-
-    return {
-      waiting: waiting.length,
-      active: active.length,
-      completed: completed.length,
-      failed: failed.length,
-      delayed: delayed.length,
-    };
   }
 }

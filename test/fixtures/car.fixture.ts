@@ -38,4 +38,3 @@ export const createBookingCarDto = (overrides: Partial<BookingCarDto> = {}): Boo
   status: "AVAILABLE",
   ...overrides,
 });
-

@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseEnumPipe,
-  Post,
-  ServiceUnavailableException,
-  UseGuards,
-} from "@nestjs/common";
+import { Controller, Get, Param, ParseEnumPipe, Post, UseGuards } from "@nestjs/common";
 import {
   DiskHealthIndicator,
   HealthCheck,
@@ -69,23 +61,6 @@ export class HealthController {
     // }
 
     return this.health.check(healthChecks);
-  }
-
-  @Get("queue-stats")
-  async getQueueStats() {
-    try {
-      const stats = await this.schedulerService.getQueueStats();
-      return {
-        status: "healthy",
-        ...stats,
-      };
-    } catch (error) {
-      throw new ServiceUnavailableException({
-        status: "unhealthy",
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

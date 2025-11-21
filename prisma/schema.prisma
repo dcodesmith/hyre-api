@@ -166,25 +166,29 @@ model Booking {
 }
 
 model BookingLeg {
-  id                            String      @id @default(cuid())
+  id                            String           @id @default(cuid())
   bookingId                     String
-  legDate                       DateTime    @db.Date
-  totalDailyPrice               Decimal     @db.Decimal(10, 2)
+  legDate                       DateTime         @db.Date
+  totalDailyPrice               Decimal          @db.Decimal(10, 2)
   notes                         String?
-  createdAt                     DateTime    @default(now())
-  updatedAt                     DateTime    @updatedAt
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime         @updatedAt
   legEndTime                    DateTime
   legStartTime                  DateTime
-  fleetOwnerEarningForLeg       Decimal     @db.Decimal(10, 2)
-  itemsNetValueForLeg           Decimal     @db.Decimal(10, 2)
-  platformCommissionAmountOnLeg Decimal?    @db.Decimal(10, 2)
-  platformCommissionRateOnLeg   Decimal?    @db.Decimal(5, 2)
-  booking                       Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fleetOwnerEarningForLeg       Decimal          @db.Decimal(10, 2)
+  itemsNetValueForLeg           Decimal          @db.Decimal(10, 2)
+  platformCommissionAmountOnLeg Decimal?         @db.Decimal(10, 2)
+  platformCommissionRateOnLeg   Decimal?         @db.Decimal(5, 2)
+  status                        BookingLegStatus @default(PENDING)
+  booking                       Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   extensions                    Extension[]
 
   @@unique([bookingId, legDate])
   @@index([bookingId])
   @@index([legDate])
+  @@index([status])
+  @@index([legStartTime])
+  @@index([legEndTime])
 }
 
 model Extension {
@@ -384,6 +388,13 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   REJECTED
+}
+
+enum BookingLegStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
 }
 
 enum PaymentStatus {

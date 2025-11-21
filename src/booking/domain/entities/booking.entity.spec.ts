@@ -1,15 +1,13 @@
 import Decimal from "decimal.js";
 import { vi } from "vitest";
-import { BookingActivatedEvent } from "../events/booking-activated.event";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-unassigned.event";
-import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
-import { BookingStatus } from "../value-objects/booking-status.vo";
 import { BookingPeriodFactory } from "../value-objects/booking-period.factory";
+import { BookingStatus } from "../value-objects/booking-status.vo";
 import { PaymentStatus } from "../value-objects/payment-status.vo";
 import { PickupTime } from "../value-objects/pickup-time.vo";
 import { Booking, type BookingCreateParams, type BookingProps } from "./booking.entity";
@@ -241,47 +239,49 @@ describe("Booking Entity", () => {
     it("should throw an error when confirming a non-pending booking", () => {
       const booking = createConfirmedBooking();
 
-      expect(() => booking.confirm()).toThrow("Cannot confirm booking in CONFIRMED status");
+      expect(() => booking.confirm()).toThrow(
+        "Cannot transition booking booking-123 from CONFIRMED to CONFIRMED",
+      );
     });
   });
 
   describe("Status: Activate", () => {
-    it("should activate a confirmed booking and add a domain event", () => {
+    it("should activate a confirmed booking (no event published - handled by lifecycle service)", () => {
       const booking = createConfirmedBooking();
       booking.activate();
 
       expect(booking.isActive()).toBeTruthy();
 
       const events = booking.getUncommittedEvents();
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(BookingActivatedEvent);
+      expect(events).toHaveLength(0);
     });
 
     it("should throw an error when activating a non-confirmed booking", () => {
       const booking = createBookingWithId();
 
-      expect(() => booking.activate()).toThrow("Cannot activate booking in PENDING status");
+      expect(() => booking.activate()).toThrow(
+        "Cannot transition booking booking-123 from PENDING to ACTIVE",
+      );
     });
   });
 
   describe("Status: Complete", () => {
-    it("should complete an active booking and add a domain event", () => {
+    it("should complete an active booking", () => {
       const booking = createActiveBooking();
       booking.complete();
 
       expect(booking.isCompleted()).toBeTruthy();
 
       const events = booking.getUncommittedEvents();
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(BookingCompletedEvent);
+      expect(events).toHaveLength(0);
     });
 
     it("should throw an error when completing a non-active booking", () => {
       const booking = createBookingWithId();
 
-      expect(() => booking.complete()).toThrow("Cannot complete booking in PENDING status");
+      expect(() => booking.complete()).toThrow(
+        "Cannot transition booking booking-123 from PENDING to COMPLETED",
+      );
     });
   });
 
@@ -309,20 +309,26 @@ describe("Booking Entity", () => {
     it("should throw an error when cancelling a pending booking", () => {
       const booking = createBookingWithId();
 
-      expect(() => booking.cancel()).toThrow("Cannot cancel booking in PENDING status");
+      expect(() => booking.cancel()).toThrow(
+        "Cannot transition booking booking-123 from PENDING to CANCELLED",
+      );
     });
 
     it("should throw an error when cancelling an active booking", () => {
       const booking = createActiveBooking();
 
-      expect(() => booking.cancel()).toThrow("Cannot cancel booking in ACTIVE status");
+      expect(() => booking.cancel()).toThrow(
+        "Cannot transition booking booking-123 from ACTIVE to CANCELLED",
+      );
     });
 
     it("should throw an error when cancelling a completed booking", () => {
       const booking = createActiveBooking();
       booking.complete();
 
-      expect(() => booking.cancel()).toThrow("Cannot cancel booking in COMPLETED status");
+      expect(() => booking.cancel()).toThrow(
+        "Cannot transition booking booking-123 from COMPLETED to CANCELLED",
+      );
     });
   });
 
@@ -399,7 +405,7 @@ describe("Booking Entity", () => {
 
       booking.unassignChauffeur("fleet-owner-789", "admin-123", "Chauffeur unavailable");
 
-      expect(booking.getChauffeurId()).toBeUndefined();
+      expect(booking.getChauffeurId()).toBeNull();
       expect(booking.hasChauffeurAssigned()).toBe(false);
 
       const events = booking.getUncommittedEvents();
@@ -608,7 +614,7 @@ describe("Booking Entity", () => {
   });
 
   describe("Booking Legs", () => {
-    it("should add a valid booking leg", () => {
+    it("should add a booking leg", () => {
       const booking = createBooking();
       const validLegDate = new Date(validDateRange.startDate.getTime() + 1000);
       const mockLeg = { getLegDate: () => validLegDate } as BookingLeg;
@@ -617,13 +623,20 @@ describe("Booking Entity", () => {
       expect(booking.getLegs()[0]).toBe(mockLeg);
     });
 
-    it("should throw an error when adding a leg outside the date range", () => {
+    it("should reject a leg with date before booking period", () => {
       const booking = createBooking();
-      const invalidLegDate = new Date(validDateRange.endDate.getTime() + 1000);
+      const invalidLegDate = new Date(validDateRange.startDate.getTime() - 24 * 60 * 60 * 1000); // day before
       const mockLeg = { getLegDate: () => invalidLegDate } as BookingLeg;
-      expect(() => booking.addLeg(mockLeg)).toThrow(
-        "Booking leg date must be within booking period",
-      );
+
+      expect(() => booking.addLeg(mockLeg)).toThrow("outside booking period");
+    });
+
+    it("should reject a leg with date after booking period", () => {
+      const booking = createBooking();
+      const invalidLegDate = new Date(validDateRange.endDate.getTime() + 24 * 60 * 60 * 1000); // day after
+      const mockLeg = { getLegDate: () => invalidLegDate } as BookingLeg;
+
+      expect(() => booking.addLeg(mockLeg)).toThrow("outside booking period");
     });
   });
 
@@ -644,6 +657,207 @@ describe("Booking Entity", () => {
       expect(booking.getBookingType()).toBe("DAY");
       expect(booking.getCancellationReason()).toBe("Test cancellation");
       expect(booking.getCreatedAt()).toBeInstanceOf(Date);
+    });
+  });
+
+  describe("Status Transitions", () => {
+    describe("confirm", () => {
+      it("should confirm a pending booking", () => {
+        const booking = createBookingWithId();
+        expect(booking.isPending()).toBe(true);
+
+        booking.confirm();
+
+        expect(booking.isConfirmed()).toBe(true);
+      });
+
+      it("should throw when confirming a confirmed booking", () => {
+        const booking = createConfirmedBooking();
+
+        expect(() => booking.confirm()).toThrow(
+          "Cannot transition booking booking-123 from CONFIRMED to CONFIRMED",
+        );
+      });
+
+      it("should throw when confirming an active booking", () => {
+        const booking = createActiveBooking();
+
+        expect(() => booking.confirm()).toThrow(
+          "Cannot transition booking booking-123 from ACTIVE to CONFIRMED",
+        );
+      });
+
+      it("should throw when confirming a completed booking", () => {
+        const booking = createCompletedBooking();
+
+        expect(() => booking.confirm()).toThrow(
+          "Cannot transition booking booking-123 from COMPLETED to CONFIRMED",
+        );
+      });
+
+      it("should throw when confirming a cancelled booking", () => {
+        const booking = createCancelledBooking();
+
+        expect(() => booking.confirm()).toThrow(
+          "Cannot transition booking booking-123 from CANCELLED to CONFIRMED",
+        );
+      });
+    });
+
+    describe("activate", () => {
+      it("should activate a confirmed booking", () => {
+        const booking = createConfirmedBooking();
+
+        booking.activate();
+
+        expect(booking.isActive()).toBe(true);
+      });
+
+      it("should throw when activating a pending booking", () => {
+        const booking = createBookingWithId();
+
+        expect(() => booking.activate()).toThrow(
+          "Cannot transition booking booking-123 from PENDING to ACTIVE",
+        );
+      });
+
+      it("should throw when activating an already active booking", () => {
+        const booking = createActiveBooking();
+
+        expect(() => booking.activate()).toThrow(
+          "Cannot transition booking booking-123 from ACTIVE to ACTIVE",
+        );
+      });
+
+      it("should throw when activating a completed booking", () => {
+        const booking = createCompletedBooking();
+
+        expect(() => booking.activate()).toThrow(
+          "Cannot transition booking booking-123 from COMPLETED to ACTIVE",
+        );
+      });
+
+      it("should throw when activating a cancelled booking", () => {
+        const booking = createCancelledBooking();
+
+        expect(() => booking.activate()).toThrow(
+          "Cannot transition booking booking-123 from CANCELLED to ACTIVE",
+        );
+      });
+    });
+
+    describe("complete", () => {
+      it("should complete an active booking", () => {
+        const booking = createActiveBooking();
+
+        booking.complete();
+
+        expect(booking.isCompleted()).toBe(true);
+      });
+
+      it("should throw when completing a pending booking", () => {
+        const booking = createBookingWithId();
+
+        expect(() => booking.complete()).toThrow(
+          "Cannot transition booking booking-123 from PENDING to COMPLETED",
+        );
+      });
+
+      it("should throw when completing a confirmed booking", () => {
+        const booking = createConfirmedBooking();
+
+        expect(() => booking.complete()).toThrow(
+          "Cannot transition booking booking-123 from CONFIRMED to COMPLETED",
+        );
+      });
+
+      it("should throw when completing an already completed booking", () => {
+        const booking = createCompletedBooking();
+
+        expect(() => booking.complete()).toThrow(
+          "Cannot transition booking booking-123 from COMPLETED to COMPLETED",
+        );
+      });
+
+      it("should throw when completing a cancelled booking", () => {
+        const booking = createCancelledBooking();
+
+        expect(() => booking.complete()).toThrow(
+          "Cannot transition booking booking-123 from CANCELLED to COMPLETED",
+        );
+      });
+    });
+
+    describe("cancel", () => {
+      it("should cancel a confirmed booking", () => {
+        const booking = createConfirmedBooking();
+
+        booking.cancel("Test reason");
+
+        expect(booking.isCancelled()).toBe(true);
+        expect(booking.getCancellationReason()).toBe("Test reason");
+      });
+
+      it("should throw when cancelling a pending booking", () => {
+        const booking = createBookingWithId();
+
+        expect(() => booking.cancel()).toThrow(
+          "Cannot transition booking booking-123 from PENDING to CANCELLED",
+        );
+      });
+
+      it("should throw when cancelling an active booking", () => {
+        const booking = createActiveBooking();
+
+        expect(() => booking.cancel()).toThrow(
+          "Cannot transition booking booking-123 from ACTIVE to CANCELLED",
+        );
+      });
+
+      it("should throw when cancelling a completed booking", () => {
+        const booking = createCompletedBooking();
+
+        expect(() => booking.cancel()).toThrow(
+          "Cannot transition booking booking-123 from COMPLETED to CANCELLED",
+        );
+      });
+
+      it("should throw when cancelling an already cancelled booking", () => {
+        const booking = createCancelledBooking();
+
+        expect(() => booking.cancel()).toThrow(
+          "Cannot transition booking booking-123 from CANCELLED to CANCELLED",
+        );
+      });
+    });
+
+    describe("full transition lifecycle", () => {
+      it("should transition through all states: PENDING → CONFIRMED → ACTIVE → COMPLETED", () => {
+        const booking = createBookingWithId();
+
+        expect(booking.isPending()).toBe(true);
+
+        booking.confirm();
+        expect(booking.isConfirmed()).toBe(true);
+
+        booking.activate();
+        expect(booking.isActive()).toBe(true);
+
+        booking.complete();
+        expect(booking.isCompleted()).toBe(true);
+      });
+
+      it("should transition to cancelled from confirmed: PENDING → CONFIRMED → CANCELLED", () => {
+        const booking = createBookingWithId();
+
+        expect(booking.isPending()).toBe(true);
+
+        booking.confirm();
+        expect(booking.isConfirmed()).toBe(true);
+
+        booking.cancel("Customer request");
+        expect(booking.isCancelled()).toBe(true);
+      });
     });
   });
 

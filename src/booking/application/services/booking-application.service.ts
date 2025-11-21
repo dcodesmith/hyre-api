@@ -5,10 +5,12 @@ import { Booking } from "../../domain/entities/booking.entity";
 import { CreateBookingResponse } from "../../domain/interfaces/booking.interface";
 import { CreateBookingDto } from "../../presentation/dto/create-booking.dto";
 import { PaymentStatusQueryDto } from "../../presentation/dto/payment-status.dto";
+import { BookingDto } from "../mappers/booking.mapper";
 import { BookingCreationService } from "./booking-creation.service";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
 import { BookingPaymentService, PaymentStatusResult } from "./booking-payment.service";
 import { BookingQueryService } from "./booking-query.service";
+import { BookingReminderService } from "./booking-reminder.service";
 
 /**
  * Main application service that orchestrates booking operations
@@ -22,6 +24,7 @@ export class BookingApplicationService {
     private readonly bookingPaymentService: BookingPaymentService,
     private readonly bookingLifecycleService: BookingLifecycleService,
     private readonly bookingQueryService: BookingQueryService,
+    private readonly bookingReminderService: BookingReminderService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -58,16 +61,12 @@ export class BookingApplicationService {
     };
   }
 
-  async confirmBookingWithPayment(bookingId: string, paymentId: string): Promise<void> {
+  async confirmBookingWithPayment(bookingId: string, paymentId: string): Promise<Booking> {
     return this.bookingPaymentService.confirmBookingWithPayment(bookingId, paymentId);
   }
 
   async cancelBooking(bookingId: string, currentUser: User, reason?: string): Promise<void> {
     return this.bookingLifecycleService.cancelBooking(bookingId, currentUser, reason);
-  }
-
-  async processBookingStatusUpdates(): Promise<string> {
-    return this.bookingLifecycleService.processBookingStatusUpdates();
   }
 
   async processBookingActivations(): Promise<number> {
@@ -78,16 +77,20 @@ export class BookingApplicationService {
     return this.bookingLifecycleService.processBookingCompletions();
   }
 
-  async findBookingsEligibleForStartReminders(): Promise<string[]> {
-    return this.bookingQueryService.findBookingsEligibleForStartReminders();
+  async processBookingLegStartReminders(): Promise<number> {
+    return this.bookingReminderService.processBookingLegStartReminders();
   }
 
-  async findBookingsEligibleForEndReminders(): Promise<string[]> {
-    return this.bookingQueryService.findBookingsEligibleForEndReminders();
+  async processBookingLegEndReminders(): Promise<number> {
+    return this.bookingReminderService.processBookingLegEndReminders();
   }
 
-  async getBookingById(bookingId: string, currentUser: User): Promise<Booking> {
+  async getBookingById(bookingId: string, currentUser: User): Promise<BookingDto> {
     return this.bookingQueryService.getBookingById(bookingId, currentUser);
+  }
+
+  async getBookingEntityById(bookingId: string, currentUser: User): Promise<Booking> {
+    return this.bookingQueryService.getBookingEntityById(bookingId, currentUser);
   }
 
   async getBookingByIdInternally(bookingId: string): Promise<Booking> {
@@ -101,7 +104,7 @@ export class BookingApplicationService {
     return this.bookingPaymentService.handlePaymentStatusCallback(bookingId, query);
   }
 
-  async getBookings(currentUser: User): Promise<Booking[]> {
+  async getBookings(currentUser: User): Promise<BookingDto[]> {
     return this.bookingQueryService.getBookings(currentUser);
   }
 }

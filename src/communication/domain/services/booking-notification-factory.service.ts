@@ -5,24 +5,6 @@ import { NotificationType } from "../value-objects/notification-type.vo";
 import { Recipient, RecipientRole } from "../value-objects/recipient.vo";
 import { NotificationTemplateService } from "./notification-template.service";
 
-export interface BookingReminderData {
-  bookingId: string;
-  bookingReference: string;
-  customerName: string;
-  chauffeurName: string;
-  carName: string;
-  startTime: string;
-  endTime: string;
-  pickupLocation: string;
-  returnLocation: string;
-  customerId: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  chauffeurId: string;
-  chauffeurEmail?: string;
-  chauffeurPhone?: string;
-}
-
 export interface BookingLegReminderData {
   bookingId: string;
   bookingLegId: string;
@@ -39,6 +21,7 @@ export interface BookingLegReminderData {
   chauffeurId: string;
   chauffeurEmail?: string;
   chauffeurPhone?: string;
+  bookingReference: string;
 }
 
 export interface BookingStatusUpdateData {
@@ -56,40 +39,35 @@ export interface BookingStatusUpdateData {
   customerPhone?: string;
 }
 
+export interface FleetOwnerBookingAlertData {
+  bookingId: string;
+  bookingReference: string;
+  customerName: string;
+  carName: string;
+  startDate: string;
+  endDate: string;
+  pickupLocation: string;
+  returnLocation: string;
+  fleetOwnerId: string;
+  fleetOwnerName: string;
+  fleetOwnerEmail?: string;
+  fleetOwnerPhone?: string;
+}
+
 @Injectable()
 export class BookingNotificationFactoryService {
   constructor(private readonly templateService: NotificationTemplateService) {}
 
-  createBookingStartReminders(data: BookingReminderData): Notification[] {
+  createBookingLegEndReminders(data: BookingLegReminderData): Notification[] {
     const notifications: Notification[] = [];
 
-    // Create customer notification
     if (data.customerEmail || data.customerPhone) {
-      const customerNotification = this.createCustomerBookingStartReminder(data);
+      const customerNotification = this.createCustomerBookingLegEndReminder(data);
       notifications.push(customerNotification);
     }
 
-    // Create chauffeur notification
     if (data.chauffeurEmail || data.chauffeurPhone) {
-      const chauffeurNotification = this.createChauffeurBookingStartReminder(data);
-      notifications.push(chauffeurNotification);
-    }
-
-    return notifications;
-  }
-
-  createBookingEndReminders(data: BookingReminderData): Notification[] {
-    const notifications: Notification[] = [];
-
-    // Create customer notification
-    if (data.customerEmail || data.customerPhone) {
-      const customerNotification = this.createCustomerBookingEndReminder(data);
-      notifications.push(customerNotification);
-    }
-
-    // Create chauffeur notification
-    if (data.chauffeurEmail || data.chauffeurPhone) {
-      const chauffeurNotification = this.createChauffeurBookingEndReminder(data);
+      const chauffeurNotification = this.createChauffeurBookingLegEndReminder(data);
       notifications.push(chauffeurNotification);
     }
 
@@ -151,73 +129,44 @@ export class BookingNotificationFactoryService {
     );
   }
 
-  private createCustomerBookingStartReminder(data: BookingReminderData): Notification {
-    const customerRecipient = Recipient.create(
-      data.customerId,
-      data.customerName,
-      RecipientRole.CUSTOMER,
-      data.customerEmail,
-      data.customerPhone,
+  createFleetOwnerBookingAlert(data: FleetOwnerBookingAlertData): Notification | null {
+    if (!data.fleetOwnerEmail && !data.fleetOwnerPhone) {
+      return null;
+    }
+
+    const fleetOwnerRecipient = Recipient.create(
+      data.fleetOwnerId,
+      data.fleetOwnerName,
+      RecipientRole.FLEET_OWNER,
+      data.fleetOwnerEmail,
+      data.fleetOwnerPhone,
     );
 
-    const customerContent = NotificationContent.create(
-      "Booking Reminder - Your service starts in approximately 1 hour",
-      this.templateService.getBookingStartReminderTemplate("customer"),
+    const fleetOwnerContent = NotificationContent.create(
+      "New Booking Alert",
+      this.templateService.getFleetOwnerBookingAlertTemplate(),
       {
+        fleetOwnerName: data.fleetOwnerName,
         customerName: data.customerName,
         carName: data.carName,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        startDate: data.startDate,
+        endDate: data.endDate,
         pickupLocation: data.pickupLocation,
         returnLocation: data.returnLocation,
-        chauffeurName: data.chauffeurName,
         bookingReference: data.bookingReference,
       },
     );
 
     return Notification.create(
-      NotificationType.bookingStartReminder(),
-      customerRecipient,
-      customerContent,
-      this.determineChannel(data.customerEmail, data.customerPhone),
+      NotificationType.fleetOwnerBookingAlert(),
+      fleetOwnerRecipient,
+      fleetOwnerContent,
+      this.determineChannel(data.fleetOwnerEmail, data.fleetOwnerPhone),
       data.bookingId,
     );
   }
 
-  private createChauffeurBookingStartReminder(data: BookingReminderData): Notification {
-    const chauffeurRecipient = Recipient.create(
-      data.chauffeurId,
-      data.chauffeurName,
-      RecipientRole.CHAUFFEUR,
-      data.chauffeurEmail,
-      data.chauffeurPhone,
-    );
-
-    const chauffeurContent = NotificationContent.create(
-      "Booking Reminder - You have a service starting in approximately 1 hour",
-      this.templateService.getBookingStartReminderTemplate("chauffeur"),
-      {
-        chauffeurName: data.chauffeurName,
-        carName: data.carName,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        pickupLocation: data.pickupLocation,
-        returnLocation: data.returnLocation,
-        customerName: data.customerName,
-        bookingReference: data.bookingReference,
-      },
-    );
-
-    return Notification.create(
-      NotificationType.bookingStartReminder(),
-      chauffeurRecipient,
-      chauffeurContent,
-      this.determineChannel(data.chauffeurEmail, data.chauffeurPhone),
-      data.bookingId,
-    );
-  }
-
-  private createCustomerBookingEndReminder(data: BookingReminderData): Notification {
+  private createCustomerBookingLegEndReminder(data: BookingLegReminderData): Notification {
     const customerRecipient = Recipient.create(
       data.customerId,
       data.customerName,
@@ -232,8 +181,8 @@ export class BookingNotificationFactoryService {
       {
         customerName: data.customerName,
         carName: data.carName,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        legStartTime: data.legStartTime,
+        legEndTime: data.legEndTime,
         pickupLocation: data.pickupLocation,
         returnLocation: data.returnLocation,
         chauffeurName: data.chauffeurName,
@@ -250,7 +199,7 @@ export class BookingNotificationFactoryService {
     );
   }
 
-  private createChauffeurBookingEndReminder(data: BookingReminderData): Notification {
+  private createChauffeurBookingLegEndReminder(data: BookingLegReminderData): Notification {
     const chauffeurRecipient = Recipient.create(
       data.chauffeurId,
       data.chauffeurName,
@@ -265,8 +214,8 @@ export class BookingNotificationFactoryService {
       {
         chauffeurName: data.chauffeurName,
         carName: data.carName,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        legStartTime: data.legStartTime,
+        legEndTime: data.legEndTime,
         pickupLocation: data.pickupLocation,
         returnLocation: data.returnLocation,
         customerName: data.customerName,

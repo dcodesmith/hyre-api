@@ -99,20 +99,42 @@ export class NotificationTemplateService {
   getBookingStatusUpdateTemplate(): string {
     return `
       Dear {{customerName}},
-      
+
       Your booking status has been updated to: {{status}}
-      
+
       Booking Details:
       - Vehicle: {{carName}}
       - Start: {{startDate}}
       - End: {{endDate}}
       - Pickup: {{pickupLocation}}
       - Return: {{returnLocation}}
-      
+
       Thank you for choosing our service.
-      
+
       Best regards,
       The Team
+    `;
+  }
+
+  getFleetOwnerBookingAlertTemplate(): string {
+    return `
+      Dear {{fleetOwnerName}},
+
+      You have a new booking for your vehicle!
+
+      Booking Details:
+      - Reference: {{bookingReference}}
+      - Vehicle: {{carName}}
+      - Customer: {{customerName}}
+      - Start: {{startDate}}
+      - End: {{endDate}}
+      - Pickup: {{pickupLocation}}
+      - Return: {{returnLocation}}
+
+      Please ensure your vehicle is ready for the booking period.
+
+      Best regards,
+      The Hyre Team
     `;
   }
 

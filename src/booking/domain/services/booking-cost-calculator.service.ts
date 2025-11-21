@@ -2,11 +2,11 @@ import { Inject, Injectable } from "@nestjs/common";
 import Decimal from "decimal.js";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingCarDto } from "../dtos/car.dto";
+import { BookingType } from "../interfaces/booking.interface";
 import { AddonRateRepository } from "../repositories/addon-rate.repository";
 import { PlatformFeeRepository } from "../repositories/platform-fee.repository";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingDateService } from "./booking-date.service";
-import { BookingType } from "../interfaces/booking.interface";
 
 // Helper type for rate extraction - keeps existing interface compatibility
 export interface CarRates {
@@ -83,12 +83,12 @@ export class BookingCostCalculatorService {
 
     const legPrices: number[] = [];
 
-    for (const legDate of bookingDates) {
-      const dailyPrice = this.calculateBookingLegPrice(
-        car,
-        { startDate, endDate, type: bookingType },
-        legDate,
-      );
+    for (const _ of bookingDates) {
+      const dailyPrice = this.calculateBookingLegPrice(car, {
+        startDate,
+        endDate,
+        type: bookingType,
+      });
       legPrices.push(dailyPrice);
     }
 
@@ -166,90 +166,23 @@ export class BookingCostCalculatorService {
   private calculateBookingLegPrice(
     car: CarRates,
     booking: { startDate: Date; endDate: Date; type: BookingType },
-    legDate: Date,
   ): number {
-    const { dayRate, nightRate, hourlyRate, fullDayRate } = car;
-    const { startDate, endDate, type } = booking;
-
-    // Ensure rates are positive, default to 0 if not
-    const validDayRate = Math.max(0, dayRate);
-    const validNightRate = Math.max(0, nightRate);
-    const validHourlyRate = Math.max(0, hourlyRate);
-    const validFullDayRate = Math.max(0, fullDayRate);
-
-    const MINIMUM_CHARGEABLE_HOURS = 1;
+    const { dayRate, nightRate, fullDayRate } = car;
+    const { type } = booking;
 
     if (type === "NIGHT") {
-      return validNightRate;
+      return nightRate;
     }
 
     // FULL_DAY: flat rate per 24-hour period
     // Each FULL_DAY leg is exactly 24 hours, so we charge the fullDayRate
     if (type === "FULL_DAY") {
-      return validFullDayRate;
+      return fullDayRate;
     }
 
     // BookingType.DAY calculations
-    const isFirstLeg = this.bookingDateService.isFirstLeg(legDate, startDate);
-    const isLastLeg = this.bookingDateService.isLastLeg(legDate, endDate);
-
-    // Determine the actual service start and end times for this specific leg
-    const actualServiceStartTimeOnLeg = this.bookingDateService.getActualServiceStartTimeOnLeg(
-      legDate,
-      startDate,
-      isFirstLeg,
-    );
-    const actualServiceEndTimeOnLeg = this.bookingDateService.getActualServiceEndTimeOnLeg(
-      legDate,
-      endDate,
-      isLastLeg,
-    );
-
-    // Calculate duration of service on this leg in hours
-    let durationHours = this.bookingDateService.calculateDurationInHours(
-      actualServiceEndTimeOnLeg,
-      actualServiceStartTimeOnLeg,
-    );
-
-    // Ensure a minimum duration for calculation if there's any overlap
-    if (durationHours <= 0 && actualServiceEndTimeOnLeg > actualServiceStartTimeOnLeg) {
-      durationHours = MINIMUM_CHARGEABLE_HOURS;
-    } else if (durationHours < 0) {
-      durationHours = 0;
-    }
-
-    // Ensure duration does not exceed 24 hours for a single leg calculation
-    durationHours = Math.min(durationHours, 24);
-
-    // Handle cases based on leg position and booking duration
-    if (isFirstLeg && isLastLeg) {
-      // Single-day DAY booking
-      if (validHourlyRate > 0) {
-        const hourlyCost = Math.max(durationHours, MINIMUM_CHARGEABLE_HOURS) * validHourlyRate;
-        return Math.min(hourlyCost, validDayRate);
-      }
-      return validDayRate;
-    }
-
-    if (isFirstLeg) {
-      // Multi-day DAY booking - First leg (partial day)
-      if (validHourlyRate > 0) {
-        const hourlyCost = Math.max(durationHours, MINIMUM_CHARGEABLE_HOURS) * validHourlyRate;
-        return Math.min(hourlyCost, validDayRate);
-      }
-      return validDayRate;
-    }
-
-    if (isLastLeg) {
-      // Multi-day DAY booking - Last leg (partial day)
-      if (validHourlyRate > 0) {
-        const hourlyCost = Math.max(durationHours, MINIMUM_CHARGEABLE_HOURS) * validHourlyRate;
-        return Math.min(hourlyCost, validDayRate);
-      }
-      return validDayRate;
-    }
-
-    // Full intermediate day in a multi-day DAY booking
-    return validDayRate;
+    // Each DAY leg is exactly 12 hours at the same pickup time
+    // Therefore, each leg is charged the full dayRate
+    return dayRate;
   }
 }

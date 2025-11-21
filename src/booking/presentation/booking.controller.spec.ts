@@ -1,18 +1,19 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../test/fixtures/booking.fixture";
 import {
   createAssignChauffeurDto,
   createCreateBookingDto,
   createGetAvailableChauffeursDto,
   createPaymentStatusQueryDto,
 } from "../../../test/fixtures/booking-dto.fixture";
-import { createBookingEntity } from "../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../test/fixtures/user.fixture";
 import { UserRole } from "../../iam/domain/value-objects/user-role.vo";
 import { JwtAuthGuard } from "../../iam/infrastructure/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../iam/infrastructure/guards/optional-jwt-auth.guard";
 import { LoggerService } from "../../shared/logging/logger.service";
+import { BookingMapper } from "../application/mappers/booking.mapper";
 import { BookingApplicationService } from "../application/services/booking-application.service";
 import { PaymentStatusResult } from "../application/services/booking-payment.service";
 import { ChauffeurAssignmentService } from "../application/services/chauffeur-assignment.service";
@@ -36,6 +37,7 @@ describe("BookingController", () => {
             createPendingBooking: vi.fn(),
             getBookings: vi.fn(),
             getBookingById: vi.fn(),
+            getBookingEntityById: vi.fn(),
             cancelBooking: vi.fn(),
             handlePaymentStatusCallback: vi.fn(),
           },
@@ -141,18 +143,17 @@ describe("BookingController", () => {
   describe("#getBookings", () => {
     it("should return bookings for the current user", async () => {
       const user = createUserEntity({ id: "user-123" });
-      const bookings = [
-        createBookingEntity({
-          id: "booking-1",
-          bookingReference: "BK-1",
-        }),
-      ];
-      vi.mocked(bookingServiceMock.getBookings).mockResolvedValue(bookings);
+      const bookingEntity = createBookingEntity({
+        id: "booking-1",
+        bookingReference: "BK-1",
+      });
+      const bookingDto = BookingMapper.toDto(bookingEntity);
+      vi.mocked(bookingServiceMock.getBookings).mockResolvedValue([bookingDto]);
 
       const result = await controller.getBookings(user);
 
       expect(bookingServiceMock.getBookings).toHaveBeenCalledWith(user);
-      expect(result).toBe(bookings);
+      expect(result).toEqual([bookingDto]);
     });
   });
 
@@ -160,16 +161,17 @@ describe("BookingController", () => {
     it("should fetch booking by ID for the current user", async () => {
       const bookingId = "booking-abc";
       const user = createUserEntity({ id: "user-123" });
-      const booking = createBookingEntity({
+      const bookingEntity = createBookingEntity({
         id: bookingId,
         bookingReference: "BK-ABC",
       });
-      vi.mocked(bookingServiceMock.getBookingById).mockResolvedValue(booking);
+      const bookingDto = BookingMapper.toDto(bookingEntity);
+      vi.mocked(bookingServiceMock.getBookingById).mockResolvedValue(bookingDto);
 
       const result = await controller.getBooking(bookingId, user);
 
       expect(bookingServiceMock.getBookingById).toHaveBeenCalledWith(bookingId, user);
-      expect(result).toBe(booking);
+      expect(result).toEqual(bookingDto);
     });
   });
 
@@ -213,7 +215,7 @@ describe("BookingController", () => {
       const user = createUserEntity({ id: "user-123" });
       const dto = createAssignChauffeurDto({ chauffeurId: "chauffeur-456" });
 
-      vi.mocked(bookingServiceMock.getBookingById).mockResolvedValue(booking);
+      vi.mocked(bookingServiceMock.getBookingEntityById).mockResolvedValue(booking);
       vi.mocked(chauffeurAssignmentServiceMock.assignChauffeurToBooking).mockResolvedValue({
         success: true,
         message: "Chauffeur assigned",
@@ -223,7 +225,7 @@ describe("BookingController", () => {
 
       const response = await controller.assignChauffeur(bookingId, dto, user);
 
-      expect(bookingServiceMock.getBookingById).toHaveBeenCalledWith(bookingId, user);
+      expect(bookingServiceMock.getBookingEntityById).toHaveBeenCalledWith(bookingId, user);
       expect(chauffeurAssignmentServiceMock.assignChauffeurToBooking).toHaveBeenCalledWith(
         booking,
         {
@@ -249,7 +251,7 @@ describe("BookingController", () => {
       const user = createUserEntity({ id: "user-123" });
       const dto = createAssignChauffeurDto({ chauffeurId: "chauffeur-999" });
 
-      vi.mocked(bookingServiceMock.getBookingById).mockResolvedValue(booking);
+      vi.mocked(bookingServiceMock.getBookingEntityById).mockResolvedValue(booking);
       vi.mocked(chauffeurAssignmentServiceMock.assignChauffeurToBooking).mockResolvedValue({
         success: false,
         message: "Chauffeur unavailable",
@@ -397,7 +399,7 @@ describe("BookingController", () => {
       const bookingPeriod = booking.getBookingPeriod();
       const user = createUserEntity({ id: "user-123" });
 
-      vi.mocked(bookingServiceMock.getBookingById).mockResolvedValue(booking);
+      vi.mocked(bookingServiceMock.getBookingEntityById).mockResolvedValue(booking);
       vi.mocked(chauffeurAssignmentServiceMock.checkChauffeurAvailability).mockResolvedValue({
         chauffeurId,
         isAvailable: true,
@@ -406,7 +408,7 @@ describe("BookingController", () => {
 
       const response = await controller.checkChauffeurAvailability(bookingId, chauffeurId, user);
 
-      expect(bookingServiceMock.getBookingById).toHaveBeenCalledWith(bookingId, user);
+      expect(bookingServiceMock.getBookingEntityById).toHaveBeenCalledWith(bookingId, user);
       expect(chauffeurAssignmentServiceMock.checkChauffeurAvailability).toHaveBeenCalledWith(
         chauffeurId,
         bookingPeriod,

@@ -26,7 +26,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const resolved = this.resolveException(exception);
 
     // Log the error with appropriate level
-    this.logError(request, resolved.status, exception, resolved.errorType, resolved.context);
+    this.logError(request, resolved.status, exception, resolved.errorType);
 
     // Build standardized error response
     const errorResponse = this.buildErrorResponse(request, resolved);
@@ -38,43 +38,55 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private handleValidationError(exception: BadRequestException): {
     status: number;
     message: string;
-    errors?: unknown[];
+    details?: Record<string, unknown>;
     errorCode?: string;
     errorType: string;
   } {
     const response = exception.getResponse();
 
-    // Check if it's our structured Zod validation error
-    if (typeof response === "object" && response !== null) {
-      const responseObj = response as Record<string, unknown>;
+    // Early return for non-object responses
+    if (typeof response !== "object" || response === null) {
+      return this.createBadRequestResponse(exception.message);
+    }
 
-      // Our ZodValidationPipe format
-      if (responseObj.errors && Array.isArray(responseObj.errors)) {
-        return {
-          status: 400,
-          message:
-            typeof responseObj.message === "string" ? responseObj.message : "Validation failed",
-          errors: responseObj.errors,
-          errorCode: "VALIDATION_ERROR",
-          errorType: "Validation Error",
-        };
-      }
+    const responseObj = response as Record<string, unknown>;
 
-      // Other structured BadRequestException
-      if (responseObj.message) {
-        return {
-          status: 400,
-          message: typeof responseObj.message === "string" ? responseObj.message : "Bad Request",
-          errorCode: "BAD_REQUEST",
-          errorType: "Bad Request",
-        };
-      }
+    // Our ZodValidationPipe format - now uses details.fields
+    if (responseObj.details && typeof responseObj.details === "object") {
+      const message =
+        typeof responseObj.message === "string" ? responseObj.message : "Validation failed";
+      const errorCode =
+        typeof responseObj.error === "string" ? responseObj.error : "VALIDATION_ERROR";
+
+      return {
+        status: 400,
+        message,
+        details: responseObj.details as Record<string, unknown>,
+        errorCode,
+        errorType: "Validation Error",
+      };
+    }
+
+    // Other structured BadRequestException
+    if (responseObj.message) {
+      const message =
+        typeof responseObj.message === "string" ? responseObj.message : "Bad Request";
+      return this.createBadRequestResponse(message);
     }
 
     // Fallback for simple BadRequestException
+    return this.createBadRequestResponse(exception.message);
+  }
+
+  private createBadRequestResponse(message?: string): {
+    status: number;
+    message: string;
+    errorCode: string;
+    errorType: string;
+  } {
     return {
       status: 400,
-      message: exception.message || "Bad Request",
+      message: message || "Bad Request",
       errorCode: "BAD_REQUEST",
       errorType: "Bad Request",
     };
@@ -84,17 +96,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     status: number;
     message: string;
     errorCode: string;
-    context: string;
     details?: Record<string, unknown>;
   } {
     const status = statusCodeMap[exception.code] || HttpStatus.INTERNAL_SERVER_ERROR;
+
+    // Merge context into details for unified structure
+    const details: Record<string, unknown> = {
+      ...exception.details,
+      context: exception.context,
+    };
 
     return {
       status,
       message: exception.message,
       errorCode: exception.code,
-      context: exception.context,
-      details: exception.details,
+      details,
     };
   }
 
@@ -107,6 +123,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   ): void {
     const contextSuffix = context ? ` - Context: ${context}` : "";
     const logMessage = `${request.method} ${request.url} - Status: ${status} - Type: ${errorType}${contextSuffix}`;
+    const logData = this.getLogData(exception);
 
     try {
       // Use injected logger service
@@ -114,14 +131,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // Server errors - full stack trace
         this.logger.error(
           logMessage,
-          exception instanceof Error ? exception.message : "Unknown error",
+          exception instanceof Error ? (exception.stack ?? exception.message) : "Unknown error",
         );
       } else if (status >= 400) {
         // Client errors - warning level
-        this.logger.warn(
-          logMessage,
-          exception instanceof Error ? exception.message : "Unknown error",
-        );
+        this.logger.warn(logMessage, logData);
       }
     } catch (loggerError) {
       // Fallback to internal logger if injected logger fails
@@ -133,9 +147,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     status: number;
     message: string;
     errorCode?: string;
-    context?: string;
     details?: Record<string, unknown>;
-    errors?: unknown[];
     errorType: string;
   } {
     if (exception instanceof BaseDomainError) {
@@ -155,20 +167,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const message = exception.message;
       let details: Record<string, unknown> | undefined;
-      let errors: unknown[] | undefined;
 
       const exceptionResponse = exception.getResponse();
       if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
         const responseObj = exceptionResponse as Record<string, unknown>;
         details = (responseObj.details as Record<string, unknown>) || undefined;
-        errors = (responseObj.errors as unknown[]) || undefined;
       }
 
       return {
         status,
         message,
         details,
-        errors,
         errorType: "HTTP Exception",
       };
     }
@@ -186,9 +195,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status: number;
       message: string;
       errorCode?: string;
-      context?: string;
       details?: Record<string, unknown>;
-      errors?: unknown[];
     },
   ): Record<string, unknown> {
     const errorResponse: Record<string, unknown> = {
@@ -202,15 +209,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse.error = resolved.errorCode;
     }
 
-    if (resolved.context) {
-      errorResponse.context = resolved.context;
-    }
-
     if (resolved.details && Object.keys(resolved.details).length > 0) {
       errorResponse.details = resolved.details;
-    }
-    if (resolved.errors && resolved.errors.length > 0) {
-      errorResponse.errors = resolved.errors;
     }
 
     const correlationId = this.getCorrelationId(request);
@@ -223,5 +223,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   private getCorrelationId(request: Request): string | string[] | undefined {
     return request.headers["x-correlation-id"] || request.headers["x-request-id"];
+  }
+
+  private getLogData(exception: unknown): Record<string, unknown> | string {
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+
+      if (typeof response === "string") {
+        return { message: response };
+      }
+
+      if (response && typeof response === "object") {
+        return response as Record<string, unknown>;
+      }
+    }
+
+    if (exception instanceof Error) {
+      return {
+        message: exception.message,
+        ...(exception.stack ? { stack: exception.stack } : {}),
+      };
+    }
+
+    return "Unknown error";
   }
 }

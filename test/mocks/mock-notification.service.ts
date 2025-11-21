@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { NotificationService } from "../../src/communication/application/services/notification.service";
 import { Notification } from "../../src/communication/domain/entities/notification.entity";
+import type {
+  BookingStatusUpdateData,
+  FleetOwnerBookingAlertData,
+} from "../../src/communication/domain/services/notification-factory.service";
 
 @Injectable()
 export class MockNotificationService extends NotificationService {
@@ -38,6 +42,28 @@ export class MockNotificationService extends NotificationService {
 
     // Simulate the original notification being processed successfully
     notification.markAsSent();
+  }
+
+  async sendBookingStatusUpdate(data: BookingStatusUpdateData): Promise<string> {
+    const notification = this.notificationFactory.createBookingStatusUpdateNotification(data);
+
+    if (!notification) {
+      return "No notification sent - recipient has no contact information";
+    }
+
+    await this.sendNotification(notification);
+    return "Sent booking status update notification (mock)";
+  }
+
+  async sendFleetOwnerBookingAlert(data: FleetOwnerBookingAlertData): Promise<string> {
+    const notification = this.notificationFactory.createFleetOwnerBookingAlert(data);
+
+    if (!notification) {
+      return "No notification sent - fleet owner has no contact information";
+    }
+
+    await this.sendNotification(notification);
+    return "Sent fleet owner booking alert notification (mock)";
   }
 
   // Test helper methods

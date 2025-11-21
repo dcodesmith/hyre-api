@@ -59,7 +59,7 @@ export class WebhookService {
 
       await this.domainEventPublisher.publish(paymentConfirmedEvent);
 
-      this.logger.log("Payment confirmed event published for booking");
+      this.logger.log(`Payment confirmed event published for booking ${bookingId}`);
     } catch (error) {
       this.logger.error(`Error processing Flutterwave webhook: ${error.message}`, error.stack);
       throw error;

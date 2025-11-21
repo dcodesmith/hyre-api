@@ -1,6 +1,6 @@
-import { Process, Processor } from "@nestjs/bull";
+import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Injectable } from "@nestjs/common";
-import { Job } from "bull";
+import { Job } from "bullmq";
 import { NotificationService } from "../../../communication/application/services/notification.service";
 import { PayoutService } from "../../../payment/application/services/payout.service";
 import { type Logger, LoggerService } from "../../../shared/logging/logger.service";
@@ -8,18 +8,44 @@ import { ProcessingJobData } from "../../application/services/scheduler.service"
 
 @Processor("processing-jobs")
 @Injectable()
-export class ProcessingProcessor {
+export class ProcessingProcessor extends WorkerHost {
   private readonly logger: Logger;
   constructor(
     private readonly payoutService: PayoutService,
     private readonly notificationService: NotificationService,
     private readonly loggerService: LoggerService,
   ) {
+    super();
     this.logger = this.loggerService.createLogger(ProcessingProcessor.name);
   }
 
-  @Process("process-pending-payouts")
-  async handlePendingPayouts(job: Job<ProcessingJobData>) {
+  @OnWorkerEvent("active")
+  onActive(job: Job<ProcessingJobData>) {
+    this.logger.info(`Processing job ${job.id} of type ${job.name}...`);
+  }
+
+  @OnWorkerEvent("completed")
+  onCompleted(job: Job<ProcessingJobData>) {
+    this.logger.info(`Job ${job.id} completed successfully`);
+  }
+
+  @OnWorkerEvent("failed")
+  onFailed(job: Job<ProcessingJobData>, error: Error) {
+    this.logger.error(`Job ${job.id} failed with error: ${error.message}`);
+  }
+
+  async process(job: Job<ProcessingJobData>): Promise<any> {
+    switch (job.data.type) {
+      case "pending-payouts":
+        return this.handlePendingPayouts(job);
+      case "pending-notifications":
+        return this.handlePendingNotifications(job);
+      default:
+        throw new Error(`Unknown job type: ${job.data.type}`);
+    }
+  }
+
+  private async handlePendingPayouts(job: Job<ProcessingJobData>) {
     this.logger.info(`Processing pending payouts job: ${job.id}`);
 
     try {
@@ -34,8 +60,7 @@ export class ProcessingProcessor {
     }
   }
 
-  @Process("process-pending-notifications")
-  async handlePendingNotifications(job: Job<ProcessingJobData>) {
+  private async handlePendingNotifications(job: Job<ProcessingJobData>) {
     this.logger.info(`Processing pending notifications job: ${job.id}`);
 
     try {
@@ -48,16 +73,5 @@ export class ProcessingProcessor {
       this.logger.error(`Failed to process pending notifications: ${error.message}`);
       throw error;
     }
-  }
-
-  // Handle manual trigger jobs
-  @Process("manual-pending-payouts")
-  async handleManualPendingPayouts(job: Job<ProcessingJobData>) {
-    return this.handlePendingPayouts(job);
-  }
-
-  @Process("manual-pending-notifications")
-  async handleManualPendingNotifications(job: Job<ProcessingJobData>) {
-    return this.handlePendingNotifications(job);
   }
 }

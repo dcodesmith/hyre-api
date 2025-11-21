@@ -1,14 +1,5 @@
 import { Injectable } from "@nestjs/common";
-
-export class AmountMismatchError extends Error {
-  constructor(clientAmount: number, serverAmount: number) {
-    super(
-      `Amount verification failed. Client sent ₦${clientAmount.toFixed(2)}, ` +
-        `but server calculated ₦${serverAmount.toFixed(2)}. ` +
-        `Please refresh the page and try again.`,
-    );
-  }
-}
+import { BookingAmountMismatchError } from "../errors/booking.errors";
 
 @Injectable()
 export class BookingAmountVerifierService {
@@ -22,14 +13,7 @@ export class BookingAmountVerifierService {
     const difference = Math.abs(clientAmount - serverCalculatedAmount);
 
     if (difference > tolerance) {
-      throw new AmountMismatchError(clientAmount, serverCalculatedAmount);
+      throw new BookingAmountMismatchError(clientAmount, serverCalculatedAmount);
     }
-  }
-
-  /**
-   * Formats amount for logging and error messages
-   */
-  formatAmount(amount: number): string {
-    return `₦${amount.toFixed(2)}`;
   }
 }

@@ -1,7 +1,7 @@
 import { ValueObject } from "../../../shared/domain/value-object";
 import { InvalidPaymentStatusError } from "../errors/booking.errors";
 
-export type PaymentStatusType =
+type PaymentStatusType =
   | "UNPAID"
   | "PAID"
   | "REFUNDED"
@@ -103,7 +103,7 @@ export class PaymentStatus extends ValueObject<PaymentStatusType> {
     }
   }
 
-  public toString(): PaymentStatusType {
+  public toString(): string {
     return this.props;
   }
 }

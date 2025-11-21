@@ -9,7 +9,7 @@ import type { PickupTime } from "./pickup-time.vo";
 export interface CreateBookingPeriodParams {
   bookingType: BookingType;
   startDate: Date;
-  endDate?: Date; // Only required for FULL_DAY bookings
+  endDate?: Date;
   pickupTime?: PickupTime;
 }
 
@@ -41,7 +41,11 @@ export const BookingPeriodFactory = {
             endDate ?? startDate,
           );
         }
-        return DayBookingPeriod.create({ startDate, pickupTime });
+        return DayBookingPeriod.create({
+          startDate,
+          endDate: endDate ?? startDate, // Default to same day for single-day bookings
+          pickupTime,
+        });
 
       case "NIGHT":
         return NightBookingPeriod.create({ startDate });

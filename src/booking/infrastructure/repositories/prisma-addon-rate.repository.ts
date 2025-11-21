@@ -7,7 +7,10 @@ import { AddonRateRepository } from "../../domain/repositories/addon-rate.reposi
 export class PrismaAddonRateRepository implements AddonRateRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findCurrentRate(addonType: AddonType, effectiveDate: Date = new Date()): Promise<number | null> {
+  async findCurrentRate(
+    addonType: AddonType,
+    effectiveDate: Date = new Date(),
+  ): Promise<number | null> {
     const addonRate = await this.prisma.addonRate.findFirst({
       where: {
         addonType,

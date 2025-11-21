@@ -40,50 +40,48 @@ describe("BookingDomainService", () => {
           expectedLegs: 1,
           expectedDuration: 24,
         },
-      ])("should create $expectedLegs 24-hour leg for $description", ({
-        startTime,
-        endTime,
-        expectedLegs,
-        expectedDuration,
-      }) => {
-        const startDateTime = new Date(startTime);
-        const endDateTime = new Date(endTime);
-        const bookingPeriod = FullDayBookingPeriod.create({ startDateTime, endDateTime });
+      ])(
+        "should create $expectedLegs 24-hour leg for $description",
+        ({ startTime, endTime, expectedLegs, expectedDuration }) => {
+          const startDateTime = new Date(startTime);
+          const endDateTime = new Date(endTime);
+          const bookingPeriod = FullDayBookingPeriod.create({ startDateTime, endDateTime });
 
-        const precalculatedCosts: BookingCostCalculation = {
-          totalAmount: new Decimal(240),
-          netTotal: new Decimal(200),
-          securityDetailCost: new Decimal(0),
-          platformCustomerServiceFeeRatePercent: new Decimal(10),
-          platformCustomerServiceFeeAmount: new Decimal(20),
-          subtotalBeforeVat: new Decimal(220),
-          vatRatePercent: new Decimal(20),
-          vatAmount: new Decimal(40),
-          platformFleetOwnerCommissionRatePercent: new Decimal(15),
-          platformFleetOwnerCommissionAmount: new Decimal(30),
-          fleetOwnerPayoutAmountNet: new Decimal(170),
-          legPrices: [200],
-        };
+          const precalculatedCosts: BookingCostCalculation = {
+            totalAmount: new Decimal(240),
+            netTotal: new Decimal(200),
+            securityDetailCost: new Decimal(0),
+            platformCustomerServiceFeeRatePercent: new Decimal(10),
+            platformCustomerServiceFeeAmount: new Decimal(20),
+            subtotalBeforeVat: new Decimal(220),
+            vatRatePercent: new Decimal(20),
+            vatAmount: new Decimal(40),
+            platformFleetOwnerCommissionRatePercent: new Decimal(15),
+            platformFleetOwnerCommissionAmount: new Decimal(30),
+            fleetOwnerPayoutAmountNet: new Decimal(170),
+            legPrices: [200],
+          };
 
-        const command: CreateBookingCommand = {
-          customerId: "customer-123",
-          carId: "car-456",
-          bookingPeriod,
-          pickupAddress: "123 Pickup Street",
-          dropOffAddress: "456 Dropoff Avenue",
-          includeSecurityDetail: false,
-          precalculatedCosts,
-          precalculatedBookingDates: [startDateTime],
-        };
+          const command: CreateBookingCommand = {
+            customerId: "customer-123",
+            carId: "car-456",
+            bookingPeriod,
+            pickupAddress: "123 Pickup Street",
+            dropOffAddress: "456 Dropoff Avenue",
+            includeSecurityDetail: false,
+            precalculatedCosts,
+            precalculatedBookingDates: [startDateTime],
+          };
 
-        const booking = service.createBooking(command);
+          const booking = service.createBooking(command);
 
-        expect(booking.getLegs()).toHaveLength(expectedLegs);
-        const leg = booking.getLegs()[0];
-        expect(leg.getLegStartTime()).toEqual(startDateTime);
-        expect(leg.getLegEndTime()).toEqual(endDateTime);
-        expect(leg.getDurationInHours()).toBe(expectedDuration);
-      });
+          expect(booking.getLegs()).toHaveLength(expectedLegs);
+          const leg = booking.getLegs()[0];
+          expect(leg.getLegStartTime()).toEqual(startDateTime);
+          expect(leg.getLegEndTime()).toEqual(endDateTime);
+          expect(leg.getDurationInHours()).toBe(expectedDuration);
+        },
+      );
 
       it("should create multiple 24-hour legs for multi-day FULL_DAY booking (48 hours)", () => {
         // FULL_DAY booking: Feb 15 10:00 → Feb 17 10:00 (48 hours = 2 × 24hr)

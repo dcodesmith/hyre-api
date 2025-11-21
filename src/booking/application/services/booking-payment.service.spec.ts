@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import {
   createCreateBookingDto,
   createPaymentStatusQueryDto,
 } from "../../../../test/fixtures/booking-dto.fixture";
-import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
@@ -12,11 +12,11 @@ import { PrismaService } from "../../../shared/database/prisma.service";
 import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
-import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import {
   BookingCannotBeConfirmedError,
   BookingNotFoundError,
 } from "../../domain/errors/booking.errors";
+import { PaymentIntentCreationError } from "../../domain/errors/booking-time.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { BookingCustomerResolverService } from "../../domain/services/booking-customer-resolver.service";
 import { PaymentVerificationService } from "../../domain/services/external/payment-verification.interface";
@@ -55,7 +55,7 @@ describe("BookingPaymentService", () => {
           provide: "BookingRepository",
           useValue: {
             findById: vi.fn(),
-            saveWithTransaction: vi.fn(),
+            save: vi.fn(),
           },
         },
         {
@@ -133,7 +133,7 @@ describe("BookingPaymentService", () => {
     vi.mocked(mockPrismaService.$transaction).mockImplementation(async (fn) => {
       return await fn({} as unknown as PrismaService);
     });
-    vi.mocked(mockBookingRepository.saveWithTransaction).mockResolvedValue(mockBooking);
+    vi.mocked(mockBookingRepository.save).mockResolvedValue(mockBooking);
   });
 
   const mockPaymentCustomer = {
@@ -247,8 +247,10 @@ describe("BookingPaymentService", () => {
 
       expect(mockBookingRepository.findById).toHaveBeenCalledWith(bookingId);
       expect(confirmSpy).toHaveBeenCalledWith(paymentId);
-      expect(mockBookingRepository.saveWithTransaction).toHaveBeenCalledWith(mockBooking, {});
-      expect(mockLogger.log).toHaveBeenCalledWith("Booking confirmed with payment");
+      expect(mockBookingRepository.save).toHaveBeenCalledWith(mockBooking);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Booking ${bookingId} confirmed with payment ${paymentId}`,
+      );
     });
 
     it("should throw error when booking not found", async () => {
@@ -324,7 +326,9 @@ describe("BookingPaymentService", () => {
       vi.mocked(mockPaymentVerificationService.verifyPayment).mockResolvedValue(
         mockVerificationResult,
       );
-      const confirmBookingSpy = vi.spyOn(service, "confirmBookingWithPayment").mockResolvedValue();
+      const confirmBookingSpy = vi
+        .spyOn(service, "confirmBookingWithPayment")
+        .mockResolvedValue(mockBooking);
 
       const result = await service.handlePaymentStatusCallback("booking-123", query);
 

@@ -1,9 +1,9 @@
+import Decimal from "decimal.js";
 import { Booking, BookingProps } from "@/booking/domain/entities/booking.entity";
 import { BookingFinancials } from "@/booking/domain/value-objects/booking-financials.vo";
 import { BookingPeriodFactory } from "@/booking/domain/value-objects/booking-period.factory";
 import { BookingStatus } from "@/booking/domain/value-objects/booking-status.vo";
 import { PaymentStatus } from "@/booking/domain/value-objects/payment-status.vo";
-import Decimal from "decimal.js";
 
 export function createBookingEntity(overrides: Partial<BookingProps> = {}): Booking {
   const now = new Date();

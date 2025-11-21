@@ -1,6 +1,14 @@
 import { Module } from "@nestjs/common";
 import { CqrsModule } from "@nestjs/cqrs";
 import { OtpAuthenticationService } from "../iam/domain/services/otp-authentication.service";
+import {
+  BookingLegEndedHandler,
+  BookingLegStartedHandler,
+} from "./application/event-handlers/booking-leg-notification.handler";
+import {
+  BookingLegEndReminderHandler,
+  BookingLegStartReminderHandler,
+} from "./application/event-handlers/booking-leg-reminder.handler";
 import { OtpGeneratedHandler } from "./application/event-handlers/otp-generated.handler";
 import { NotificationService } from "./application/services/notification.service";
 import { NotificationRepository } from "./domain/repositories/notification.repository";
@@ -15,7 +23,13 @@ import { ResendEmailService } from "./infrastructure/services/resend-email.servi
 import { TwilioSmsService } from "./infrastructure/services/twilio-sms.service";
 
 const applicationServices = [NotificationService];
-const eventHandlers = [OtpGeneratedHandler];
+const eventHandlers = [
+  OtpGeneratedHandler,
+  BookingLegStartReminderHandler,
+  BookingLegEndReminderHandler,
+  BookingLegStartedHandler,
+  BookingLegEndedHandler,
+];
 const domainServices = [
   NotificationFactoryService, // Main orchestrator service
   BookingNotificationFactoryService,

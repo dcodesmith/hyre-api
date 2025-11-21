@@ -9,19 +9,19 @@ import { PaymentModule } from "../payment/payment.module";
 import { LoggerService } from "../shared/logging/logger.service";
 import { RedisModule } from "../shared/redis/redis.module";
 import { RedisService } from "../shared/redis/redis.service";
-import { BookingActivatedHandler } from "./application/event-handlers/booking-activated.handler";
 import { BookingCancelledHandler } from "./application/event-handlers/booking-cancelled.handler";
 import { BookingChauffeurAssignedHandler } from "./application/event-handlers/booking-chauffeur-assigned.handler";
 import { BookingChauffeurUnassignedHandler } from "./application/event-handlers/booking-chauffeur-unassigned.handler";
-import { BookingCompletedHandler } from "./application/event-handlers/booking-completed.handler";
 import { BookingCreatedHandler } from "./application/event-handlers/booking-created.handler";
-import { BookingPaymentConfirmedHandler } from "./application/event-handlers/booking-payment-confirmed.handler";
+// import { BookingPaymentConfirmedHandler } from "./application/event-handlers/booking-payment-confirmed.handler";
 import { PaymentVerificationCompletedHandler } from "./application/event-handlers/payment-verification-completed.handler";
+import { BookingLegQueryService } from "./application/queries/booking-leg-query.service";
 import { BookingApplicationService } from "./application/services/booking-application.service";
 import { BookingCreationService } from "./application/services/booking-creation.service";
 import { BookingLifecycleService } from "./application/services/booking-lifecycle.service";
 import { BookingPaymentService } from "./application/services/booking-payment.service";
 import { BookingQueryService } from "./application/services/booking-query.service";
+import { BookingReminderService } from "./application/services/booking-reminder.service";
 import { CarCacheService } from "./application/services/car-cache.service";
 import { ChauffeurAssignmentService } from "./application/services/chauffeur-assignment.service";
 import { PlatformFeeCacheService } from "./application/services/platform-fee-cache.service";
@@ -45,13 +45,11 @@ import { FlutterwavePaymentIntentService } from "./infrastructure/services/flutt
 import { BookingController } from "./presentation/booking.controller";
 
 const EventHandlers = [
-  BookingCompletedHandler,
-  BookingActivatedHandler,
   BookingCancelledHandler,
   BookingCreatedHandler,
   BookingChauffeurAssignedHandler,
   BookingChauffeurUnassignedHandler,
-  BookingPaymentConfirmedHandler,
+  // BookingPaymentConfirmedHandler,
   PaymentVerificationCompletedHandler,
 ];
 
@@ -67,6 +65,10 @@ const EventHandlers = [
     BookingPaymentService,
     BookingLifecycleService,
     BookingQueryService,
+    BookingReminderService,
+
+    // Query services (CQRS read side)
+    BookingLegQueryService,
 
     // Other application services
     ChauffeurAssignmentService,
@@ -148,6 +150,11 @@ const EventHandlers = [
     },
     ...EventHandlers,
   ],
-  exports: [BookingApplicationService, PlatformFeeCacheService, CarCacheService],
+  exports: [
+    BookingApplicationService,
+    BookingReminderService,
+    PlatformFeeCacheService,
+    CarCacheService,
+  ],
 })
 export class BookingModule {}

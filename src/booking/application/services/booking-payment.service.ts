@@ -1,8 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { User } from "../../../iam/domain/entities/user.entity";
 import { TypedConfigService } from "../../../shared/config/typed-config.service";
-import { PrismaService } from "../../../shared/database/prisma.service";
-import { DomainEventPublisher } from "../../../shared/events/domain-event-publisher";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { Booking } from "../../domain/entities/booking.entity";
 import {
@@ -48,8 +46,6 @@ export class BookingPaymentService {
     @Inject("PaymentVerificationService")
     private readonly paymentVerificationService: PaymentVerificationService,
     private readonly bookingCustomerResolver: BookingCustomerResolverService,
-    private readonly prisma: PrismaService,
-    private readonly domainEventPublisher: DomainEventPublisher,
     private readonly logger: LoggerService,
     private readonly configService: TypedConfigService,
   ) {}
@@ -103,7 +99,7 @@ export class BookingPaymentService {
     throw new PaymentIntentCreationError(paymentIntent.error);
   }
 
-  async confirmBookingWithPayment(bookingId: string, paymentId: string): Promise<void> {
+  async confirmBookingWithPayment(bookingId: string, paymentId: string): Promise<Booking> {
     const booking = await this.findBookingOrThrow(bookingId);
 
     if (!booking.isPending()) {
@@ -112,9 +108,15 @@ export class BookingPaymentService {
 
     booking.confirmWithPayment(paymentId);
 
-    await this.saveBookingAndPublishEvents(booking);
+    for (const leg of booking.getLegs()) {
+      leg.confirm();
+    }
 
-    this.logger.log("Booking confirmed with payment");
+    const savedBooking = await this.saveBookingAndPublishEvents(booking);
+
+    this.logger.log(`Booking ${bookingId} confirmed with payment ${paymentId}`);
+
+    return savedBooking;
   }
 
   async handlePaymentStatusCallback(
@@ -271,28 +273,19 @@ export class BookingPaymentService {
   }
 
   private async saveBookingAndPublishEvents(booking: Booking): Promise<Booking> {
-    // Collect events to publish after transaction commits
-    const eventsToPublish: Booking[] = [];
+    try {
+      // Use the repository's save() method which already handles transactions internally:
+      // - For new bookings: creates booking and legs in a single transaction
+      // - For existing bookings: updates booking and legs directly
+      // This avoids nested transaction issues that cause "Response from Engine was empty" errors
+      const savedBooking = await this.bookingRepository.save(booking);
 
-    // Use transaction to ensure atomicity of booking save and event preparation
-    const savedBooking = await this.prisma.$transaction(async (tx) => {
-      // Save booking within transaction
-      const saved = await this.bookingRepository.saveWithTransaction(booking, tx);
+      this.logger.log(`Booking ${savedBooking.getId()} saved successfully`);
 
-      // If this is a new booking, mark it as created to trigger domain events
-      if (!booking.getId() && saved.getId()) {
-        saved.markAsCreated();
-        eventsToPublish.push(saved); // Prepare for event publishing
-      }
-
-      return saved;
-    });
-
-    // After transaction commits successfully, publish events
-    for (const bookingWithEvents of eventsToPublish) {
-      await this.domainEventPublisher.publish(bookingWithEvents);
+      return savedBooking;
+    } catch (error) {
+      this.logger.error(`Failed to save booking: ${error.message}`, error.stack);
+      throw error;
     }
-
-    return savedBooking;
   }
 }

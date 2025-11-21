@@ -1,8 +1,8 @@
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { config } from "@dotenvx/dotenvx";
+import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
 
 let pgContainer: StartedPostgreSqlContainer;
 let redisContainer: StartedRedisContainer;

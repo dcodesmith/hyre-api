@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createBookingEntity } from "../../../../test/fixtures/booking.fixture";
+import { createCreateBookingDto } from "../../../../test/fixtures/booking-dto.fixture";
 import { createUserEntity } from "../../../../test/fixtures/user.fixture";
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
@@ -13,6 +13,7 @@ import { BookingCreationService } from "./booking-creation.service";
 import { BookingLifecycleService } from "./booking-lifecycle.service";
 import { BookingPaymentService } from "./booking-payment.service";
 import { BookingQueryService } from "./booking-query.service";
+import { BookingReminderService } from "./booking-reminder.service";
 
 /**
  * Testing Strategy for BookingApplicationService:
@@ -34,6 +35,7 @@ describe("BookingApplicationService", () => {
   let bookingPaymentService: BookingPaymentService;
   let logger: LoggerService;
   let bookingQueryService: BookingQueryService;
+  let bookingReminderService: BookingReminderService;
 
   // Use fixture for test booking with realistic financials
   const mockBooking = createBookingEntity({
@@ -83,6 +85,17 @@ describe("BookingApplicationService", () => {
           useValue: {
             getBookingById: vi.fn(),
             getBookingByIdInternal: vi.fn(),
+            findBookingsEligibleForStartReminders: vi.fn(),
+            findBookingsEligibleForEndReminders: vi.fn(),
+          },
+        },
+        {
+          provide: BookingReminderService,
+          useValue: {
+            processBookingStartReminders: vi.fn(),
+            processBookingEndReminders: vi.fn(),
+            processBookingLegStartReminders: vi.fn(),
+            processBookingLegEndReminders: vi.fn(),
           },
         },
         {
@@ -99,6 +112,7 @@ describe("BookingApplicationService", () => {
     bookingPaymentService = module.get<BookingPaymentService>(BookingPaymentService);
     logger = module.get<LoggerService>(LoggerService);
     bookingQueryService = module.get<BookingQueryService>(BookingQueryService);
+    bookingReminderService = module.get<BookingReminderService>(BookingReminderService);
     vi.clearAllMocks();
   });
 
@@ -225,6 +239,29 @@ describe("BookingApplicationService", () => {
       const result = await service.getBookingByIdInternally(bookingId);
       expect(result).toBe(booking);
       expect(bookingQueryService.getBookingByIdInternal).toHaveBeenCalledWith(bookingId);
+    });
+  });
+
+  describe("Reminder processing delegations", () => {
+    // All reminders are LEG-BASED (1 hour before each leg starts/ends)
+    // to support multi-day bookings with multiple legs
+
+    it("should delegate processBookingLegStartReminders to BookingReminderService", async () => {
+      vi.mocked(bookingReminderService.processBookingLegStartReminders).mockResolvedValue(2);
+
+      const result = await service.processBookingLegStartReminders();
+
+      expect(bookingReminderService.processBookingLegStartReminders).toHaveBeenCalled();
+      expect(result).toBe(2);
+    });
+
+    it("should delegate processBookingLegEndReminders to BookingReminderService", async () => {
+      vi.mocked(bookingReminderService.processBookingLegEndReminders).mockResolvedValue(1);
+
+      const result = await service.processBookingLegEndReminders();
+
+      expect(bookingReminderService.processBookingLegEndReminders).toHaveBeenCalled();
+      expect(result).toBe(1);
     });
   });
 });

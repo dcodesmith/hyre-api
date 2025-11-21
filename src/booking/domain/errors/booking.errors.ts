@@ -65,6 +65,17 @@ export class BookingTimeConflictError extends BookingDomainError {
   }
 }
 
+export class BookingAmountMismatchError extends BookingDomainError {
+  readonly code = "BOOKING_AMOUNT_MISMATCH";
+
+  constructor(clientAmount: number, serverAmount: number) {
+    super(
+      `Amount verification failed. Client sent ₦${clientAmount.toFixed(2)}, but server calculated ₦${serverAmount.toFixed(2)}. Please refresh the page and try again.`,
+      { clientAmount, serverAmount },
+    );
+  }
+}
+
 export class BookingCannotBeConfirmedError extends BookingDomainError {
   readonly code = "BOOKING_CANNOT_BE_CONFIRMED";
   constructor(bookingId: string, currentStatus: string) {
@@ -132,6 +143,34 @@ export class CarOwnerIdRequiredForFleetOwnerVerificationError extends BookingDom
     super(
       `Car owner ID is required when booking context is provided for fleet owner verification for booking ${bookingId}`,
       { bookingId },
+    );
+  }
+}
+
+export class InvalidBookingLegStatusTransitionError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_LEG_STATUS_TRANSITION";
+  constructor(
+    legId: string,
+    currentStatus: string,
+    targetStatus: string,
+  ) {
+    super(
+      `Cannot transition leg ${legId} from ${currentStatus} to ${targetStatus}`,
+      { legId, currentStatus, targetStatus },
+    );
+  }
+}
+
+export class InvalidBookingStatusTransitionError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_STATUS_TRANSITION";
+  constructor(
+    bookingId: string,
+    currentStatus: string,
+    targetStatus: string,
+  ) {
+    super(
+      `Cannot transition booking ${bookingId} from ${currentStatus} to ${targetStatus}`,
+      { bookingId, currentStatus, targetStatus },
     );
   }
 }

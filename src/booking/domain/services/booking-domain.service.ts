@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { addDays, setHours } from "date-fns";
+import { addDays, setHours, setMinutes } from "date-fns";
 import { Booking } from "../entities/booking.entity";
 import { BookingLeg } from "../entities/booking-leg.entity";
 import {
@@ -18,7 +18,9 @@ import { BookingEligibilityService } from "./booking-eligibility.service";
 export interface LegPricingData {
   legPrices: number[];
   startHours: number;
+  startMinutes: number;
   endHours: number;
+  bookingType: "DAY" | "NIGHT" | "FULL_DAY";
 }
 
 /**
@@ -84,7 +86,9 @@ export class BookingDomainService {
     const legPricingData: LegPricingData = {
       legPrices: precalculatedCosts.legPrices,
       startHours: bookingPeriod.startDateTime.getHours(),
+      startMinutes: bookingPeriod.startDateTime.getMinutes(),
       endHours: bookingPeriod.endDateTime.getHours(),
+      bookingType: bookingPeriod.getBookingType(),
     };
 
     // Create booking legs using precalculated dates and pricing data
@@ -159,12 +163,26 @@ export class BookingDomainService {
         .mul(1 / bookingDates.length)
         .toNumber();
 
-      // Calculate leg start and end times using the provided hours
-      const legStartTime = setHours(legDate, legPricingData.startHours);
-      const legEndTime =
-        legPricingData.endHours <= legPricingData.startHours
-          ? setHours(addDays(legDate, 1), legPricingData.endHours) // If end time is less than or equal to start time, it's on the next day
-          : setHours(legDate, legPricingData.endHours);
+      // Calculate leg start and end times based on booking type
+      let legStartTime: Date;
+      let legEndTime: Date;
+
+      if (legPricingData.bookingType === "DAY") {
+        // DAY bookings: each leg is 12 hours at the same pickup time each day
+        legStartTime = setMinutes(setHours(legDate, legPricingData.startHours), legPricingData.startMinutes);
+        legEndTime = setMinutes(setHours(legDate, legPricingData.startHours + 12), legPricingData.startMinutes);
+      } else if (legPricingData.bookingType === "NIGHT") {
+        // NIGHT bookings: 11pm to 5am next day
+        legStartTime = setHours(legDate, legPricingData.startHours);
+        legEndTime = setHours(addDays(legDate, 1), legPricingData.endHours);
+      } else {
+        // FULL_DAY bookings: 24-hour periods from start time
+        legStartTime = setMinutes(setHours(legDate, legPricingData.startHours), legPricingData.startMinutes);
+        legEndTime = setMinutes(
+          setHours(addDays(legDate, 1), legPricingData.startHours),
+          legPricingData.startMinutes,
+        );
+      }
 
       // Create leg without any IDs - they will be set during persistence
       const leg = BookingLeg.create({

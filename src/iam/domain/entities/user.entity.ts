@@ -81,10 +81,9 @@ export class User extends AggregateRoot {
       updatedAt: new Date(),
     });
 
-    // Emit guest user created event
-    user.addDomainEvent(
-      new UserRegisteredEvent(user.getId(), email, phoneNumber, "guest", "guest_registration"),
-    );
+    // Note: Guest users do NOT emit UserRegisteredEvent
+    // They are not registered users - they're just providing details to make a booking
+    // This prevents welcome emails, onboarding workflows, etc. from being triggered
 
     return user;
   }

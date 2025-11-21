@@ -9,7 +9,8 @@ import { PrismaService } from "../../../src/shared/database/prisma.service";
 import { RedisService } from "../../../src/shared/redis/redis.service";
 import { MockNotificationService } from "../../mocks/mock-notification.service";
 import { TestConfigService } from "../../utils/test-config.service";
-import { createAssertOtpEmailSent, uniqueEmail } from "./helpers/authentication.helpers";
+import { createAssertOtpEmailSent, uniqueEmail } from "../helpers/authentication.helpers";
+import { resetE2EDatabase } from "../helpers/database.helpers";
 
 /**
  * OTP Expiry E2E Tests
@@ -68,8 +69,7 @@ describe("Authentication OTP Expiry E2E", () => {
     mockNotificationService.clearHistory();
 
     await redis.getClient().flushdb();
-    await prisma.role.deleteMany();
-    await prisma.user.deleteMany();
+    await resetE2EDatabase(prisma);
   });
 
   it("should reject OTP after expiration (0.3s expiry)", async () => {

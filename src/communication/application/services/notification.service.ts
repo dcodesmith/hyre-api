@@ -12,8 +12,8 @@ import { NotificationRepository } from "../../domain/repositories/notification.r
 import { EmailService } from "../../domain/services/email.service.interface";
 import {
   BookingLegReminderData,
-  BookingReminderData,
   BookingStatusUpdateData,
+  FleetOwnerBookingAlertData,
   NotificationFactoryService,
 } from "../../domain/services/notification-factory.service";
 import { SmsService } from "../../domain/services/sms.service.interface";
@@ -21,41 +21,11 @@ import { SmsService } from "../../domain/services/sms.service.interface";
 @Injectable()
 export class NotificationService {
   constructor(
-    private readonly notificationRepository: NotificationRepository,
-    private readonly notificationFactory: NotificationFactoryService,
-    private readonly emailService: EmailService,
-    private readonly smsService: SmsService,
+    protected readonly notificationRepository: NotificationRepository,
+    protected readonly notificationFactory: NotificationFactoryService,
+    protected readonly emailService: EmailService,
+    protected readonly smsService: SmsService,
   ) {}
-
-  async sendBookingStartReminders(data: BookingReminderData): Promise<string> {
-    try {
-      const notifications = this.notificationFactory.createBookingStartReminders(data);
-
-      for (const notification of notifications) {
-        await this.notificationRepository.save(notification);
-        await this.deliverNotification(notification);
-      }
-
-      return `Sent ${notifications.length} booking start reminders`;
-    } catch (error) {
-      throw new NotificationReminderCreationError("start", data.bookingId, error.message);
-    }
-  }
-
-  async sendBookingEndReminders(data: BookingReminderData): Promise<string> {
-    try {
-      const notifications = this.notificationFactory.createBookingEndReminders(data);
-
-      for (const notification of notifications) {
-        await this.notificationRepository.save(notification);
-        await this.deliverNotification(notification);
-      }
-
-      return `Sent ${notifications.length} booking end reminders`;
-    } catch (error) {
-      throw new NotificationReminderCreationError("end", data.bookingId, error.message);
-    }
-  }
 
   async sendBookingLegStartReminders(data: BookingLegReminderData): Promise<string> {
     try {
@@ -69,6 +39,21 @@ export class NotificationService {
       return `Sent ${notifications.length} booking leg start reminders`;
     } catch (error) {
       throw new NotificationReminderCreationError("leg-start", data.bookingId, error.message);
+    }
+  }
+
+  async sendBookingLegEndReminders(data: BookingLegReminderData): Promise<string> {
+    try {
+      const notifications = this.notificationFactory.createBookingLegEndReminders(data);
+
+      for (const notification of notifications) {
+        await this.notificationRepository.save(notification);
+        await this.deliverNotification(notification);
+      }
+
+      return `Sent ${notifications.length} booking end reminders`;
+    } catch (error) {
+      throw new NotificationReminderCreationError("end", data.bookingId, error.message);
     }
   }
 
@@ -90,6 +75,28 @@ export class NotificationService {
         data.status,
         error.message,
         data.customerId,
+      );
+    }
+  }
+
+  async sendFleetOwnerBookingAlert(data: FleetOwnerBookingAlertData): Promise<string> {
+    try {
+      const notification = this.notificationFactory.createFleetOwnerBookingAlert(data);
+
+      if (!notification) {
+        return "No notification sent - fleet owner has no contact information";
+      }
+
+      await this.notificationRepository.save(notification);
+      await this.deliverNotification(notification);
+
+      return "Sent fleet owner booking alert notification";
+    } catch (error) {
+      throw new NotificationStatusUpdateError(
+        data.bookingId,
+        "BOOKING_ALERT",
+        error.message,
+        data.fleetOwnerId,
       );
     }
   }

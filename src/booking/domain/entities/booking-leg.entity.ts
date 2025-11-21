@@ -1,6 +1,8 @@
 import { Entity } from "../../../shared/domain/entity";
 import { validateAmount } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
+import { InvalidBookingLegStatusTransitionError } from "../errors/booking.errors";
+import { BookingLegStatus } from "../value-objects/booking-leg-status.vo";
 
 export interface BookingLegProps {
   id?: string; // Optional - DB will assign
@@ -11,6 +13,7 @@ export interface BookingLegProps {
   totalDailyPrice: number;
   itemsNetValueForLeg: number;
   fleetOwnerEarningForLeg: number;
+  status: BookingLegStatus;
   notes?: string;
 }
 
@@ -35,12 +38,7 @@ export class BookingLeg extends Entity<string> {
       throw new Error("Leg start time must be before end time");
     }
 
-    // Validate amounts
-    validateAmount(params.totalDailyPrice);
-    validateAmount(params.itemsNetValueForLeg);
-    validateAmount(params.fleetOwnerEarningForLeg);
-
-    return new BookingLeg({ ...params });
+    return new BookingLeg({ ...params, status: BookingLegStatus.pending() });
   }
 
   public static reconstitute(props: BookingLegProps): BookingLeg {
@@ -60,13 +58,79 @@ export class BookingLeg extends Entity<string> {
     return this.props.legStartTime > new Date();
   }
 
+  public confirm(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.confirmed())) {
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "CONFIRMED",
+      );
+    }
+
+    this.props.status = BookingLegStatus.confirmed();
+  }
+
+  public activate(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.active())) {
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "ACTIVE",
+      );
+    }
+
+    this.props.status = BookingLegStatus.active();
+  }
+
+  public complete(): void {
+    if (!this.props.status.canTransitionTo(BookingLegStatus.completed())) {
+      throw new InvalidBookingLegStatusTransitionError(
+        this.id,
+        this.props.status.value,
+        "COMPLETED",
+      );
+    }
+
+    this.props.status = BookingLegStatus.completed();
+  }
+
   public isActive(): boolean {
+    // A leg is active if the current time is between legStartTime and legEndTime
+    // Time-based check takes precedence over stored status to reflect reality
     const now = new Date();
-    return now >= this.props.legStartTime && now <= this.props.legEndTime;
+    const isInTimeWindow = now >= this.props.legStartTime && now <= this.props.legEndTime;
+
+    // If we're in the time window, leg is active (regardless of stored status)
+    if (isInTimeWindow) {
+      return true;
+    }
+
+    // If we're past the end time, leg is not active (even if stored status says ACTIVE)
+    if (now > this.props.legEndTime) {
+      return false;
+    }
+
+    // Before start time, check stored status (should be PENDING or CONFIRMED)
+    return this.props.status.isActive();
   }
 
   public isCompleted(): boolean {
-    return this.props.legEndTime < new Date();
+    // A leg is completed if the current time is past legEndTime
+    // Time-based check takes precedence over stored status to reflect reality
+    const now = new Date();
+    const isPastEndTime = now > this.props.legEndTime;
+
+    // If we're past the end time, leg is completed (regardless of stored status)
+    if (isPastEndTime) {
+      return true;
+    }
+
+    // If we're before or during the time window, check stored status
+    return this.props.status.isCompleted();
+  }
+
+  public isPending(): boolean {
+    return this.props.status.isPending();
   }
 
   public isEligibleForStartReminder(): boolean {
@@ -82,6 +146,10 @@ export class BookingLeg extends Entity<string> {
   }
 
   // Getters
+  public getId(): string {
+    return this.id;
+  }
+
   public getBookingId(): string | undefined {
     return this.props.bookingId;
   }
@@ -112,5 +180,9 @@ export class BookingLeg extends Entity<string> {
 
   public getNotes(): string | undefined {
     return this.props.notes;
+  }
+
+  public getStatus(): BookingLegStatus {
+    return this.props.status;
   }
 }

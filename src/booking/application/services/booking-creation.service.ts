@@ -6,13 +6,13 @@ import { DomainEventPublisher } from "../../../shared/events/domain-event-publis
 import { LoggerService } from "../../../shared/logging/logger.service";
 import { BookingCarDto } from "../../domain/dtos/car.dto";
 import { Booking } from "../../domain/entities/booking.entity";
-import { CarNotFoundError } from "../../domain/errors/car.errors";
 import {
   BookingCustomerNotAuthorizedError,
   GuestCustomerAccountExpiredError,
   GuestCustomerDetailsRequiredError,
   GuestCustomerEmailRegisteredError,
 } from "../../domain/errors/booking.errors";
+import { CarNotFoundError } from "../../domain/errors/car.errors";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
 import { CarRepository } from "../../domain/repositories/car.repository";
 import { BookingAmountVerifierService } from "../../domain/services/booking-amount-verifier.service";
@@ -135,10 +135,10 @@ export class BookingCreationService {
 
     // Create new guest user
     const guestUser = User.createGuest(email, name, phoneNumber);
-    await this.userRepository.save(guestUser);
+    const savedGuestUser = await this.userRepository.save(guestUser);
 
-    this.logger.log(`Created new guest user: ${guestUser.getId()}`);
-    return guestUser;
+    this.logger.log(`Created new guest user: ${savedGuestUser.getId()}`);
+    return savedGuestUser;
   }
 
   private async createBookingEntity(

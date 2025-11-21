@@ -100,11 +100,13 @@ describe("BookingQueryService", () => {
         booking,
         mockCar.ownerId,
       );
-      expect(mockLogger.info).toHaveBeenCalledWith("User fetching booking details", {
+      expect(mockLogger.info).toHaveBeenCalledWith("User fetching booking entity", {
         userId: "user-123",
         bookingId,
       });
-      expect(result).toBe(booking);
+      // Verify correct booking is returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result.id).toBe(bookingId);
+      expect(result.bookingReference).toBe("BK-123");
     });
 
     it("should throw error when booking not found", async () => {
@@ -182,60 +184,6 @@ describe("BookingQueryService", () => {
     });
   });
 
-  describe("findBookingsEligibleForStartReminders", () => {
-    it("should return booking IDs eligible for start reminders", async () => {
-      const booking1 = createBookingEntity({ id: "booking-1" });
-      const booking2 = createBookingEntity({ id: "booking-2" });
-      const booking3 = createBookingEntity({ id: "booking-3" });
-
-      vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([
-        booking1,
-        booking2,
-        booking3,
-      ]);
-
-      const result = await service.findBookingsEligibleForStartReminders();
-
-      expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
-      expect(result).toEqual(["booking-1", "booking-2", "booking-3"]);
-    });
-
-    it("should return empty array when no bookings eligible", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForStartReminders).mockResolvedValue([]);
-
-      const result = await service.findBookingsEligibleForStartReminders();
-
-      expect(mockBookingRepository.findEligibleForStartReminders).toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe("findBookingsEligibleForEndReminders", () => {
-    it("should return booking IDs eligible for end reminders", async () => {
-      const booking1 = createBookingEntity({ id: "booking-4" });
-      const booking2 = createBookingEntity({ id: "booking-5" });
-
-      vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([
-        booking1,
-        booking2,
-      ]);
-
-      const result = await service.findBookingsEligibleForEndReminders();
-
-      expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
-      expect(result).toEqual(["booking-4", "booking-5"]);
-    });
-
-    it("should return empty array when no bookings eligible", async () => {
-      vi.mocked(mockBookingRepository.findEligibleForEndReminders).mockResolvedValue([]);
-
-      const result = await service.findBookingsEligibleForEndReminders();
-
-      expect(mockBookingRepository.findEligibleForEndReminders).toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
-  });
-
   describe("getBookings", () => {
     it("should return all bookings when user can view all", async () => {
       const adminUser = createUserEntity({
@@ -257,7 +205,9 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("Admin/Staff fetching all bookings", {
         userId: "admin-123",
       });
-      expect(result).toBe(allBookings);
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("booking-admin-1");
     });
 
     it("should return fleet owner bookings when user is fleet owner", async () => {
@@ -282,7 +232,9 @@ describe("BookingQueryService", () => {
           userId: "fleet-123",
         },
       );
-      expect(result).toBe(fleetBookings);
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("fleet-booking-1");
     });
 
     it("should return customer bookings when user is regular customer", async () => {
@@ -303,7 +255,9 @@ describe("BookingQueryService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith("User fetching their bookings", {
         userId: "customer-123",
       });
-      expect(result).toBe(customerBookings);
+      // Verify correct bookings are returned (field-level mapping tested in BookingMapper.spec.ts)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("customer-booking-1");
     });
   });
 });

@@ -1,21 +1,21 @@
+import { isToday } from "date-fns";
 import { AggregateRoot } from "../../../shared/domain/aggregate-root";
 import {
   isZeroAmount,
   validateAmount,
 } from "../../../shared/domain/value-objects/validation-utils";
 import { generateSecureRandomId } from "../../../shared/utils/secure-random";
-import { BookingActivatedEvent } from "../events/booking-activated.event";
+import { InvalidBookingStatusTransitionError } from "../errors/booking.errors";
 import { BookingCancelledEvent } from "../events/booking-cancelled.event";
 import { BookingChauffeurAssignedEvent } from "../events/booking-chauffeur-assigned.event";
 import { BookingChauffeurUnassignedEvent } from "../events/booking-chauffeur-unassigned.event";
-import { BookingCompletedEvent } from "../events/booking-completed.event";
 import { BookingConfirmedEvent } from "../events/booking-confirmed.event";
 import { BookingCreatedEvent } from "../events/booking-created.event";
 import { BookingType } from "../interfaces/booking.interface";
 import { BookingFinancials } from "../value-objects/booking-financials.vo";
 import type { BookingPeriod } from "../value-objects/booking-period.vo";
 import { BookingStatus, BookingStatusEnum } from "../value-objects/booking-status.vo";
-import { PaymentStatus, PaymentStatusType } from "../value-objects/payment-status.vo";
+import { PaymentStatus } from "../value-objects/payment-status.vo";
 import { BookingLeg } from "./booking-leg.entity";
 
 export interface BookingCreateParams {
@@ -122,7 +122,11 @@ export class Booking extends AggregateRoot {
 
   public confirm(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.confirmed())) {
-      throw new Error(`Cannot confirm booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CONFIRMED",
+      );
     }
 
     this.props.status = BookingStatus.confirmed();
@@ -140,7 +144,11 @@ export class Booking extends AggregateRoot {
 
   public confirmWithPayment(paymentId: string): void {
     if (!this.props.status.canTransitionTo(BookingStatus.confirmed())) {
-      throw new Error(`Cannot confirm booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CONFIRMED",
+      );
     }
 
     this.props.status = BookingStatus.confirmed();
@@ -151,45 +159,59 @@ export class Booking extends AggregateRoot {
     // Note: BookingPaymentConfirmedEvent removed - PaymentConfirmedEvent handles notifications directly
   }
 
+  /**
+   * Activate booking (CONFIRMED → ACTIVE)
+   *
+   * IMPORTANT: This method ONLY changes status - it does NOT publish events
+   * - BookingLifecycleService is responsible for publishing BookingLegActivatedEvent
+   * - Service has all the data needed for rich event (avoids N+1 queries)
+   * - Idempotent: safe to call multiple times if already ACTIVE
+   */
   public activate(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.active())) {
-      throw new Error(`Cannot activate booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "ACTIVE",
+      );
     }
 
     this.props.status = BookingStatus.active();
     this.props.updatedAt = new Date();
 
-    this.addDomainEvent(
-      new BookingActivatedEvent(
-        this.getId(),
-        this.props.bookingReference,
-        this.props.customerId,
-        this.props.chauffeurId,
-      ),
-    );
+    // Event publishing moved to BookingLifecycleService for consistency with leg-based architecture
   }
 
+  /**
+   * Complete booking (ACTIVE → COMPLETED)
+   *
+   * IMPORTANT: This method ONLY changes status - it does NOT publish events
+   * - BookingLifecycleService is responsible for publishing BookingLegCompletedEvent
+   * - Service has all the data needed for rich event (avoids N+1 queries)
+   * - Idempotent: safe to call multiple times if already COMPLETED
+   */
   public complete(): void {
     if (!this.props.status.canTransitionTo(BookingStatus.completed())) {
-      throw new Error(`Cannot complete booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "COMPLETED",
+      );
     }
 
     this.props.status = BookingStatus.completed();
     this.props.updatedAt = new Date();
 
-    this.addDomainEvent(
-      new BookingCompletedEvent(
-        this.getId(),
-        this.props.bookingReference,
-        this.props.customerId,
-        this.props.chauffeurId,
-      ),
-    );
+    // Event publishing moved to BookingLifecycleService for consistency with leg-based architecture
   }
 
   public cancel(reason?: string): void {
     if (!this.props.status.canTransitionTo(BookingStatus.cancelled())) {
-      throw new Error(`Cannot cancel booking in ${this.props.status.value} status`);
+      throw new InvalidBookingStatusTransitionError(
+        this.props.id ?? "unknown",
+        this.props.status.value,
+        "CANCELLED",
+      );
     }
 
     this.props.status = BookingStatus.cancelled();
@@ -295,14 +317,95 @@ export class Booking extends AggregateRoot {
 
   public addLeg(leg: BookingLeg): void {
     const legDate = leg.getLegDate();
-    if (
-      legDate < this.props.bookingPeriod.startDateTime ||
-      legDate > this.props.bookingPeriod.endDateTime
-    ) {
-      throw new Error("Booking leg date must be within booking period");
+    const startDate = this.props.bookingPeriod.startDateTime;
+    const endDate = this.props.bookingPeriod.endDateTime;
+
+    // Normalize to date-only comparison (ignore time component)
+    const legDateOnly = new Date(legDate.getFullYear(), legDate.getMonth(), legDate.getDate());
+    const startDateOnly = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    );
+    const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+    if (legDateOnly < startDateOnly || legDateOnly > endDateOnly) {
+      throw new Error(
+        `Leg date ${legDate.toISOString()} is outside booking period ` +
+          `(${startDate.toISOString()} to ${endDate.toISOString()})`,
+      );
     }
 
     this.props.legs.push(leg);
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Activate a leg and potentially the booking itself.
+   * Called when a leg's start time arrives.
+   *
+   * IMPORTANT: This method handles domain logic only - no events are published here.
+   * The calling service (BookingLifecycleService) is responsible for publishing events
+   * with all the notification data needed (avoids N+1 queries).
+   *
+   * @param legId - The ID of the leg to activate
+   * @throws Error if leg is not found or cannot be activated
+   */
+  public activateLeg(legId: string): void {
+    const leg = this.props.legs.find((l) => l.getId() === legId);
+    if (!leg) {
+      throw new Error(`Leg ${legId} not found in booking ${this.props.id}`);
+    }
+
+    // Domain validation - this throws if transition is invalid
+    leg.activate();
+
+    // Activate booking if it's confirmed and today is the booking start date
+    if (this.props.status.isConfirmed() && isToday(this.props.bookingPeriod.startDateTime)) {
+      this.activate();
+    }
+
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Complete a leg and potentially the booking itself.
+   * Called when a leg's end time arrives.
+   *
+   * IMPORTANT: This method handles domain logic only - no events are published here.
+   * The calling service (BookingLifecycleService) is responsible for publishing events
+   * with all the notification data needed (avoids N+1 queries).
+   *
+   * @param legId - The ID of the leg to complete
+   * @throws Error if leg is not found or cannot be completed
+   */
+  public completeLeg(legId: string): void {
+    const leg = this.props.legs.find((l) => l.getId() === legId);
+    if (!leg) {
+      throw new Error(`Leg ${legId} not found in booking ${this.props.id}`);
+    }
+
+    // Domain validation - this throws if transition is invalid
+    leg.complete();
+
+    // Complete booking if it's active and today is the booking end date
+    if (this.props.status.isActive() && isToday(this.props.bookingPeriod.endDateTime)) {
+      this.complete();
+    }
+
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Confirm all legs when the booking is confirmed.
+   * Called after payment is confirmed.
+   */
+  public confirmAllLegs(): void {
+    for (const leg of this.props.legs) {
+      if (leg.isPending()) {
+        leg.confirm();
+      }
+    }
     this.props.updatedAt = new Date();
   }
 
@@ -440,8 +543,8 @@ export class Booking extends AggregateRoot {
     return this.props.carId;
   }
 
-  public getChauffeurId(): string | undefined {
-    return this.props.chauffeurId;
+  public getChauffeurId(): string | null {
+    return this.props.chauffeurId ?? null;
   }
 
   public getSpecialRequests(): string | undefined {
@@ -452,7 +555,7 @@ export class Booking extends AggregateRoot {
     return [...this.props.legs];
   }
 
-  public getPaymentStatus(): PaymentStatusType {
+  public getPaymentStatus(): string {
     return this.props.paymentStatus.toString();
   }
 
