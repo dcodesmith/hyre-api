@@ -320,7 +320,7 @@ export class BookingLegQueryService {
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
-        status: "CONFIRMED", // Only confirmed legs that need activation
+        status: BookingLegStatusEnum.CONFIRMED, // Only confirmed legs that need activation
         legStartTime: {
           gte: minuteStart,
           lte: minuteEnd,
@@ -353,7 +353,7 @@ export class BookingLegQueryService {
 
     const legs = await this.prisma.bookingLeg.findMany({
       where: {
-        status: "ACTIVE", // Only active legs that need completion
+        status: BookingLegStatusEnum.ACTIVE, // Only active legs that need completion
         legEndTime: {
           gte: minuteStart,
           lte: minuteEnd,

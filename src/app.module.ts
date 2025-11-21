@@ -36,7 +36,7 @@ import { SharedModule } from "./shared/shared.module";
           port: configService.get("REDIS_PORT", 6379),
           password: configService.get("REDIS_PASSWORD"),
           maxRetriesPerRequest: null,
-          family: 6,
+          family: 0, // Auto-detect IPv4/IPv6
         },
       }),
       inject: [ConfigService],
