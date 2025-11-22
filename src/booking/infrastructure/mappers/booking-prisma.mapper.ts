@@ -10,10 +10,7 @@ import {
 } from "../../domain/value-objects/booking-leg-status.vo";
 import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
-import {
-  PaymentStatus,
-  PaymentStatusEnum,
-} from "../../domain/value-objects/payment-status.vo";
+import { PaymentStatus, PaymentStatusEnum } from "../../domain/value-objects/payment-status.vo";
 
 /**
  * Prisma leg data structure for domain reconstitution
@@ -177,5 +174,5 @@ function createFinancialsFromPrisma(prismaBooking: PrismaBookingFinancialsData):
  * Normalize nullable database values to undefined for domain props
  */
 function toOptional<T>(value: T | null | undefined): T | undefined {
-  return value === null ? undefined : value;
+  return value ?? undefined;
 }
