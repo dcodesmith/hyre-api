@@ -36,7 +36,7 @@ export function createBookingEntity(overrides: Partial<BookingProps> = {}): Book
     chauffeurId: undefined,
     specialRequests: undefined,
     legs: [],
-    paymentStatus: PaymentStatus.PAID,
+    paymentStatus: PaymentStatus.paid(),
     paymentIntent: "payment-intent-fixture",
     paymentId: "payment-id-fixture",
     financials,

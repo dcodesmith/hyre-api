@@ -71,7 +71,7 @@ export class Booking extends AggregateRoot {
       carId: params.carId,
       specialRequests: params.specialRequests,
       legs: [],
-      paymentStatus: PaymentStatus.UNPAID,
+      paymentStatus: PaymentStatus.unpaid(),
       paymentIntent: params.paymentIntent,
       financials: params.financials,
       includeSecurityDetail: params.includeSecurityDetail ?? false,
@@ -153,7 +153,7 @@ export class Booking extends AggregateRoot {
 
     this.props.status = BookingStatus.confirmed();
     this.props.paymentId = paymentId;
-    this.props.paymentStatus = PaymentStatus.PAID;
+    this.props.paymentStatus = PaymentStatus.paid();
     this.props.updatedAt = new Date();
 
     // Note: BookingPaymentConfirmedEvent removed - PaymentConfirmedEvent handles notifications directly
@@ -215,7 +215,7 @@ export class Booking extends AggregateRoot {
     }
 
     this.props.status = BookingStatus.cancelled();
-    this.props.paymentStatus = PaymentStatus.REFUNDED;
+    this.props.paymentStatus = PaymentStatus.refunded();
     this.props.cancelledAt = new Date();
     this.props.cancellationReason = reason ?? "Booking cancelled by customer";
     this.props.updatedAt = new Date();
@@ -411,7 +411,7 @@ export class Booking extends AggregateRoot {
 
   public setPaymentId(paymentId: string): void {
     this.props.paymentId = paymentId;
-    this.props.paymentStatus = PaymentStatus.PAID;
+    this.props.paymentStatus = PaymentStatus.paid();
     this.props.updatedAt = new Date();
   }
 

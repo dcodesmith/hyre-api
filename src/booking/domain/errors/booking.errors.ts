@@ -30,8 +30,36 @@ export class InvalidBookingTimeError extends BookingDomainError {
 
 export class InvalidPaymentStatusError extends BookingDomainError {
   readonly code = "INVALID_PAYMENT_STATUS";
-  constructor(status: string) {
-    super(`Payment status '${status}' is not valid`, { status });
+  constructor(bookingId: string, status: string) {
+    super(`Booking ${bookingId} has invalid payment status '${status}'`, { bookingId, status });
+  }
+}
+
+export class InvalidBookingStatusError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_STATUS";
+  constructor(bookingId: string, status: string) {
+    super(`Booking ${bookingId} has invalid status '${status}'`, { bookingId, status });
+  }
+}
+
+export class InvalidBookingTypeError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_TYPE";
+  constructor(bookingId: string, bookingType: string) {
+    super(`Booking ${bookingId} has invalid booking type '${bookingType}'`, {
+      bookingId,
+      bookingType,
+    });
+  }
+}
+
+export class InvalidBookingLegStatusError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_LEG_STATUS";
+  constructor(bookingId: string, legId: string, status: string) {
+    super(`Booking ${bookingId} has leg ${legId} with invalid status '${status}'`, {
+      bookingId,
+      legId,
+      status,
+    });
   }
 }
 
@@ -149,28 +177,22 @@ export class CarOwnerIdRequiredForFleetOwnerVerificationError extends BookingDom
 
 export class InvalidBookingLegStatusTransitionError extends BookingDomainError {
   readonly code = "INVALID_BOOKING_LEG_STATUS_TRANSITION";
-  constructor(
-    legId: string,
-    currentStatus: string,
-    targetStatus: string,
-  ) {
-    super(
-      `Cannot transition leg ${legId} from ${currentStatus} to ${targetStatus}`,
-      { legId, currentStatus, targetStatus },
-    );
+  constructor(legId: string, currentStatus: string, targetStatus: string) {
+    super(`Cannot transition leg ${legId} from ${currentStatus} to ${targetStatus}`, {
+      legId,
+      currentStatus,
+      targetStatus,
+    });
   }
 }
 
 export class InvalidBookingStatusTransitionError extends BookingDomainError {
   readonly code = "INVALID_BOOKING_STATUS_TRANSITION";
-  constructor(
-    bookingId: string,
-    currentStatus: string,
-    targetStatus: string,
-  ) {
-    super(
-      `Cannot transition booking ${bookingId} from ${currentStatus} to ${targetStatus}`,
-      { bookingId, currentStatus, targetStatus },
-    );
+  constructor(bookingId: string, currentStatus: string, targetStatus: string) {
+    super(`Cannot transition booking ${bookingId} from ${currentStatus} to ${targetStatus}`, {
+      bookingId,
+      currentStatus,
+      targetStatus,
+    });
   }
 }

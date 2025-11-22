@@ -1,10 +1,10 @@
-import type { Booking, BookingLeg } from "@prisma/client";
+import type { Booking, BookingLeg, Extension } from "@prisma/client";
 import Decimal from "decimal.js";
 
 // Type for Prisma booking with all relations loaded
 export interface PrismaBookingWithRelations extends Booking {
   legs: (BookingLeg & {
-    extensions?: any[];
+    extensions?: Extension[];
   })[];
 }
 

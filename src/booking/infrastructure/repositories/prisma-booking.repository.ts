@@ -4,20 +4,12 @@ import {
   PaymentStatus as PrismaPaymentStatus,
   BookingLegStatus as PrismaBookingLegStatus,
 } from "@prisma/client";
-import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { TransactionContext } from "../../../shared/database/transaction-context.type";
 import { Booking } from "../../domain/entities/booking.entity";
-import { BookingLeg } from "../../domain/entities/booking-leg.entity";
 import { BookingRepository } from "../../domain/repositories/booking.repository";
-import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
-import {
-  BookingLegStatus,
-  BookingLegStatusEnum,
-} from "../../domain/value-objects/booking-leg-status.vo";
-import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
-import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
-import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
+import { BookingStatus } from "../../domain/value-objects/booking-status.vo";
+import { BookingPrismaMapper } from "../mappers/booking-prisma.mapper";
 
 @Injectable()
 export class PrismaBookingRepository implements BookingRepository {
@@ -251,47 +243,10 @@ export class PrismaBookingRepository implements BookingRepository {
         include: { extensions: true },
       });
 
-      const domainLegs = persistedLegs.map((leg) =>
-        BookingLeg.reconstitute({
-          id: leg.id,
-          bookingId: leg.bookingId,
-          legDate: leg.legDate,
-          legStartTime: leg.legStartTime,
-          legEndTime: leg.legEndTime,
-          totalDailyPrice: leg.totalDailyPrice.toNumber(),
-          itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
-          fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
-          status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
-          notes: leg.notes,
-        }),
-      );
-
       // Return reconstituted booking with legs loaded from the transaction
-      return Booking.reconstitute({
-        id: savedBooking.id,
-        bookingReference: savedBooking.bookingReference,
-        status: BookingStatus.create(savedBooking.status as BookingStatusEnum),
-        bookingPeriod: BookingPeriodFactory.reconstitute(
-          savedBooking.type,
-          savedBooking.startDate,
-          savedBooking.endDate,
-        ),
-        pickupAddress: savedBooking.pickupLocation || undefined,
-        dropOffAddress: savedBooking.returnLocation,
-        customerId: savedBooking.userId,
-        carId: savedBooking.carId,
-        chauffeurId: savedBooking.chauffeurId || undefined,
-        specialRequests: savedBooking.specialRequests || undefined,
-        legs: domainLegs,
-        paymentStatus: PaymentStatus.create(savedBooking.paymentStatus),
-        paymentIntent: savedBooking.paymentIntent || undefined,
-        paymentId: savedBooking.paymentId || undefined,
-        financials: this.createFinancialsFromPrisma(savedBooking),
-        includeSecurityDetail: (savedBooking.securityDetailCost?.toNumber() ?? 0) > 0,
-        cancelledAt: savedBooking.cancelledAt || undefined,
-        cancellationReason: savedBooking.cancellationReason || undefined,
-        createdAt: savedBooking.createdAt,
-        updatedAt: savedBooking.updatedAt,
+      return BookingPrismaMapper.toDomain({
+        ...savedBooking,
+        legs: persistedLegs,
       });
     }
   }
@@ -306,7 +261,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return booking ? this.toDomain(booking) : null;
+    return booking ? BookingPrismaMapper.toDomain(booking) : null;
   }
 
   async findByReference(reference: string): Promise<Booking | null> {
@@ -319,7 +274,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return booking ? this.toDomain(booking) : null;
+    return booking ? BookingPrismaMapper.toDomain(booking) : null;
   }
 
   async findAll(): Promise<Booking[]> {
@@ -334,7 +289,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByCustomerId(customerId: string): Promise<Booking[]> {
@@ -350,7 +305,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByFleetOwnerId(fleetOwnerId: string): Promise<Booking[]> {
@@ -370,7 +325,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByCarId(carId: string): Promise<Booking[]> {
@@ -383,7 +338,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByChauffeurId(chauffeurId: string): Promise<Booking[]> {
@@ -396,7 +351,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByStatus(status: BookingStatus): Promise<Booking[]> {
@@ -409,7 +364,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async findByIds(ids: string[]): Promise<Booking[]> {
@@ -426,7 +381,7 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 
   async saveAll(bookings: Booking[]): Promise<void> {
@@ -459,83 +414,6 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-    return bookings.map((booking) => this.toDomain(booking));
-  }
-
-  private toDomain(
-    prismaBooking: Prisma.BookingGetPayload<{
-      include: {
-        legs: true;
-      };
-    }>,
-  ): Booking {
-    const bookingPeriod = BookingPeriodFactory.reconstitute(
-      prismaBooking.type,
-      prismaBooking.startDate,
-      prismaBooking.endDate,
-    );
-
-    const legs = prismaBooking.legs.map((leg) =>
-      BookingLeg.reconstitute({
-        id: leg.id,
-        bookingId: leg.bookingId,
-        legDate: leg.legDate,
-        legStartTime: leg.legStartTime,
-        legEndTime: leg.legEndTime,
-        totalDailyPrice: leg.totalDailyPrice.toNumber(),
-        itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
-        fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
-        status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
-        notes: leg.notes,
-      }),
-    );
-
-    return Booking.reconstitute({
-      id: prismaBooking.id,
-      bookingReference: prismaBooking.bookingReference,
-      status: BookingStatus.create(prismaBooking.status as BookingStatusEnum),
-      bookingPeriod,
-      pickupAddress: prismaBooking.pickupLocation,
-      dropOffAddress: prismaBooking.returnLocation,
-      customerId: prismaBooking.userId,
-      carId: prismaBooking.carId,
-      chauffeurId: prismaBooking.chauffeurId || undefined,
-      specialRequests: prismaBooking.specialRequests,
-      legs,
-      paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus),
-      paymentIntent: prismaBooking.paymentIntent,
-      paymentId: prismaBooking.paymentId,
-      financials: this.createFinancialsFromPrisma(prismaBooking),
-      includeSecurityDetail: (prismaBooking.securityDetailCost?.toNumber() ?? 0) > 0,
-      cancelledAt: prismaBooking.cancelledAt,
-      cancellationReason: prismaBooking.cancellationReason,
-      createdAt: prismaBooking.createdAt,
-      updatedAt: prismaBooking.updatedAt,
-    });
-  }
-
-  private createFinancialsFromPrisma(
-    prismaBooking: Prisma.BookingGetPayload<Record<string, never>>,
-  ): BookingFinancials {
-    if (
-      prismaBooking.totalAmount === null ||
-      prismaBooking.netTotal === null ||
-      prismaBooking.platformCustomerServiceFeeAmount === null ||
-      prismaBooking.vatAmount === null ||
-      prismaBooking.fleetOwnerPayoutAmountNet === null
-    ) {
-      throw new Error(
-        `Booking ${prismaBooking.id} has incomplete financial data. All financial fields must be present.`,
-      );
-    }
-
-    return BookingFinancials.create({
-      totalAmount: prismaBooking.totalAmount,
-      netTotal: prismaBooking.netTotal,
-      securityDetailCost: prismaBooking.securityDetailCost ?? new Decimal(0),
-      platformServiceFeeAmount: prismaBooking.platformCustomerServiceFeeAmount,
-      vatAmount: prismaBooking.vatAmount,
-      fleetOwnerPayoutAmountNet: prismaBooking.fleetOwnerPayoutAmountNet,
-    });
+    return bookings.map((booking) => BookingPrismaMapper.toDomain(booking));
   }
 }

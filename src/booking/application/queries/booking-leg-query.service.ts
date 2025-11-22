@@ -1,18 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, PaymentStatus as PrismaPaymentStatus } from "@prisma/client";
-import Decimal from "decimal.js";
 import { PrismaService } from "../../../shared/database/prisma.service";
 import { Booking } from "../../domain/entities/booking.entity";
-import { BookingLeg } from "../../domain/entities/booking-leg.entity";
-import { BookingType } from "../../domain/interfaces/booking.interface";
-import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
+import { BookingLegStatusEnum } from "../../domain/value-objects/booking-leg-status.vo";
+import { BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
 import {
-  BookingLegStatus,
-  BookingLegStatusEnum,
-} from "../../domain/value-objects/booking-leg-status.vo";
-import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
-import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
-import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
+  BookingPrismaMapper,
+  PrismaBookingData,
+} from "../../infrastructure/mappers/booking-prisma.mapper";
 import { BookingLegNotificationReadModel } from "../dtos/booking-leg-notification-read-model.dto";
 import { BookingReminderReadModel } from "../dtos/booking-reminder-read-model.dto";
 
@@ -197,122 +192,8 @@ export class BookingLegQueryService {
    * Shared helper method used by status change queries and lifecycle service
    * PUBLIC: Used by BookingLifecycleService to reconstitute entities from embedded data
    */
-  public toDomain(prismaBooking: {
-    id: string;
-    bookingReference: string;
-    status: string;
-    type: string;
-    startDate: Date;
-    endDate: Date;
-    pickupLocation: string | null;
-    returnLocation: string;
-    userId: string;
-    carId: string;
-    chauffeurId: string | null;
-    specialRequests: string | null;
-    paymentStatus: string;
-    paymentIntent: string | null;
-    paymentId: string | null;
-    totalAmount: Decimal;
-    netTotal: Decimal;
-    platformCustomerServiceFeeAmount: Decimal;
-    vatAmount: Decimal;
-    fleetOwnerPayoutAmountNet: Decimal;
-    securityDetailCost: Decimal | null;
-    cancelledAt: Date | null;
-    cancellationReason: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    legs: Array<{
-      id: string;
-      bookingId: string;
-      legDate: Date;
-      legStartTime: Date;
-      legEndTime: Date;
-      totalDailyPrice: Decimal;
-      itemsNetValueForLeg: Decimal;
-      fleetOwnerEarningForLeg: Decimal;
-      status: string;
-      notes: string | null;
-    }>;
-  }): Booking {
-    const bookingPeriod = BookingPeriodFactory.reconstitute(
-      prismaBooking.type as BookingType,
-      prismaBooking.startDate,
-      prismaBooking.endDate,
-    );
-
-    const legs = prismaBooking.legs.map((leg) =>
-      BookingLeg.reconstitute({
-        id: leg.id,
-        bookingId: leg.bookingId,
-        legDate: leg.legDate,
-        legStartTime: leg.legStartTime,
-        legEndTime: leg.legEndTime,
-        totalDailyPrice: leg.totalDailyPrice.toNumber(),
-        itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
-        fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
-        status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
-        notes: leg.notes,
-      }),
-    );
-
-    return Booking.reconstitute({
-      id: prismaBooking.id,
-      bookingReference: prismaBooking.bookingReference,
-      status: BookingStatus.create(prismaBooking.status as BookingStatusEnum),
-      bookingPeriod,
-      pickupAddress: prismaBooking.pickupLocation,
-      dropOffAddress: prismaBooking.returnLocation,
-      customerId: prismaBooking.userId,
-      carId: prismaBooking.carId,
-      chauffeurId: prismaBooking.chauffeurId || undefined,
-      specialRequests: prismaBooking.specialRequests,
-      legs,
-      paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus),
-      paymentIntent: prismaBooking.paymentIntent,
-      paymentId: prismaBooking.paymentId,
-      financials: this.createFinancialsFromPrisma(prismaBooking),
-      includeSecurityDetail: (prismaBooking.securityDetailCost?.toNumber() ?? 0) > 0,
-      cancelledAt: prismaBooking.cancelledAt,
-      cancellationReason: prismaBooking.cancellationReason,
-      createdAt: prismaBooking.createdAt,
-      updatedAt: prismaBooking.updatedAt,
-    });
-  }
-
-  /**
-   * Create BookingFinancials value object from Prisma data
-   */
-  private createFinancialsFromPrisma(prismaBooking: {
-    id: string;
-    totalAmount: Decimal;
-    netTotal: Decimal;
-    platformCustomerServiceFeeAmount: Decimal;
-    vatAmount: Decimal;
-    fleetOwnerPayoutAmountNet: Decimal;
-    securityDetailCost: Decimal | null;
-  }): BookingFinancials {
-    if (
-      prismaBooking.totalAmount === null ||
-      prismaBooking.netTotal === null ||
-      prismaBooking.platformCustomerServiceFeeAmount === null ||
-      prismaBooking.vatAmount === null ||
-      prismaBooking.fleetOwnerPayoutAmountNet === null
-    ) {
-      throw new Error(
-        `Booking ${prismaBooking.id} has incomplete financial data. All financial fields must be present.`,
-      );
-    }
-
-    return BookingFinancials.create({
-      totalAmount: prismaBooking.totalAmount,
-      netTotal: prismaBooking.netTotal,
-      securityDetailCost: prismaBooking.securityDetailCost ?? new Decimal(0),
-      platformServiceFeeAmount: prismaBooking.platformCustomerServiceFeeAmount,
-      vatAmount: prismaBooking.vatAmount,
-      fleetOwnerPayoutAmountNet: prismaBooking.fleetOwnerPayoutAmountNet,
-    });
+  public toDomain(prismaBooking: PrismaBookingData): Booking {
+    return BookingPrismaMapper.toDomain(prismaBooking);
   }
 
   async findStartingLegsForNotification(): Promise<BookingLegNotificationReadModel[]> {
