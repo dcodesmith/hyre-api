@@ -1,7 +1,12 @@
 import type { Extension } from "@prisma/client";
 import Decimal from "decimal.js";
-import { Booking } from "../../domain/entities/booking.entity";
 import { BookingLeg } from "../../domain/entities/booking-leg.entity";
+import { Booking } from "../../domain/entities/booking.entity";
+import {
+  InvalidBookingLegStatusError,
+  InvalidBookingStatusError,
+  InvalidPaymentStatusError,
+} from "../../domain/errors/booking.errors";
 import { BookingType } from "../../domain/interfaces/booking.interface";
 import { BookingFinancials } from "../../domain/value-objects/booking-financials.vo";
 import {
@@ -50,10 +55,10 @@ export interface PrismaBookingData {
   paymentIntent: string | null;
   paymentId: string | null;
   totalAmount: Decimal;
-  netTotal: Decimal;
-  platformCustomerServiceFeeAmount: Decimal;
-  vatAmount: Decimal;
-  fleetOwnerPayoutAmountNet: Decimal;
+  netTotal: Decimal | null;
+  platformCustomerServiceFeeAmount: Decimal | null;
+  vatAmount: Decimal | null;
+  fleetOwnerPayoutAmountNet: Decimal | null;
   securityDetailCost: Decimal | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
@@ -85,11 +90,23 @@ export const BookingPrismaMapper = {
   createFinancialsFromPrisma,
 };
 
+const BOOKING_STATUS_VALUES = new Set<BookingStatusEnum>(Object.values(BookingStatusEnum));
+const PAYMENT_STATUS_VALUES = new Set<PaymentStatusEnum>(Object.values(PaymentStatusEnum));
+const BOOKING_LEG_STATUS_VALUES = new Set<BookingLegStatusEnum>(
+  Object.values(BookingLegStatusEnum),
+);
+
 function toDomain(prismaBooking: PrismaBookingData): Booking {
   const bookingPeriod = BookingPeriodFactory.reconstitute(
     prismaBooking.type as BookingType,
     prismaBooking.startDate,
     prismaBooking.endDate,
+  );
+
+  const bookingStatusValue = assertValidBookingStatus(prismaBooking.id, prismaBooking.status);
+  const paymentStatusValue = assertValidPaymentStatus(
+    prismaBooking.id,
+    prismaBooking.paymentStatus,
   );
 
   const legs = prismaBooking.legs.map((leg) => mapLegToDomain(leg));
@@ -104,7 +121,7 @@ function toDomain(prismaBooking: PrismaBookingData): Booking {
   return Booking.reconstitute({
     id: prismaBooking.id,
     bookingReference: prismaBooking.bookingReference,
-    status: BookingStatus.create(prismaBooking.status as BookingStatusEnum),
+    status: BookingStatus.create(bookingStatusValue),
     bookingPeriod,
     pickupAddress,
     dropOffAddress: prismaBooking.returnLocation,
@@ -113,7 +130,7 @@ function toDomain(prismaBooking: PrismaBookingData): Booking {
     chauffeurId,
     specialRequests,
     legs,
-    paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus as PaymentStatusEnum),
+    paymentStatus: PaymentStatus.create(paymentStatusValue),
     paymentIntent,
     paymentId,
     financials: createFinancialsFromPrisma(prismaBooking),
@@ -129,6 +146,8 @@ function toDomain(prismaBooking: PrismaBookingData): Booking {
  * Convert Prisma leg data to domain BookingLeg entity
  */
 function mapLegToDomain(leg: PrismaLegData): BookingLeg {
+  const legStatusValue = assertValidBookingLegStatus(leg.bookingId, leg.id, leg.status);
+
   return BookingLeg.reconstitute({
     id: leg.id,
     bookingId: leg.bookingId,
@@ -138,7 +157,7 @@ function mapLegToDomain(leg: PrismaLegData): BookingLeg {
     totalDailyPrice: leg.totalDailyPrice.toNumber(),
     itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
     fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
-    status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
+    status: BookingLegStatus.create(legStatusValue),
     notes: toOptional(leg.notes),
   });
 }
@@ -175,4 +194,44 @@ function createFinancialsFromPrisma(prismaBooking: PrismaBookingFinancialsData):
  */
 function toOptional<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
+}
+
+function assertValidBookingStatus(bookingId: string, status: string): BookingStatusEnum {
+  if (isBookingStatusEnum(status)) {
+    return status;
+  }
+
+  throw new InvalidBookingStatusError(bookingId, status);
+}
+
+function assertValidPaymentStatus(bookingId: string, status: string): PaymentStatusEnum {
+  if (isPaymentStatusEnum(status)) {
+    return status;
+  }
+
+  throw new InvalidPaymentStatusError(bookingId, status);
+}
+
+function assertValidBookingLegStatus(
+  bookingId: string,
+  legId: string,
+  status: string,
+): BookingLegStatusEnum {
+  if (isBookingLegStatusEnum(status)) {
+    return status;
+  }
+
+  throw new InvalidBookingLegStatusError(bookingId, legId, status);
+}
+
+function isBookingStatusEnum(value: string): value is BookingStatusEnum {
+  return BOOKING_STATUS_VALUES.has(value as BookingStatusEnum);
+}
+
+function isPaymentStatusEnum(value: string): value is PaymentStatusEnum {
+  return PAYMENT_STATUS_VALUES.has(value as PaymentStatusEnum);
+}
+
+function isBookingLegStatusEnum(value: string): value is BookingLegStatusEnum {
+  return BOOKING_LEG_STATUS_VALUES.has(value as BookingLegStatusEnum);
 }
