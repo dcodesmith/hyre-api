@@ -10,7 +10,10 @@ import {
 } from "../../domain/value-objects/booking-leg-status.vo";
 import { BookingPeriodFactory } from "../../domain/value-objects/booking-period.factory";
 import { BookingStatus, BookingStatusEnum } from "../../domain/value-objects/booking-status.vo";
-import { PaymentStatus } from "../../domain/value-objects/payment-status.vo";
+import {
+  PaymentStatus,
+  PaymentStatusEnum,
+} from "../../domain/value-objects/payment-status.vo";
 
 /**
  * Prisma leg data structure for domain reconstitution
@@ -113,7 +116,7 @@ function toDomain(prismaBooking: PrismaBookingData): Booking {
     chauffeurId,
     specialRequests,
     legs,
-    paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus),
+    paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus as PaymentStatusEnum),
     paymentIntent,
     paymentId,
     financials: createFinancialsFromPrisma(prismaBooking),

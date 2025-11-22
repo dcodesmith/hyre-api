@@ -51,7 +51,7 @@ describe("BookingMapper", () => {
       chauffeurId: "chauffeur-123",
       specialRequests: "Need child seat",
       legs: [],
-      paymentStatus: PaymentStatus.PAID,
+      paymentStatus: PaymentStatus.paid(),
       paymentIntent: "pi_test_123",
       paymentId: "pay_test_123",
       financials,
@@ -178,7 +178,7 @@ describe("BookingMapper", () => {
         customerId: "customer-1",
         carId: "car-1",
         legs: [],
-        paymentStatus: PaymentStatus.UNPAID,
+        paymentStatus: PaymentStatus.unpaid(),
         financials,
         includeSecurityDetail: false,
         createdAt: now,
@@ -206,9 +206,9 @@ describe("BookingMapper", () => {
 
     it("should map different payment statuses correctly", () => {
       const statuses = [
-        { status: PaymentStatus.UNPAID, expected: "UNPAID" },
-        { status: PaymentStatus.PAID, expected: "PAID" },
-        { status: PaymentStatus.REFUNDED, expected: "REFUNDED" },
+        { status: PaymentStatus.unpaid(), expected: "UNPAID" },
+        { status: PaymentStatus.paid(), expected: "PAID" },
+        { status: PaymentStatus.refunded(), expected: "REFUNDED" },
       ];
 
       for (const { status, expected } of statuses) {
