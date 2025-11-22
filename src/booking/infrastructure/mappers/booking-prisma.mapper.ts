@@ -68,10 +68,10 @@ export interface PrismaBookingData {
 export interface PrismaBookingFinancialsData {
   id: string;
   totalAmount: Decimal;
-  netTotal: Decimal;
-  platformCustomerServiceFeeAmount: Decimal;
-  vatAmount: Decimal;
-  fleetOwnerPayoutAmountNet: Decimal;
+  netTotal: Decimal | null;
+  platformCustomerServiceFeeAmount: Decimal | null;
+  vatAmount: Decimal | null;
+  fleetOwnerPayoutAmountNet: Decimal | null;
   securityDetailCost: Decimal | null;
 }
 
@@ -79,85 +79,100 @@ export interface PrismaBookingFinancialsData {
  * Centralized mapper for converting Prisma booking data to domain entities.
  * This ensures consistent reconstitution logic across repository and query services.
  */
-export class BookingPrismaMapper {
-  /**
-   * Convert Prisma booking data to domain Booking entity
-   */
-  static toDomain(prismaBooking: PrismaBookingData): Booking {
-    const bookingPeriod = BookingPeriodFactory.reconstitute(
-      prismaBooking.type as BookingType,
-      prismaBooking.startDate,
-      prismaBooking.endDate,
+export const BookingPrismaMapper = {
+  toDomain,
+  mapLegToDomain,
+  createFinancialsFromPrisma,
+};
+
+function toDomain(prismaBooking: PrismaBookingData): Booking {
+  const bookingPeriod = BookingPeriodFactory.reconstitute(
+    prismaBooking.type as BookingType,
+    prismaBooking.startDate,
+    prismaBooking.endDate,
+  );
+
+  const legs = prismaBooking.legs.map((leg) => mapLegToDomain(leg));
+  const pickupAddress = toOptional(prismaBooking.pickupLocation);
+  const chauffeurId = toOptional(prismaBooking.chauffeurId);
+  const specialRequests = toOptional(prismaBooking.specialRequests);
+  const paymentIntent = toOptional(prismaBooking.paymentIntent);
+  const paymentId = toOptional(prismaBooking.paymentId);
+  const cancelledAt = toOptional(prismaBooking.cancelledAt);
+  const cancellationReason = toOptional(prismaBooking.cancellationReason);
+
+  return Booking.reconstitute({
+    id: prismaBooking.id,
+    bookingReference: prismaBooking.bookingReference,
+    status: BookingStatus.create(prismaBooking.status as BookingStatusEnum),
+    bookingPeriod,
+    pickupAddress,
+    dropOffAddress: prismaBooking.returnLocation,
+    customerId: prismaBooking.userId,
+    carId: prismaBooking.carId,
+    chauffeurId,
+    specialRequests,
+    legs,
+    paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus),
+    paymentIntent,
+    paymentId,
+    financials: createFinancialsFromPrisma(prismaBooking),
+    includeSecurityDetail: (prismaBooking.securityDetailCost?.toNumber() ?? 0) > 0,
+    cancelledAt,
+    cancellationReason,
+    createdAt: prismaBooking.createdAt,
+    updatedAt: prismaBooking.updatedAt,
+  });
+}
+
+/**
+ * Convert Prisma leg data to domain BookingLeg entity
+ */
+function mapLegToDomain(leg: PrismaLegData): BookingLeg {
+  return BookingLeg.reconstitute({
+    id: leg.id,
+    bookingId: leg.bookingId,
+    legDate: leg.legDate,
+    legStartTime: leg.legStartTime,
+    legEndTime: leg.legEndTime,
+    totalDailyPrice: leg.totalDailyPrice.toNumber(),
+    itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
+    fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
+    status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
+    notes: toOptional(leg.notes),
+  });
+}
+
+/**
+ * Create BookingFinancials value object from Prisma data
+ * @throws Error if required financial fields are missing
+ */
+function createFinancialsFromPrisma(prismaBooking: PrismaBookingFinancialsData): BookingFinancials {
+  if (
+    prismaBooking.totalAmount === null ||
+    prismaBooking.netTotal === null ||
+    prismaBooking.platformCustomerServiceFeeAmount === null ||
+    prismaBooking.vatAmount === null ||
+    prismaBooking.fleetOwnerPayoutAmountNet === null
+  ) {
+    throw new Error(
+      `Booking ${prismaBooking.id} has incomplete financial data. All financial fields must be present.`,
     );
-
-    const legs = prismaBooking.legs.map((leg) => BookingPrismaMapper.mapLegToDomain(leg));
-
-    return Booking.reconstitute({
-      id: prismaBooking.id,
-      bookingReference: prismaBooking.bookingReference,
-      status: BookingStatus.create(prismaBooking.status as BookingStatusEnum),
-      bookingPeriod,
-      pickupAddress: prismaBooking.pickupLocation,
-      dropOffAddress: prismaBooking.returnLocation,
-      customerId: prismaBooking.userId,
-      carId: prismaBooking.carId,
-      chauffeurId: prismaBooking.chauffeurId || undefined,
-      specialRequests: prismaBooking.specialRequests,
-      legs,
-      paymentStatus: PaymentStatus.create(prismaBooking.paymentStatus),
-      paymentIntent: prismaBooking.paymentIntent,
-      paymentId: prismaBooking.paymentId,
-      financials: BookingPrismaMapper.createFinancialsFromPrisma(prismaBooking),
-      includeSecurityDetail: (prismaBooking.securityDetailCost?.toNumber() ?? 0) > 0,
-      cancelledAt: prismaBooking.cancelledAt,
-      cancellationReason: prismaBooking.cancellationReason,
-      createdAt: prismaBooking.createdAt,
-      updatedAt: prismaBooking.updatedAt,
-    });
   }
 
-  /**
-   * Convert Prisma leg data to domain BookingLeg entity
-   */
-  static mapLegToDomain(leg: PrismaLegData): BookingLeg {
-    return BookingLeg.reconstitute({
-      id: leg.id,
-      bookingId: leg.bookingId,
-      legDate: leg.legDate,
-      legStartTime: leg.legStartTime,
-      legEndTime: leg.legEndTime,
-      totalDailyPrice: leg.totalDailyPrice.toNumber(),
-      itemsNetValueForLeg: leg.itemsNetValueForLeg.toNumber(),
-      fleetOwnerEarningForLeg: leg.fleetOwnerEarningForLeg.toNumber(),
-      status: BookingLegStatus.create(leg.status as BookingLegStatusEnum),
-      notes: leg.notes,
-    });
-  }
+  return BookingFinancials.create({
+    totalAmount: prismaBooking.totalAmount,
+    netTotal: prismaBooking.netTotal,
+    securityDetailCost: prismaBooking.securityDetailCost ?? new Decimal(0),
+    platformServiceFeeAmount: prismaBooking.platformCustomerServiceFeeAmount,
+    vatAmount: prismaBooking.vatAmount,
+    fleetOwnerPayoutAmountNet: prismaBooking.fleetOwnerPayoutAmountNet,
+  });
+}
 
-  /**
-   * Create BookingFinancials value object from Prisma data
-   * @throws Error if required financial fields are missing
-   */
-  static createFinancialsFromPrisma(prismaBooking: PrismaBookingFinancialsData): BookingFinancials {
-    if (
-      prismaBooking.totalAmount === null ||
-      prismaBooking.netTotal === null ||
-      prismaBooking.platformCustomerServiceFeeAmount === null ||
-      prismaBooking.vatAmount === null ||
-      prismaBooking.fleetOwnerPayoutAmountNet === null
-    ) {
-      throw new Error(
-        `Booking ${prismaBooking.id} has incomplete financial data. All financial fields must be present.`,
-      );
-    }
-
-    return BookingFinancials.create({
-      totalAmount: prismaBooking.totalAmount,
-      netTotal: prismaBooking.netTotal,
-      securityDetailCost: prismaBooking.securityDetailCost ?? new Decimal(0),
-      platformServiceFeeAmount: prismaBooking.platformCustomerServiceFeeAmount,
-      vatAmount: prismaBooking.vatAmount,
-      fleetOwnerPayoutAmountNet: prismaBooking.fleetOwnerPayoutAmountNet,
-    });
-  }
+/**
+ * Normalize nullable database values to undefined for domain props
+ */
+function toOptional<T>(value: T | null | undefined): T | undefined {
+  return value === null ? undefined : value;
 }
