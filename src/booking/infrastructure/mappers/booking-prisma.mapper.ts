@@ -1,3 +1,4 @@
+import type { Extension } from "@prisma/client";
 import Decimal from "decimal.js";
 import { Booking } from "../../domain/entities/booking.entity";
 import { BookingLeg } from "../../domain/entities/booking-leg.entity";
@@ -25,6 +26,7 @@ export interface PrismaLegData {
   fleetOwnerEarningForLeg: Decimal;
   status: string;
   notes: string | null;
+  extensions?: Extension[];
 }
 
 /**
