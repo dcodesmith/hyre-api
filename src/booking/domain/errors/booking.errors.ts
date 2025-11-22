@@ -42,6 +42,16 @@ export class InvalidBookingStatusError extends BookingDomainError {
   }
 }
 
+export class InvalidBookingTypeError extends BookingDomainError {
+  readonly code = "INVALID_BOOKING_TYPE";
+  constructor(bookingId: string, bookingType: string) {
+    super(`Booking ${bookingId} has invalid booking type '${bookingType}'`, {
+      bookingId,
+      bookingType,
+    });
+  }
+}
+
 export class InvalidBookingLegStatusError extends BookingDomainError {
   readonly code = "INVALID_BOOKING_LEG_STATUS";
   constructor(bookingId: string, legId: string, status: string) {

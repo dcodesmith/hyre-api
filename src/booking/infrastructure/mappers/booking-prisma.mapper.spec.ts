@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   InvalidBookingLegStatusError,
   InvalidBookingStatusError,
+  InvalidBookingTypeError,
   InvalidPaymentStatusError,
 } from "../../domain/errors/booking.errors";
 import { BookingLegStatusEnum } from "../../domain/value-objects/booking-leg-status.vo";
@@ -16,6 +17,14 @@ import {
 
 describe("BookingPrismaMapper", () => {
   describe("toDomain", () => {
+    it("throws InvalidBookingTypeError when prisma booking type is invalid", () => {
+      const prismaBooking = createPrismaBookingData({ type: "WEEKEND" });
+
+      expect(() => BookingPrismaMapper.toDomain(prismaBooking)).toThrowError(
+        new InvalidBookingTypeError(prismaBooking.id, "WEEKEND"),
+      );
+    });
+
     it("throws InvalidBookingStatusError when prisma booking status is invalid", () => {
       const prismaBooking = createPrismaBookingData({ status: "ARCHIVED" });
 
@@ -52,6 +61,45 @@ describe("BookingPrismaMapper", () => {
       );
 
       expect(() => BookingPrismaMapper.toDomain(prismaBooking)).toThrowError(expectedError);
+    });
+
+    it("maps valid prisma booking data into a Booking aggregate", () => {
+      const bookingId = "booking-success";
+      const prismaBooking = createPrismaBookingData({
+        id: bookingId,
+        status: BookingStatusEnum.ACTIVE,
+        paymentStatus: PaymentStatusEnum.REFUND_PROCESSING,
+        legs: [
+          createPrismaLegData(bookingId, {
+            id: "leg-a",
+            status: BookingLegStatusEnum.ACTIVE,
+          }),
+          createPrismaLegData(bookingId, {
+            id: "leg-b",
+            status: BookingLegStatusEnum.CONFIRMED,
+          }),
+        ],
+      });
+
+      const booking = BookingPrismaMapper.toDomain(prismaBooking);
+
+      expect(booking).toBeDefined();
+      expect(booking.getStatus()).toBe(BookingStatusEnum.ACTIVE);
+      expect(booking.getPaymentStatus()).toBe(PaymentStatusEnum.REFUND_PROCESSING);
+      expect(booking.getLegs()).toHaveLength(2);
+      expect(booking.getLegs()[0].getStatus().value).toBe(BookingLegStatusEnum.ACTIVE);
+      expect(booking.getLegs()[1].getStatus().value).toBe(BookingLegStatusEnum.CONFIRMED);
+      expect(booking.getFinancials().getTotalAmount().toNumber()).toBe(100000);
+      expect(booking.getPickupAddress()).toBe("Lagos");
+      expect(booking.getDropOffAddress()).toBe("Abuja");
+      expect(booking.getBookingType()).toBe("DAY");
+      expect(booking.getCustomerId()).toBe("user-123");
+      expect(booking.getCarId()).toBe("car-123");
+      expect(booking.getChauffeurId()).toBeNull();
+      expect(booking.getSpecialRequests()).toBeUndefined();
+      expect(booking.getPaymentIntent()).toBe("pi_mock");
+      expect(booking.getPaymentId()).toBe("pay_mock");
+      expect(booking.getIncludeSecurityDetail()).toBe(false);
     });
   });
 });
@@ -98,7 +146,10 @@ function createPrismaBookingData(overrides: Partial<PrismaBookingData> = {}): Pr
   return merged;
 }
 
-function createPrismaLegData(bookingId: string): PrismaLegData {
+function createPrismaLegData(
+  bookingId: string,
+  overrides: Partial<PrismaLegData> = {},
+): PrismaLegData {
   return {
     id: "leg-1",
     bookingId,
@@ -110,6 +161,7 @@ function createPrismaLegData(bookingId: string): PrismaLegData {
     fleetOwnerEarningForLeg: new Decimal(40000),
     status: BookingLegStatusEnum.CONFIRMED,
     notes: null,
+    ...overrides,
   };
 }
 

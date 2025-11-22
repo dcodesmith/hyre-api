@@ -5,6 +5,7 @@ import { Booking } from "../../domain/entities/booking.entity";
 import {
   InvalidBookingLegStatusError,
   InvalidBookingStatusError,
+  InvalidBookingTypeError,
   InvalidPaymentStatusError,
 } from "../../domain/errors/booking.errors";
 import { BookingType } from "../../domain/interfaces/booking.interface";
@@ -90,6 +91,7 @@ export const BookingPrismaMapper = {
   createFinancialsFromPrisma,
 };
 
+const BOOKING_TYPE_VALUES = new Set<BookingType>(["DAY", "NIGHT", "FULL_DAY"]);
 const BOOKING_STATUS_VALUES = new Set<BookingStatusEnum>(Object.values(BookingStatusEnum));
 const PAYMENT_STATUS_VALUES = new Set<PaymentStatusEnum>(Object.values(PaymentStatusEnum));
 const BOOKING_LEG_STATUS_VALUES = new Set<BookingLegStatusEnum>(
@@ -97,8 +99,10 @@ const BOOKING_LEG_STATUS_VALUES = new Set<BookingLegStatusEnum>(
 );
 
 function toDomain(prismaBooking: PrismaBookingData): Booking {
+  const bookingType = assertValidBookingType(prismaBooking.id, prismaBooking.type);
+
   const bookingPeriod = BookingPeriodFactory.reconstitute(
-    prismaBooking.type as BookingType,
+    bookingType,
     prismaBooking.startDate,
     prismaBooking.endDate,
   );
@@ -196,6 +200,14 @@ function toOptional<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
+function assertValidBookingType(bookingId: string, bookingType: string): BookingType {
+  if (isBookingType(bookingType)) {
+    return bookingType;
+  }
+
+  throw new InvalidBookingTypeError(bookingId, bookingType);
+}
+
 function assertValidBookingStatus(bookingId: string, status: string): BookingStatusEnum {
   if (isBookingStatusEnum(status)) {
     return status;
@@ -222,6 +234,10 @@ function assertValidBookingLegStatus(
   }
 
   throw new InvalidBookingLegStatusError(bookingId, legId, status);
+}
+
+function isBookingType(value: string): value is BookingType {
+  return BOOKING_TYPE_VALUES.has(value as BookingType);
 }
 
 function isBookingStatusEnum(value: string): value is BookingStatusEnum {
